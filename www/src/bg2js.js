@@ -2549,22 +2549,9 @@ var $DefCtx = $B.parser.$DefCtx = function(context){
 
         // Add lines of code to node children
 
-        // Declare object holding local variables
-        var local_ns = 'locals_' + this.id,
-            h = '\n' + ' '.repeat(indent)
-        js = 'var ' + local_ns + ' = {parent: locals_' + this.scope.id +
-            '},' + h +'local_name = "' + this.id +
-            '",' + h + 'locals = ' + local_ns + ';'
-
-        var new_node = new $Node()
-        new_node.locals_def = true
-        new_node.func_node = node
-        new $NodeJSCtx(new_node, js)
-        nodes.push(new_node)
-
         // Push id in frames stack
         var enter_frame_nodes = [
-            $NodeJS('var top_frame = [local_name, locals];'),
+            $NodeJS('var top_frame = locals;'),
             $NodeJS('$B.frames_stack.push(top_frame);'),
             $NodeJS('var $stack_length = $B.frames_stack.length;')
         ]
@@ -2576,22 +2563,15 @@ var $DefCtx = $B.parser.$DefCtx = function(context){
         this.env = []
 
         // Code in the worst case, uses $B.args in py_utils.js
-
-        var make_args_nodes = []
-
         var js = 'locals = $B.args1("' + this.name + '", ' +
             '[' + slot_list.join(', ') + '], {' + defs1.join(', ') +
             '}, ' + this.other_args + ', ' + this.other_kw + ', args);'
 
-        var new_node = new $Node()
-        new $NodeJSCtx(new_node, js)
-        make_args_nodes.push(new_node)
+        nodes.push($NodeJS(js))
+
+        nodes.push($NodeJS("locals.parent = locals_" + this.scope.id))
 
         var only_positional = false
-            nodes.push(make_args_nodes[0])
-            if(make_args_nodes.length > 1){nodes.push(make_args_nodes[1])}
-
-
         nodes = nodes.concat(enter_frame_nodes)
 
         nodes.push($NodeJS('locals.types = {};'))
@@ -6450,7 +6430,7 @@ var $add_line_num = $B.parser.$add_line_num = function(node,rank){
         else if(elt.type == 'single_kw'){flag = false}
         if(flag){
             // add a trailing None for interactive mode
-            var js = 'locals.$line_info = "' + line_num + ',' +
+            var js = 'locals.line_info = "' + line_num + ',' +
                 mod_id + '";'
 
             var new_node = new $Node()
@@ -6468,7 +6448,7 @@ var $add_line_num = $B.parser.$add_line_num = function(node,rank){
         if((elt.type == 'condition' && elt.token == "while")
                 || node.context.type == 'for'){
             if($B.last(node.children).context.tree[0].type != "return"){
-                node.add($NodeJS('locals.$line_info = "' + line_num +
+                node.add($NodeJS('locals.line_info = "' + line_num +
                     ',' + mod_id + '";'))
             }
         }
@@ -8713,12 +8693,7 @@ var $transition = function(context, token, value){
 }
 
 // Names that can't be given to variable names or attributes
-$B.forbidden = ["alert", "arguments", "case", "catch", "const", "constructor",
-    "Date", "debugger", "delete", "default", "do", "document", "enum",
-    "export", "eval", "extends", "Error", "history", "function", "instanceof",
-    "keys", "length", "location", "Math", "message","new", "null", "Number",
-    "RegExp", "String", "super", "switch", "this", "throw", "typeof", "var",
-    "window", "toLocaleString", "toString", "void"]
+$B.forbidden = []
     //enum, export, extends, import, and super
 $B.aliased_names = $B.list2obj($B.forbidden)
 
@@ -9539,6 +9514,8 @@ $B.py2js = function(src, module, locals_id, parent_scope, line_num){
     root.insert(0, $NodeJS(js.join('')))
     offset++
 
+    root.insert(offset++, $NodeJS('locals.name = "' + locals_id + '"'))
+
     // annotations
     if(root.binding.__annotations__){
         root.insert(offset++,
@@ -9547,8 +9524,7 @@ $B.py2js = function(src, module, locals_id, parent_scope, line_num){
 
     // Code to create the execution frame and store it on the frames stack
     var enter_frame_pos = offset,
-        js = '$B.frames_stack.push(["' + locals_id.replace(/\./g, '_') + '", ' +
-            'locals]);'
+        js = '$B.frames_stack.push(locals);'
     root.insert(offset++, $NodeJS(js))
 
     // Wrap code in a try/finally to make sure we leave the frame

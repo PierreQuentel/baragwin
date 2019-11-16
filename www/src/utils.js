@@ -23,7 +23,7 @@ $B.args1 = function(fname, required, defaults, extra_pos, extra_kw, args){
     var has_kw_args = false,
         filled = 0,
         extra_kw,
-        $ = {}
+        $ = {name: fname}
 
     if(extra_pos){$[extra_pos] = []}
     if(extra_kw){$[extra_kw] = {}}
@@ -40,10 +40,10 @@ $B.args1 = function(fname, required, defaults, extra_pos, extra_kw, args){
         delete args[i]
         i++
     }
-    
+
     for(key in args){
         if($[key] !== undefined){
-            throw _b_.TypeError.$factory("double argument: " + key)
+            throw _b_.TypeError.$factory("double argument: " + key.substr(1))
         }
         if(required.indexOf(key) > -1){
             $[key] = args[key]
@@ -51,7 +51,7 @@ $B.args1 = function(fname, required, defaults, extra_pos, extra_kw, args){
             $[extra_kw][key] = args[key]
         }else{
             throw _b_.TypeError.$factory("unexpected keyword argument: " +
-                key)
+                key.substr(1))
         }
     }
 
@@ -505,28 +505,17 @@ $B.$search = function(name, global_ns){
     }
 }
 
-$B.$global_search = function(name, search_ids){
-    // search in all namespaces above current stack frame
+$B.$global_search = function(name){
+    // search name in all namespaces above current stack frame
     var ns = {}
 
     for(var i = 0; i< $B.frames_stack.length; i++){
         var frame = $B.frames_stack[i]
-        if(search_ids.indexOf(frame[0]) > -1 &&
-                frame[1][name] !== undefined){
-            return frame[1][name]
-        }
-        if(search_ids.indexOf(frame[2]) > -1 &&
-                frame[3][name] !== undefined){
-            return frame[3][name]
+        if(frame.hasOwnProperty(name)){
+            return frame[name]
         }
     }
-    for(var i = 0; i < search_ids.length; i++){
-        var search_id = search_ids[i]
-        if($B.imported[search_id] && $B.imported[search_id][name]){
-            return $B.imported[search_id][name]
-        }
-    }
-    throw _b_.NameError.$factory("name '" + $B.from_alias(name) +
+    throw _b_.NameError.$factory("name '" + name.substr(1) +
         "' is not defined")
 }
 
@@ -1238,13 +1227,6 @@ $B.leave_frame = function(arg){
     // Leave execution frame
     if($B.frames_stack.length == 0){console.log("empty stack"); return}
     $B.del_exc()
-    var frame = $B.frames_stack.pop()
-    if(frame[1].$has_yield_in_cm){
-        // The attribute $has_yield_in_cm is set in py2js.js /
-        // $YieldCtx.transform only if the frame has "yield" inside a
-        // context manager.
-        exit_ctx_managers_in_generators(frame)
-    }
 }
 
 $B.leave_frame_exec = function(arg){

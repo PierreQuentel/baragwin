@@ -334,8 +334,7 @@ var loop = $B.loop = function(){
             module.$src = script.$src
             module.__file__ = script.__file__
             $B.imported[script_id] = module
-            console.log("run function")
-
+            
             new Function("locals_" + script_id, script.js)(module)
 
         }catch(err){
