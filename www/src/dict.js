@@ -4,7 +4,7 @@ var bltns = $B.InjectBuiltins()
 eval(bltns)
 
 var object = _b_.object,
-    str_hash = _b_.str.__hash__,
+    str_hash = _b_.$str.__hash__,
     $N = _b_.None
 
 var set_ops = ["eq", "add", "sub", "and", "or", "xor", "le", "lt", "ge", "gt"]
@@ -199,7 +199,7 @@ dict.__delitem__ = function(){
     switch(typeof arg){
         case "string":
             if(self.$string_dict[arg] === undefined){
-                throw KeyError.$factory(_b_.str.$factory(arg))
+                throw KeyError.$factory(_b_.$str.$factory(arg))
             }
             delete self.$string_dict[arg]
             delete self.$str_hash[str_hash(arg)]
@@ -207,7 +207,7 @@ dict.__delitem__ = function(){
             return $N
         case "number":
             if(self.$numeric_dict[arg] === undefined){
-                throw KeyError.$factory(_b_.str.$factory(arg))
+                throw KeyError.$factory(_b_.$str.$factory(arg))
             }
             delete self.$numeric_dict[arg]
             self.$version++
@@ -221,7 +221,7 @@ dict.__delitem__ = function(){
     if((ix = rank(self, hash, arg)) > -1){
         self.$object_dict[hash].splice(ix, 1)
     }else{
-        throw KeyError.$factory(_b_.str.$factory(arg))
+        throw KeyError.$factory(_b_.$str.$factory(arg))
     }
 
     self.$version++
@@ -349,7 +349,7 @@ dict.__getitem__ = function(){
     if(self.$numeric_dict[hash] !== undefined && _eq(hash)){
          return self.$numeric_dict[hash]
     }
-    if(isinstance(arg, _b_.str)){
+    if(isinstance(arg, _b_.$str)){
         // string subclass
         var res = self.$string_dict[arg.valueOf()]
         if(res !== undefined){return res}

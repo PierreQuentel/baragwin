@@ -102,14 +102,14 @@ $B.print_stack = function(stack){
     stack = stack || $B.frames_stack
     var trace = []
     stack.forEach(function(frame){
-        var line_info = frame[1].line_info
+        var line_info = frame.line_info
         if(line_info !== undefined){
             var info = line_info.split(",")
             if(info[1].startsWith("$exec")){
                 info[1] = "<module>"
             }
             trace.push(info[1] + " line " + info[0])
-            var src = $B.file_cache[frame[3].__file__]
+            var src = $B.file_cache[frame.__file__]
             if(src){
                 var lines = src.split("\n"),
                     line = lines[parseInt(info[0]) - 1]
@@ -431,10 +431,12 @@ BaseException.$factory = function (){
     err.__class__ = _b_.BaseException
     err.$py_error = true
     // Make a copy of the current frame stack array
-    err.frames = deep_copy($B.frames_stack);
+    err.frames = $B.frames_stack.slice()
     if($B.frames_stack.length){
         err.line_info = $B.last($B.frames_stack).line_info
     }
+    // Next line used in make_exc()
+    eval("//placeholder//")
     return err
 }
 
@@ -445,7 +447,7 @@ BaseException.$factory.$infos = {
 
 $B.set_func_names(BaseException)
 
-_b_.BaseException = BaseException
+_b_.$BaseException = BaseException
 
 $B.exception = function(js_exc){
     // thrown by eval(), exec() or by a function
@@ -512,7 +514,8 @@ $B.is_recursion_error = function(js_exc){
         (err_type == 'RangeError' && err_msg == 'Maximum call stack size exceeded')
 }
 
-function $make_exc(names, parent){
+function make_exc(names, parent){
+    if(parent === undefined){console.log(names)}
     // Creates the exception classes that inherit from parent
     // names is the list of exception names
     var _str = [], pos = 0
@@ -527,6 +530,7 @@ function $make_exc(names, parent){
                 name = name[0]
         }
         // create a class for exception called "name"
+        name = "$" + name
         $B.builtins_scope[name] = true
         var $exc = (BaseException.$factory + "").replace(/BaseException/g,name)
         $exc = $exc.replace("//placeholder//", code)
@@ -548,46 +552,46 @@ function $make_exc(names, parent){
     }
 }
 
-$make_exc(["SystemExit", "KeyboardInterrupt", "GeneratorExit", "Exception"],
+make_exc(["SystemExit", "KeyboardInterrupt", "GeneratorExit", "Exception"],
     BaseException)
-$make_exc([["StopIteration","err.value = arguments[0]"],
+make_exc([["StopIteration","err.value = arguments[0]"],
     ["StopAsyncIteration","err.value = arguments[0]"],
     "ArithmeticError", "AssertionError", "AttributeError",
     "BufferError", "EOFError", "ImportError", "LookupError", "MemoryError",
     "NameError", "OSError", "ReferenceError", "RuntimeError", "SyntaxError",
-    "SystemError", "TypeError", "ValueError", "Warning"],_b_.Exception)
-$make_exc(["FloatingPointError", "OverflowError", "ZeroDivisionError"],
-    _b_.ArithmeticError)
-$make_exc(["ModuleNotFoundError"], _b_.ImportError)
-$make_exc(["IndexError","KeyError"], _b_.LookupError)
-$make_exc(["UnboundLocalError"], _b_.NameError)
-$make_exc(["BlockingIOError", "ChildProcessError", "ConnectionError",
+    "SystemError", "TypeError", "ValueError", "Warning"],_b_.$Exception)
+make_exc(["FloatingPointError", "OverflowError", "ZeroDivisionError"],
+    _b_.$ArithmeticError)
+make_exc(["ModuleNotFoundError"], _b_.$ImportError)
+make_exc(["IndexError","KeyError"], _b_.$LookupError)
+make_exc(["UnboundLocalError"], _b_.$NameError)
+make_exc(["BlockingIOError", "ChildProcessError", "ConnectionError",
     "FileExistsError", "FileNotFoundError", "InterruptedError",
     "IsADirectoryError", "NotADirectoryError", "PermissionError",
-    "ProcessLookupError", "TimeoutError"], _b_.OSError)
-$make_exc(["BrokenPipeError", "ConnectionAbortedError",
-    "ConnectionRefusedError", "ConnectionResetError"], _b_.ConnectionError)
-$make_exc(["NotImplementedError", "RecursionError"], _b_.RuntimeError)
-$make_exc(["IndentationError"], _b_.SyntaxError)
-$make_exc(["TabError"], _b_.IndentationError)
-$make_exc(["UnicodeError"], _b_.ValueError)
-$make_exc(["UnicodeDecodeError", "UnicodeEncodeError",
-    "UnicodeTranslateError"], _b_.UnicodeError)
-$make_exc(["DeprecationWarning", "PendingDeprecationWarning",
+    "ProcessLookupError", "TimeoutError"], _b_.$OSError)
+make_exc(["BrokenPipeError", "ConnectionAbortedError",
+    "ConnectionRefusedError", "ConnectionResetError"], _b_.$ConnectionError)
+make_exc(["NotImplementedError", "RecursionError"], _b_.$RuntimeError)
+make_exc(["IndentationError"], _b_.$SyntaxError)
+make_exc(["TabError"], _b_.$IndentationError)
+make_exc(["UnicodeError"], _b_.$ValueError)
+make_exc(["UnicodeDecodeError", "UnicodeEncodeError",
+    "UnicodeTranslateError"], _b_.$UnicodeError)
+make_exc(["DeprecationWarning", "PendingDeprecationWarning",
     "RuntimeWarning", "SyntaxWarning", "UserWarning", "FutureWarning",
     "ImportWarning", "UnicodeWarning", "BytesWarning", "ResourceWarning"],
-    _b_.Warning)
+    _b_.$Warning)
 
-$make_exc(["EnvironmentError", "IOError", "VMSError", "WindowsError"],
-    _b_.OSError)
+make_exc(["EnvironmentError", "IOError", "VMSError", "WindowsError"],
+    _b_.$OSError)
 
 $B.$TypeError = function(msg){
     throw _b_.TypeError.$factory(msg)
 }
 
 // SyntaxError instances have special attributes
-var se = _b_.SyntaxError.$factory
-_b_.SyntaxError.$factory = function(){
+var se = _b_.$SyntaxError.$factory
+_b_.$SyntaxError.$factory = function(){
     var arg = arguments[0]
     if(arg.__class__ === _b_.SyntaxError){
         return arg
@@ -608,6 +612,5 @@ _b_.SyntaxError.$factory = function(){
     return exc
 }
 
-_b_.SyntaxError
 
 })(__BARAGWIN__)

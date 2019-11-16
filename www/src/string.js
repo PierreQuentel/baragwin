@@ -1996,7 +1996,7 @@ str.$factory = function(arg, encoding, errors){
         // Implicit invocation of __str__ uses method __str__ on the class,
         // even if arg has an attribute __str__
         var klass = arg.__class__ || $B.get_class(arg)
-        var method = $B.$getattr(klass , "__str__", null)
+        var method = $B.$getattr(klass, "__str__", null)
         if(method === null ||
                 // if not better than object.__str__, try __repr__
                 (arg.__class__ && arg.__class__ !== _b_.object &&
@@ -2061,7 +2061,7 @@ StringSubclass.__new__ = function(cls){
 
 $B.set_func_names(StringSubclass, "builtins")
 
-_b_.str = str
+_b_.$str = str
 
 // Function to parse the 2nd argument of format()
 $B.parse_format_spec = function(spec){
