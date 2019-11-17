@@ -843,7 +843,7 @@ function format(value, format_spec) {
     }catch(err){
         if(err.__class__ === _b_.AttributeError){
             throw _b_.NotImplementedError("__format__ is not implemented " +
-                "for object '" + _b_.str.$factory(value) + "'")
+                "for object '" + _b_.$str.$factory(value) + "'")
         }
         throw err
     }
@@ -933,7 +933,7 @@ $B.$getattr = function(obj, attr, _default){
     if($test){console.log("attr", attr, "of", obj, "class", klass, "isclass", is_class)}
     if(klass === undefined){
         // avoid calling $B.get_class in simple cases for performance
-        if(typeof obj == 'string'){klass = _b_.str}
+        if(typeof obj == 'string'){klass = _b_.$str}
         else if(typeof obj == 'number'){
             klass = obj % 1 == 0 ? _b_.int : _b_.float
         }else if(obj instanceof Number){
@@ -1185,7 +1185,7 @@ function hash(obj){
         var cached = hash_cache[obj]
         if(cached !== undefined){return cached}
         else{
-            return hash_cache[obj] = _b_.str.__hash__(obj)
+            return hash_cache[obj] = _b_.$str.__hash__(obj)
         }
     }
     // Implicit invocation of special methods uses object class, even if
@@ -1282,9 +1282,9 @@ function hex(obj){
 function id(obj){
    check_no_kw('id', obj)
    check_nb_args('id', 1, arguments)
-   if(isinstance(obj, [_b_.str, _b_.int, _b_.float]) &&
+   if(isinstance(obj, [_b_.$str, _b_.int, _b_.float]) &&
            !isinstance(obj, $B.long_int)){
-       return $B.$getattr(_b_.str.$factory(obj), '__hash__')()
+       return $B.$getattr(_b_.$str.$factory(obj), '__hash__')()
    }else if(obj.$id !== undefined){return obj.$id}
    else{return obj.$id = $B.UUID()}
 }
@@ -1340,7 +1340,7 @@ function isinstance(obj, cls){
 
     if(klass == undefined){
         if(typeof obj == 'string'){
-            if(cls == _b_.str){return true}
+            if(cls == _b_.$str){return true}
             else if($B.builtin_classes.indexOf(cls) > -1){
                 return false
             }
@@ -1366,7 +1366,7 @@ function isinstance(obj, cls){
 
     function check(kl, cls){
         if(kl === cls){return true}
-        else if(cls === _b_.str && kl === $B.StringSubclass){return true}
+        else if(cls === _b_.$str && kl === $B.StringSubclass){return true}
         else if(cls === _b_.int && kl === $B.IntSubclass){return true}
     }
     if(check(klass, cls)){return true}
@@ -1806,7 +1806,7 @@ function ord(c) {
             'string of length ' + c.length + ' found')
     }
     switch($B.get_class(c)){
-      case _b_.str:
+      case _b_.$str:
         if(c.length == 1){return c.charCodeAt(0)} // <= strobj.charCodeAt(index)
         throw _b_.TypeError.$factory('ord() expected a character, but ' +
             'string of length ' + c.length + ' found')
@@ -1838,7 +1838,7 @@ function pow(x, y) {
 }
 
 function $print(arg){
-    var $ = $B.args1('print', [], {}, 'args', 'kw', arg)
+    var $ = $B.args('print', [], {}, 'args', 'kw', arg)
 
     var args = $.args,
         kw = $.kw,
@@ -1847,7 +1847,7 @@ function $print(arg){
         file = kw.$file === undefined ? $B.stdout : kw.$file,
         items = []
     args.forEach(function(arg){
-        items.push(_b_.str.$factory(arg))
+        items.push(_b_.$str.$factory(arg))
     })
     // Special handling of \a and \b
     var res = items.join(sep) + end
@@ -2252,7 +2252,7 @@ function sum(iterable, start){
         iterable = $.iterable,
         start = $.start
 
-    if(_b_.isinstance(start, [_b_.str, _b_.bytes])){
+    if(_b_.isinstance(start, [_b_.$str, _b_.bytes])){
         throw _b_.TypeError.$factory("TypeError: sum() can't sum bytes" +
             " [use b''.join(seq) instead]")
     }
@@ -2525,13 +2525,13 @@ function $url_open(){
     }else if(['r', 'rb'].indexOf(mode) == -1){
         throw _b_.ValueError.$factory("Invalid mode '" + mode + "'")
     }
-    if(isinstance(file, _b_.str)){
+    if(isinstance(file, _b_.$str)){
         // read the file content and return an object with file object methods
         var is_binary = mode.search('b') > -1
         if($B.file_cache.hasOwnProperty($ns.file)){
             var str_content = $B.file_cache[$ns.file]
             if(is_binary){
-                $res = _b_.str.encode(str_content, "utf-8")
+                $res = _b_.$str.encode(str_content, "utf-8")
             }else{
                 $res = str_content
             }
@@ -2821,7 +2821,7 @@ $B.Function.__setattr__ = function(self, attr, value){
         var set_func = self.$set_defaults
         if(set_func === undefined){
             throw _b_.AttributeError.$factory("cannot set attribute " + attr +
-                " of " + _b_.str.$factory(self))
+                " of " + _b_.$str.$factory(self))
         }
         if(self.$infos && self.$infos.__code__){
             // Make the new $defaults Javascript object
@@ -2836,7 +2836,7 @@ $B.Function.__setattr__ = function(self, attr, value){
             }
         }else{
             throw _b_.AttributeError.$factory("cannot set attribute " + attr +
-                " of " + _b_.str.$factory(self))
+                " of " + _b_.$str.$factory(self))
         }
         var klass = self.$infos.$class // Defined if function is in a class
         var new_func = set_func($defaults)

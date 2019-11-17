@@ -354,8 +354,7 @@ list.__new__ = function(cls, ...args){
 
 
 list.__repr__ = function(self){
-    if(self === undefined){return "<class 'list'>"}
-
+   
     var _r = []
     for(var i = 0; i < self.length; i++){
         if(self[i] === self){_r.push('[...]')}
@@ -418,7 +417,7 @@ list.$setitem = function(self, arg, value){
         $B.class_name(arg))
 }
 
-// there is no list.__str__
+list.__str__ = list.__repr__
 
 // add "reflected" methods
 $B.make_rmethods(list)
@@ -919,7 +918,7 @@ tuple.__new__ = function(cls, ...args){
 // set method names
 $B.set_func_names(tuple, "builtins")
 
-_b_.list = list
+_b_.$list = list
 _b_.tuple = tuple
 
 // set object.__bases__ to an empty tuple

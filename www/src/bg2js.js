@@ -758,9 +758,9 @@ var $AssertCtx = $B.parser.$AssertCtx = function(context){
         not_ctx.tree = [condition]
         node.context = new_ctx
         var new_node = new $Node()
-        var js = 'throw AssertionError.$factory("AssertionError")'
+        var js = 'throw _b_.$AssertionError.$factory("AssertionError")'
         if(message !== null){
-            js = 'throw AssertionError.$factory(str.$factory(' +
+            js = 'throw _b_.$AssertionError.$factory(str.$factory(' +
                 message.to_js() + '))'
         }
         new $NodeJSCtx(new_node, js)
@@ -2353,24 +2353,9 @@ var $DefCtx = $B.parser.$DefCtx = function(context){
 
         // Add lines of code to node children
 
-        // Declare object holding local variables
-        var local_ns = 'locals_' + this.id,
-            h = '\n' + ' '.repeat(indent)
-        js = 'var ' + local_ns + ' = {parent: locals_' + this.scope.id +
-            '},' + h +'local_name = "' + this.id +
-            '",' + h + 'locals = ' + local_ns + ';'
-
-        var new_node = new $Node()
-        new_node.locals_def = true
-        new_node.func_node = node
-        new $NodeJSCtx(new_node, js)
-        nodes.push(new_node)
-
         // Push id in frames stack
         var enter_frame_nodes = [
-            $NodeJS('var top_frame = [local_name, locals];'),
-            $NodeJS('$B.frames_stack.push(top_frame);'),
-            $NodeJS('var $stack_length = $B.frames_stack.length;')
+            $NodeJS('$B.frames_stack.push(locals);'),
         ]
 
         enter_frame_nodes.forEach(function(node){
@@ -2380,25 +2365,16 @@ var $DefCtx = $B.parser.$DefCtx = function(context){
         this.env = []
 
         // Code in the worst case, uses $B.args in py_utils.js
-
-        var make_args_nodes = []
-
-        var js = 'locals = $B.args1("' + this.name + '", ' +
+        var js = 'var locals = $B.args("' + this.name + '", ' +
             '[' + slot_list.join(', ') + '], {' + defs1.join(', ') +
             '}, ' + this.other_args + ', ' + this.other_kw + ', args);'
 
-        var new_node = new $Node()
-        new $NodeJSCtx(new_node, js)
-        make_args_nodes.push(new_node)
+        nodes.push($NodeJS(js))
+
+        nodes.push($NodeJS("locals.parent = locals_" + this.scope.id))
 
         var only_positional = false
-            nodes.push(make_args_nodes[0])
-            if(make_args_nodes.length > 1){nodes.push(make_args_nodes[1])}
-
-
         nodes = nodes.concat(enter_frame_nodes)
-
-        nodes.push($NodeJS('locals.types = {};'))
 
         // Handle name __class__ in methods (PEP 3135 and issue #1068)
         var is_method = scope.ntype == "class"
@@ -2445,10 +2421,6 @@ var $DefCtx = $B.parser.$DefCtx = function(context){
 
         var offset = 1,
             indent = node.indent
-
-        // Set attribute $is_func
-        node.parent.insert(rank + offset++, $NodeJS('locals.types.' + name +
-            ' = "function";'))
 
         // Close anonymous function with defaults as argument
         this.default_str = '{' + defs1.join(', ') + '}'
@@ -2934,198 +2906,21 @@ var $ForExpr = $B.parser.$ForExpr = function(context){
 
         var offset = 1
 
-        if($range && scope.ntype != 'generator'){
-            if(this.has_break){
-                // If there is a "break" in the loop, add a boolean
-                // used if there is an "else" clause and in generators
-                new_node = new $Node()
-                new $NodeJSCtx(new_node,
-                    local_ns + '["$no_break' + num + '"] = true')
-                new_nodes[pos++] = new_node
-            }
-
-            // Check that range is the built-in function
-            var range_is_builtin = false,
-                _scope = $get_scope(this),
-                found = []
-            while(1){
-                if(_scope.binding["range"]){found.push(_scope.id)}
-                if(_scope.parent_block){_scope = _scope.parent_block}
-                else{break}
-            }
-            range_is_builtin = found.length == 1 &&
-                found[0] == "__builtins__"
-
-            // Line to test if the callable "range" is the built-in "range"
-            var test_range_node = new $Node()
-            test_range_node.module = node.parent.module
-            if(range_is_builtin){
-                new $NodeJSCtx(test_range_node, 'if(1)')
-            }else{
-                new $NodeJSCtx(test_range_node,
-                    'if(' + call.func.to_js() + ' === $B.builtins.range)')
-            }
-            new_nodes[pos++] = test_range_node
-
-            // Build the block with the Javascript "for" loop
-            var idt = target.to_js(),
-                shortcut = false
-            if($range.tree.length == 1){
-                var stop = $range.tree[0].tree[0]
-                if(stop.tree[0].type == "int"){
-                    stop = parseInt(stop.to_js())
-                    if(0 < stop < $B.max_int){
-                        shortcut = true
-                        var varname = "$i" + $B.UUID()
-
-                        var for_node = $NodeJS("for (var " + varname + " = 0; " +
-                            varname + " < " + stop + "; " + varname + "++)")
-                        for_node.add($NodeJS(idt + " = " + varname))
-                    }
-                }
-                var start = 0,
-                    stop = $range.tree[0].to_js()
-            }else{
-                var start = $range.tree[0].to_js(),
-                    stop = $range.tree[1].to_js()
-            }
-
-            if(!shortcut){
-
-                var js = 'var $stop_' + num + ' = $B.int_or_bool(' + stop + '),' +
-                    h + '        $next' + num + " = " +start + ',' +
-                    h + '        $safe' + num + ' = typeof $next' + num +
-                    ' == "number" && typeof ' + '$stop_' + num + ' == "number";' +
-                    h + '    while(true)'
-                var for_node = new $Node()
-                new $NodeJSCtx(for_node, js)
-
-                for_node.add($NodeJS('if($safe' + num + ' && $next' + num +
-                    '>= $stop_' + num + '){break}'))
-                for_node.add($NodeJS('else if(!$safe' + num + ' && $B.ge($next' +
-                    num + ', $stop_' + num + ')){break}'))
-                for_node.add($NodeJS(idt + ' = $next' + num))
-                for_node.add($NodeJS('if($safe' + num + '){$next' + num +
-                    ' += 1}'))
-                for_node.add($NodeJS('else{$next' + num + ' = $B.add($next' +
-                    num + ',1)}'))
-            }
-            // Add the loop body
-            children.forEach(function(child){
-                for_node.add(child)
-            })
-            // Add a line to reset the line number
-            for_node.add($NodeJS('locals.$line_info = "' + node.line_num +
-                ',' + scope.id + '"; None;'))
-
-            // Check if current "for" loop is inside another "for" loop
-            var in_loop = false
-            if(scope.ntype == 'module'){
-                var pnode = node.parent
-                while(pnode){
-                    if(pnode.for_wrapper){in_loop = true; break}
-                    pnode = pnode.parent
-                }
-            }
-
-            // If we are at module level, and if the "for" loop is not already
-            // in a wrapper function, wrap it in a function to increase
-            // performance
-            if(scope.ntype == 'module' && !in_loop){
-                var func_node = new $Node()
-                func_node.for_wrapper = true
-                js = 'function $f' + num + '('
-                if(this.has_break){js += '$no_break' + num}
-                js += ')'
-                new $NodeJSCtx(func_node, js)
-
-                // the function is added to the test_range_node
-                test_range_node.add(func_node)
-
-                // Add the "for" loop
-                func_node.add(for_node)
-
-                // Return break flag
-                if(this.has_break){
-                    func_node.add($NodeJS('return $no_break' + num))
-                }
-
-                // Line to call the function
-                test_range_node.add($NodeJS('var $res' + num + ' = $f' + num +
-                    '();'))
-
-                if(this.has_break){
-                    test_range_node.add($NodeJS('var $no_break' + num +
-                        ' = $res' + num))
-                }
-
-            }else{
-                // If the loop is already inside a function, don't wrap it
-                test_range_node.add(for_node)
-            }
-            if(range_is_builtin){
-                node.parent.children.splice(rank, 1)
-                var k = 0
-                if(this.has_break){
-                    node.parent.insert(rank, new_nodes[0])
-                    k++
-                }
-                new_nodes[k].children.forEach(function(child){
-                    node.parent.insert(rank + k, child)
-                })
-                node.parent.children[rank].line_num = node.line_num
-                node.parent.children[rank].bindings = node.bindings
-                node.children = []
-                return 0
-            }
-
-            // Add code in case the callable "range" is *not* the
-            // built-in function
-            var else_node = $NodeJS("else")
-            new_nodes[pos++] = else_node
-
-            // Add lines at module level, after the original "for" loop
-            for(var i = new_nodes.length - 1; i >= 0; i--){
-                node.parent.insert(rank + 1, new_nodes[i])
-            }
-
-            this.test_range = true
-            new_nodes = [], pos = 0
-        }
 
         // Line to declare the function that produces the next item from
         // the iterable
         var new_node = new $Node()
         new_node.line_num = $get_node(this).line_num
-        var it_js = iterable.to_js(),
-            iterable_name = '$iter'+num,
-            js = 'var ' + iterable_name + ' = ' + it_js + ';' +
-                 'locals["$next' + num + '"]' + ' = $B.$getattr($B.$iter(' +
-                 iterable_name + '),"__next__")'
-        new $NodeJSCtx(new_node,js)
-        new_nodes[pos++] = new_node
-
-        if(this.has_break){
-            // If there is a "break" in the loop, add a boolean
-            // used if there is an "else" clause and in generators
-            new_nodes[pos++] = $NodeJS(local_ns + '["$no_break' + num +
-                '"] = true;')
-        }
+        var it_js = iterable.to_js()
 
         var while_node = new $Node()
 
-        if(this.has_break){
-            js = 'while(' + local_ns + '["$no_break' + num + '"])'
-        }else{js = 'while(1)'}
+        js = "for(const x" + $loop_num + " of " + it_js + ")"
 
         new $NodeJSCtx(while_node,js)
         while_node.context.loop_num = num // used for "else" clauses
         while_node.context.type = 'for' // used in $add_line_num
         while_node.line_num = node.line_num
-        if(scope.ntype == 'generator'){
-            // used in generators to signal a loop start
-            while_node.loop_start = num
-        }
 
         new_nodes[pos++] = while_node
 
@@ -3140,14 +2935,7 @@ var $ForExpr = $B.parser.$ForExpr = function(context){
                 offset += new_nodes.length
             }
         }
-
-        var try_node = $NodeJS("try")
-        // Copy attribute "bindings" in try node, so that it is at the same
-        // level in the code tree as the instructions that use the target
-        // names
-        try_node.bindings = node.bindings
-        while_node.add(try_node)
-
+        
         var iter_node = new $Node()
         iter_node.id = this.module
         var context = new $NodeCtx(iter_node) // create ordinary node
@@ -3161,12 +2949,8 @@ var $ForExpr = $B.parser.$ForExpr = function(context){
             target_expr.tree = target.tree
         }
         var assign = new $AssignCtx(target_expr) // assignment to left operand
-        assign.tree[1] = new $JSCode('locals["$next' + num + '"]()')
-        try_node.add(iter_node)
-
-        while_node.add(
-            $NodeJS('catch($err){if($B.is_exc($err, [StopIteration]))' +
-                 '{break;}else{throw($err)}}'))
+        assign.tree[1] = new $JSCode('x' + $loop_num)
+        while_node.add(iter_node)
 
         // set new loop children
         children.forEach(function(child){
@@ -3839,8 +3623,7 @@ var $IdCtx = $B.parser.$IdCtx = function(context, value){
                     if(this.augm_assign){
                         return global_ns + '["' + val + '"]'
                     }else{
-                        return '$B.$global_search("' + val + '", ' +
-                            search_ids + ')'
+                        return '$B.$global_search("' + val + '")'
                     }
                 }
             }
@@ -4087,7 +3870,7 @@ var $IdCtx = $B.parser.$IdCtx = function(context, value){
             // else raise a NameError
             // Function $search is defined in py_utils.js
 
-            this.result = '$B.$global_search("' + val + '", ' + search_ids + ')'
+            this.result = '$B.$global_search("' + val + '")'
             return this.result
         }
     }
@@ -5808,7 +5591,7 @@ var $add_line_num = $B.parser.$add_line_num = function(node,rank){
         else if(elt.type == 'single_kw'){flag = false}
         if(flag){
             // add a trailing None for interactive mode
-            var js = 'locals.$line_info = "' + line_num + ',' +
+            var js = 'locals.line_info = "' + line_num + ',' +
                 mod_id + '";'
 
             var new_node = new $Node()
@@ -5826,7 +5609,7 @@ var $add_line_num = $B.parser.$add_line_num = function(node,rank){
         if((elt.type == 'condition' && elt.token == "while")
                 || node.context.type == 'for'){
             if($B.last(node.children).context.tree[0].type != "return"){
-                node.add($NodeJS('locals.$line_info = "' + line_num +
+                node.add($NodeJS('locals.line_info = "' + line_num +
                     ',' + mod_id + '";'))
             }
         }
@@ -8010,12 +7793,7 @@ var $transition = function(context, token, value){
 }
 
 // Names that can't be given to variable names or attributes
-$B.forbidden = ["alert", "arguments", "case", "catch", "const", "constructor",
-    "Date", "debugger", "delete", "default", "do", "document", "enum",
-    "export", "eval", "extends", "Error", "history", "function", "instanceof",
-    "keys", "length", "location", "Math", "message","new", "null", "Number",
-    "RegExp", "String", "super", "switch", "this", "throw", "typeof", "var",
-    "window", "toLocaleString", "toString", "void"]
+$B.forbidden = []
     //enum, export, extends, import, and super
 $B.aliased_names = $B.list2obj($B.forbidden)
 
@@ -8835,6 +8613,8 @@ $B.py2js = function(src, module, locals_id, parent_scope, line_num){
     root.insert(0, $NodeJS(js.join('')))
     offset++
 
+    root.insert(offset++, $NodeJS('locals.name = "' + locals_id + '"'))
+
     // annotations
     if(root.binding.__annotations__){
         root.insert(offset++,
@@ -8843,8 +8623,7 @@ $B.py2js = function(src, module, locals_id, parent_scope, line_num){
 
     // Code to create the execution frame and store it on the frames stack
     var enter_frame_pos = offset,
-        js = '$B.frames_stack.push(["' + locals_id.replace(/\./g, '_') + '", ' +
-            'locals]);'
+        js = '$B.frames_stack.push(locals);'
     root.insert(offset++, $NodeJS(js))
 
     // Wrap code in a try/finally to make sure we leave the frame

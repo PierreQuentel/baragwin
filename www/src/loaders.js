@@ -334,8 +334,7 @@ var loop = $B.loop = function(){
             module.$src = script.$src
             module.__file__ = script.__file__
             $B.imported[script_id] = module
-            console.log("run function")
-
+            
             new Function("locals_" + script_id, script.js)(module)
 
         }catch(err){
@@ -344,10 +343,10 @@ var loop = $B.loop = function(){
             if(err.$py_error === undefined){
                 console.log('Javascript error', err)
                 if($B.is_recursion_error(err)){
-                    err = _b_.RecursionError.$factory("too much recursion")
+                    err = _b_.$RecursionError.$factory("too much recursion")
                 }else{
                     $B.print_stack()
-                    err = _b_.RuntimeError.$factory(err + '')
+                    err = _b_.$RuntimeError.$factory(err + '')
                 }
             }
             if($B.debug > 1){

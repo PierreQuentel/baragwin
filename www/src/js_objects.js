@@ -151,7 +151,7 @@ var jsobj2pyobj = $B.jsobj2pyobj = function(jsobj) {
     if(typeof jsobj === 'number'){
        if(jsobj.toString().indexOf('.') == -1){return _b_.int.$factory(jsobj)}
        // for now, lets assume a float
-       return _b_.float.$factory(jsobj)
+       return _b_.$float.$factory(jsobj)
     }
 
     if(jsobj.$nat === 'kw') {
@@ -212,7 +212,7 @@ var pyobj2jsobj = $B.pyobj2jsobj = function(pyobj){
         })
         return jsobj
 
-    }else if(klass === _b_.float){
+    }else if(klass === _b_.$float){
 
         // Python floats are converted to the underlying value
         return pyobj.valueOf()
@@ -568,7 +568,7 @@ JSObject.$factory = function(obj){
 
     var klass = $B.get_class(obj)
     // we need to do this or nan is returned, when doing json.loads(...)
-    if(klass === _b_.float){return _b_.float.$factory(obj)}
+    if(klass === _b_.$float){return _b_.$float.$factory(obj)}
     // Javascript array wrapper
     if(klass === _b_.list){
         return $B.JSArray.$factory(obj) // defined in py_list.js

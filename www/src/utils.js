@@ -6,7 +6,7 @@ var _b_ = $B.builtins,
             ("function" === typeof importScripts) &&
             (navigator instanceof WorkerNavigator)
 
-$B.args1 = function(fname, required, defaults, extra_pos, extra_kw, args){
+$B.args = function(fname, required, defaults, extra_pos, extra_kw, args){
     // builds a namespace from the arguments provided in $args
     // in a function defined as
     //     foo(x, y, z=1, *args, u, v, **kw)
@@ -23,7 +23,7 @@ $B.args1 = function(fname, required, defaults, extra_pos, extra_kw, args){
     var has_kw_args = false,
         filled = 0,
         extra_kw,
-        $ = {}
+        $ = {name: fname, types: {}}
 
     if(extra_pos){$[extra_pos] = []}
     if(extra_kw){$[extra_kw] = {}}
@@ -40,10 +40,10 @@ $B.args1 = function(fname, required, defaults, extra_pos, extra_kw, args){
         delete args[i]
         i++
     }
-    
+
     for(key in args){
         if($[key] !== undefined){
-            throw _b_.TypeError.$factory("double argument: " + key)
+            throw _b_.TypeError.$factory("double argument: " + key.substr(1))
         }
         if(required.indexOf(key) > -1){
             $[key] = args[key]
@@ -51,7 +51,7 @@ $B.args1 = function(fname, required, defaults, extra_pos, extra_kw, args){
             $[extra_kw][key] = args[key]
         }else{
             throw _b_.TypeError.$factory("unexpected keyword argument: " +
-                key)
+                key.substr(1))
         }
     }
 
@@ -67,261 +67,6 @@ $B.args1 = function(fname, required, defaults, extra_pos, extra_kw, args){
     }
 
     return $
-
-    /*
-    if(nb_pos > argcount){
-        // More positional arguments than formal parameters
-        if(extra_pos_args === null || extra_pos_args == "*"){
-            // No parameter to store extra positional arguments :
-            // thow an exception
-            msg = $fname + "() takes " + argcount + " positional argument" +
-                (argcount> 1 ? "" : "s") + " but more were given"
-            throw _b_.TypeError.$factory(msg)
-        }else{
-            // Store extra positional arguments
-            for(var i = argcount; i < nb_pos; i++){
-                slots[extra_pos_args].push($args[i])
-            }
-            // For the next step of the algorithm, only use the arguments
-            // before these extra arguments
-            nb_pos = argcount
-        }
-    }
-
-    // Fill slots with positional (non-extra) arguments
-    for(var i = 0; i < nb_pos; i++){
-        slots[var_names[i]] = $args[i]
-        filled++
-    }
-
-    if(filled == argcount && argcount === var_names.length &&
-            ! has_kw_args){
-        if(extra_kw_args){
-            slots[extra_kw_args] = extra_kw
-        }
-        return slots
-    }
-
-    // Then fill slots with keyword arguments, if any
-    if(has_kw_args){
-        for(var key in kw_args){
-            var value = kw_args[key],
-                key1 = $B.to_alias(key)
-            if(slots[key1] === undefined){
-                // The name of the keyword argument doesn't match any of the
-                // formal parameters
-                if(extra_kw_args){
-                    // If there is a place to store extra keyword arguments
-                    if(key.substr(0, 2) == "$$"){key = key.substr(2)}
-                    extra_kw.$string_dict[key] = value
-                }else{
-                    throw _b_.TypeError.$factory($fname +
-                        "() got an unexpected keyword argument '" + key + "'")
-                }
-            }else if(slots[key1] !== null){
-                // The slot is already filled
-                throw _b_.TypeError.$factory($fname +
-                    "() got multiple values for argument '" + key + "'")
-            }else if(only_positional && only_positional.indexOf(key1) > -1){
-                throw _b_.TypeError.$factory($fname + "() got an " +
-                    "unexpected keyword argument '" + key + "'")
-            }else{
-                // Fill the slot with the key/value pair
-                slots[key1] = value
-            }
-        }
-    }
-
-    // If there are unfilled slots, see if there are default values
-    var missing = []
-    for(var attr in slots){
-        if(slots[attr] === null){
-            if($dobj[attr] !== undefined){slots[attr] = $dobj[attr]}
-            else{missing.push("'" + attr + "'")}
-        }
-    }
-
-    if(missing.length > 0){
-
-        if(missing.length == 1){
-            throw _b_.TypeError.$factory($fname +
-                " missing 1 positional argument: " + missing[0])
-        }else{
-            var msg = $fname + " missing " + missing.length +
-                " positional arguments: "
-            msg += missing.join(" and ")
-            throw _b_.TypeError.$factory(msg)
-        }
-
-    }
-
-    if(extra_kw_args){
-        slots[extra_kw_args] = extra_kw
-    }
-    return slots
-    */
-
-}
-
-
-$B.args = function($fname, argcount, slots, var_names, args, $dobj,
-    extra_pos_args, extra_kw_args){
-    // builds a namespace from the arguments provided in $args
-    // in a function defined as
-    //     foo(x, y, z=1, *args, u, v, **kw)
-    // the parameters are
-    //     $fname = "f"
-    //     argcount = 3 (for x, y , z)
-    //     slots = {x:null, y:null, z:null, u:null, v:null}
-    //     var_names = ['x', 'y', 'z', 'u', 'v']
-    //     $dobj = {'z':1}
-    //     extra_pos_args = 'args'
-    //     extra_kw_args = 'kw'
-    //     kwonlyargcount = 2
-
-    var $args = []
-    if(Array.isArray(args)){$args = args}
-    else{
-        // Transform "arguments" object into a list (faster)
-        for(var i = 0, len = args.length; i < len; i++){
-            $args.push(args[i])
-        }
-    }
-    var has_kw_args = false,
-        nb_pos = $args.length,
-        filled = 0,
-        extra_kw,
-        only_positional
-
-    // If the function definition indicates the end of positional arguments,
-    // store the position and remove "/" from variable names
-    var end_positional = var_names.indexOf("/")
-    if(end_positional != -1){
-        var_names.splice(end_positional, 1)
-        only_positional = var_names.slice(0, end_positional)
-    }
-
-    // If the function call had keywords arguments, they are in the last
-    // element of $args
-    if(nb_pos > 0 && $args[nb_pos - 1] && $args[nb_pos - 1].$nat){
-        nb_pos--
-        if(Object.keys($args[nb_pos].kw).length > 0){
-            has_kw_args = true
-            var kw_args = $args[nb_pos].kw
-            if(Array.isArray(kw_args)){
-                kw_args = $B.extend($fname, ...kw_args)
-            }
-        }
-    }
-
-    if(extra_pos_args){
-        slots[extra_pos_args] = []
-        slots[extra_pos_args].__class__ = _b_.tuple
-    }
-    if(extra_kw_args){
-        // Build a dict object faster than with _b_.dict()
-        extra_kw = {
-            __class__: _b_.dict,
-            $numeric_dict: {},
-            $object_dict: {},
-            $string_dict : {},
-            $str_hash: {},
-            length: 0
-        }
-    }
-
-    if(nb_pos > argcount){
-        // More positional arguments than formal parameters
-        if(extra_pos_args === null || extra_pos_args == "*"){
-            // No parameter to store extra positional arguments :
-            // thow an exception
-            msg = $fname + "() takes " + argcount + " positional argument" +
-                (argcount> 1 ? "" : "s") + " but more were given"
-            throw _b_.TypeError.$factory(msg)
-        }else{
-            // Store extra positional arguments
-            for(var i = argcount; i < nb_pos; i++){
-                slots[extra_pos_args].push($args[i])
-            }
-            // For the next step of the algorithm, only use the arguments
-            // before these extra arguments
-            nb_pos = argcount
-        }
-    }
-
-    // Fill slots with positional (non-extra) arguments
-    for(var i = 0; i < nb_pos; i++){
-        slots[var_names[i]] = $args[i]
-        filled++
-    }
-
-    if(filled == argcount && argcount === var_names.length &&
-            ! has_kw_args){
-        if(extra_kw_args){
-            slots[extra_kw_args] = extra_kw
-        }
-        return slots
-    }
-
-    // Then fill slots with keyword arguments, if any
-    if(has_kw_args){
-        for(var key in kw_args){
-            var value = kw_args[key],
-                key1 = $B.to_alias(key)
-            if(slots[key1] === undefined){
-                // The name of the keyword argument doesn't match any of the
-                // formal parameters
-                if(extra_kw_args){
-                    // If there is a place to store extra keyword arguments
-                    if(key.substr(0, 2) == "$$"){key = key.substr(2)}
-                    extra_kw.$string_dict[key] = value
-                }else{
-                    throw _b_.TypeError.$factory($fname +
-                        "() got an unexpected keyword argument '" + key + "'")
-                }
-            }else if(slots[key1] !== null){
-                // The slot is already filled
-                throw _b_.TypeError.$factory($fname +
-                    "() got multiple values for argument '" + key + "'")
-            }else if(only_positional && only_positional.indexOf(key1) > -1){
-                throw _b_.TypeError.$factory($fname + "() got an " +
-                    "unexpected keyword argument '" + key + "'")
-            }else{
-                // Fill the slot with the key/value pair
-                slots[key1] = value
-            }
-        }
-    }
-
-    // If there are unfilled slots, see if there are default values
-    var missing = []
-    for(var attr in slots){
-        if(slots[attr] === null){
-            if($dobj[attr] !== undefined){slots[attr] = $dobj[attr]}
-            else{missing.push("'" + attr + "'")}
-        }
-    }
-
-    if(missing.length > 0){
-
-        if(missing.length == 1){
-            throw _b_.TypeError.$factory($fname +
-                " missing 1 positional argument: " + missing[0])
-        }else{
-            var msg = $fname + " missing " + missing.length +
-                " positional arguments: "
-            msg += missing.join(" and ")
-            throw _b_.TypeError.$factory(msg)
-        }
-
-    }
-
-    if(extra_kw_args){
-        slots[extra_kw_args] = extra_kw
-    }
-
-    return slots
-
 }
 
 $B.wrong_nb_args = function(name, received, expected, positional){
@@ -349,14 +94,14 @@ $B.get_class = function(obj){
         switch(typeof obj) {
             case "number":
                 if(obj % 1 === 0){ // this is an int
-                   return _b_.int
+                   return _b_.$int
                 }
                 // this is a float
-                return _b_.float
+                return _b_.$float
             case "string":
-                return _b_.str
+                return _b_.$str
             case "boolean":
-                return _b_.bool
+                return _b_.$bool
             case "function":
                 obj.__class__ = $B.Function
                 return $B.Function
@@ -364,11 +109,11 @@ $B.get_class = function(obj){
                 if(obj.$class){return obj.$class} // module object
                 if(Array.isArray(obj)){
                     if(Object.getPrototypeOf(obj) === Array.prototype){
-                        obj.__class__ = _b_.list
-                        return _b_.list
+                        obj.__class__ = _b_.$list
+                        return _b_.$list
                     }
                 }else if(obj.constructor === Number){
-                    return _b_.float
+                    return _b_.$float
                 }
                 break
         }
@@ -505,28 +250,17 @@ $B.$search = function(name, global_ns){
     }
 }
 
-$B.$global_search = function(name, search_ids){
-    // search in all namespaces above current stack frame
+$B.$global_search = function(name){
+    // search name in all namespaces above current stack frame
     var ns = {}
 
     for(var i = 0; i< $B.frames_stack.length; i++){
         var frame = $B.frames_stack[i]
-        if(search_ids.indexOf(frame[0]) > -1 &&
-                frame[1][name] !== undefined){
-            return frame[1][name]
-        }
-        if(search_ids.indexOf(frame[2]) > -1 &&
-                frame[3][name] !== undefined){
-            return frame[3][name]
+        if(frame.hasOwnProperty(name)){
+            return frame[name]
         }
     }
-    for(var i = 0; i < search_ids.length; i++){
-        var search_id = search_ids[i]
-        if($B.imported[search_id] && $B.imported[search_id][name]){
-            return $B.imported[search_id][name]
-        }
-    }
-    throw _b_.NameError.$factory("name '" + $B.from_alias(name) +
+    throw _b_.NameError.$factory("name '" + name.substr(1) +
         "' is not defined")
 }
 
@@ -868,7 +602,7 @@ $B.extend = function(fname, arg){
                 }
                 arg[key] = getter(key)
             }catch(err){
-                if(_b_.isinstance(err, [_b_.StopIteration])){
+                if(_b_.isinstance(err, [_b_.$StopIteration])){
                     break
                 }
                 throw err
@@ -888,7 +622,7 @@ $B.extend_list = function(){
         try{
             res.push(_b_.next(it))
         }catch(err){
-            if(_b_.isinstance(err, [_b_.StopIteration])){
+            if(_b_.isinstance(err, [_b_.$StopIteration])){
                 break
             }
             throw err
@@ -1074,7 +808,7 @@ $B.make_iterator_class = function(name){
             if(self.counter < self.items.length){
                 return self.items[self.counter]
             }
-            throw _b_.StopIteration.$factory("StopIteration")
+            throw _b_.$StopIteration.$factory("StopIteration")
         },
 
         __reduce_ex__: function(self, protocol){
@@ -1238,13 +972,7 @@ $B.leave_frame = function(arg){
     // Leave execution frame
     if($B.frames_stack.length == 0){console.log("empty stack"); return}
     $B.del_exc()
-    var frame = $B.frames_stack.pop()
-    if(frame[1].$has_yield_in_cm){
-        // The attribute $has_yield_in_cm is set in py2js.js /
-        // $YieldCtx.transform only if the frame has "yield" inside a
-        // context manager.
-        exit_ctx_managers_in_generators(frame)
-    }
+    $B.frames_stack.pop()
 }
 
 $B.leave_frame_exec = function(arg){

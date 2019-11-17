@@ -783,5 +783,5 @@ for(var $attr in float){
 
 $B.set_func_names(FloatSubclass, "builtins")
 
-_b_.float = float
+_b_.$float = float
 })(__BARAGWIN__)
