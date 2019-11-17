@@ -68,8 +68,8 @@ $B.$syntax_err_line = function(exc, module, src, pos, line_num){
             if(lpos > 0){lpos--}
         }
         exc.offset = lpos
-        exc.args = _b_.tuple.$factory([$B.$getitem(exc.args, 0), module,
-            line_num, lpos, line])
+        exc.args = [$B.$getitem(exc.args, 0), module,
+            line_num, lpos, line]
     }
     exc.lineno = line_num
     exc.msg = exc.args[0]
@@ -81,7 +81,7 @@ $B.$SyntaxError = function(module, msg, src, pos, line_num, root) {
         // this may happen for syntax errors inside a lambda
         line_num = root.line_info
     }
-    var exc = _b_.SyntaxError.$factory(msg)
+    var exc = _b_.$SyntaxError.$factory(msg)
     $B.$syntax_err_line(exc, module, src, pos, line_num)
     throw exc
 }
@@ -93,7 +93,7 @@ $B.$IndentationError = function(module, msg, src, pos, line_num, root) {
         // this may happen for syntax errors inside a lambda
         line_num = root.line_info
     }
-    var exc = _b_.IndentationError.$factory(msg)
+    var exc = _b_.$IndentationError.$factory(msg)
     $B.$syntax_err_line(exc, module, src, pos, line_num)
     throw exc
 }
@@ -383,7 +383,7 @@ var getExceptionTrace = function(exc, includeInternal) {
             console.log("src undef", line_info)
         }
     }
-    if(exc.__class__ === _b_.SyntaxError){
+    if(exc.__class__ === _b_.$SyntaxError){
         info += "\n  File " + exc.args[1] + ", line " + exc.args[2] +
             "\n    " + exc.args[4]
     }
@@ -427,8 +427,8 @@ function deep_copy(stack) {
 
 BaseException.$factory = function (){
     var err = Error()
-    err.args = _b_.tuple.$factory(Array.prototype.slice.call(arguments))
-    err.__class__ = _b_.BaseException
+    err.args = Array.prototype.slice.call(arguments)
+    err.__class__ = _b_.$BaseException
     err.$py_error = true
     // Make a copy of the current frame stack array
     err.frames = $B.frames_stack.slice()
@@ -532,7 +532,7 @@ function make_exc(names, parent){
         // create a class for exception called "name"
         name = "$" + name
         $B.builtins_scope[name] = true
-        var $exc = (BaseException.$factory + "").replace(/BaseException/g,name)
+        var $exc = (BaseException.$factory + "").replace(/\$BaseException/g,name)
         $exc = $exc.replace("//placeholder//", code)
         // class dictionary
         _str[pos++] = "_b_." + name + ' = {__class__:_b_.type, ' +
@@ -591,18 +591,20 @@ $B.$TypeError = function(msg){
 
 // SyntaxError instances have special attributes
 var se = _b_.$SyntaxError.$factory
+
 _b_.$SyntaxError.$factory = function(){
     var arg = arguments[0]
-    if(arg.__class__ === _b_.SyntaxError){
+    if(arg.__class__ === _b_.$SyntaxError){
         return arg
     }
+
     var exc = se.apply(null, arguments),
         frame = $B.last($B.frames_stack)
     if(frame){
-        line_info = frame[1].line_info
-        exc.filename = frame[3].__file__
+        line_info = frame.line_info
+        exc.filename = frame.__file__
         exc.lineno = parseInt(line_info.split(",")[0])
-        var src = $B.file_cache[frame[3].__file__]
+        var src = $B.file_cache[frame.__file__]
         if(src){
             lines = src.split("\n")
             exc.text = lines[exc.lineno - 1]

@@ -334,7 +334,7 @@ var loop = $B.loop = function(){
             module.$src = script.$src
             module.__file__ = script.__file__
             $B.imported[script_id] = module
-            
+
             new Function("locals_" + script_id, script.js)(module)
 
         }catch(err){
@@ -368,13 +368,14 @@ $B.handle_error = function(err){
     // Print the error traceback on the standard error stream
     if(err.__class__ !== undefined){
         var name = $B.class_name(err),
-            trace = _b_.getattr(err, 'info')
-        if(name == 'SyntaxError' || name == 'IndentationError'){
+            trace = $B.$getattr(err, 'info')
+        console.log("name", name)
+        if(name == '$SyntaxError' || name == '$IndentationError'){
             var offset = err.args[3]
             trace += '\n    ' + ' '.repeat(offset) + '^' +
-                '\n' + name + ': '+err.args[0]
+                '\n' + name.substr(1) + ': '+err.args[0]
         }else{
-            trace += '\n' + name + ': ' + err.args
+            trace += '\n' + name.substr(1) + ': ' + err.args
         }
     }else{
         console.log(err)

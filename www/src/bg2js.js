@@ -354,7 +354,7 @@ var $_SyntaxError = $B.parser.$_SyntaxError = function (context, msg, indent){
                 'invalid syntax : triple string end not found',
                 src, $pos, line_num, root)
         }
-        $B.$SyntaxError(module, 'invalid syntax', src, $pos, line_num, root)
+        $B.$SyntaxError(module, msg, src, $pos, line_num, root)
     }else{throw $B.$IndentationError(module, msg, src, $pos, line_num, root)}
 }
 
@@ -697,41 +697,6 @@ var $AliasCtx = $B.parser.$AliasCtx = function(context){
     this.parent = context
     this.tree = []
     context.tree[context.tree.length - 1].alias = this
-}
-
-var $AnnotationCtx = $B.parser.$AnnotationCtx = function(context){
-    // Class for annotations, eg "def f(x:int) -> list:"
-    this.type = 'annotation'
-    this.parent = context
-    this.tree = []
-    // annotation is stored in attribute "annotations" of parent, not "tree"
-    context.annotation = this
-
-    var scope = $get_scope(context)
-    if(scope.binding.__annotations__ === undefined){
-        // In an imported module, __annotations__ is not defined by default
-        scope.binding.__annotations__ = true
-        context.create_annotations = true
-    }
-
-    if(scope.ntype == "def" && context.tree && context.tree.length > 0 &&
-            context.tree[0].type == "id"){
-        var name = context.tree[0].value
-        if(scope.globals && scope.globals.has(name) > -1){
-            $_SyntaxError(context, ["annotated name '" + name +
-                "' can't be global"])
-        }
-        scope.annotations = scope.annotations || new Set()
-        scope.annotations.add(name)
-        // If name was not inside a parenthesis, it is local in the scope
-        if(! context.$in_parens){
-            scope.binding = scope.binding || {}
-            scope.binding[name] = true
-        }
-    }
-    this.toString = function(){return '(annotation) ' + this.tree}
-
-    this.to_js = function(){return $to_js(this.tree)}
 }
 
 var $AssertCtx = $B.parser.$AssertCtx = function(context){
@@ -1697,9 +1662,7 @@ var $ClassCtx = $B.parser.$ClassCtx = function(context){
     this.parent.node.bound = {} // will store the names bound in the function
 
     // stores names bound in the class scope
-    this.parent.node.binding = {
-        __annotations__: true
-    }
+    this.parent.node.binding = {}
     this.toString = function(){
         return '(class) ' + this.name + ' ' + this.tree + ' args ' + this.args
     }
@@ -1743,8 +1706,7 @@ var $ClassCtx = $B.parser.$ClassCtx = function(context){
         var indent = '\n' + ' '.repeat(node.indent + 12),
             instance_decl = new $Node(),
             local_ns = 'locals_' + this.id.replace(/\./g, '_'),
-            js = 'var ' + local_ns + ' = {' +
-                 '__annotations__: {}}, ' +
+            js = 'var ' + local_ns + ' = {}, ' +
                  indent + 'locals = ' + local_ns + ', ' +
                  indent + 'local_name = "' + local_ns + '",'
         new $NodeJSCtx(instance_decl, js)
@@ -2284,11 +2246,7 @@ var $DefCtx = $B.parser.$DefCtx = function(context){
         this.__defaults__ = []
         this.slots = []
         var slot_list = [],
-            slot_init = [],
-            annotations = []
-        if(this.annotation){
-            annotations.push('"return":' + this.annotation.to_js())
-        }
+            slot_init = []
 
         this.func_name = this.tree[0].to_js()
         var func_name1 = this.func_name
@@ -2331,9 +2289,6 @@ var $DefCtx = $B.parser.$DefCtx = function(context){
             }else if(arg.type == 'func_star_arg'){
                 if(arg.op == '*'){this.star_arg = arg.name}
                 else if(arg.op == '**'){this.kw_arg = arg.name}
-            }
-            if(arg.annotation){
-                annotations.push(arg.name + ': ' + arg.annotation.to_js())
             }
         }, this)
 
@@ -2935,7 +2890,7 @@ var $ForExpr = $B.parser.$ForExpr = function(context){
                 offset += new_nodes.length
             }
         }
-        
+
         var iter_node = new $Node()
         iter_node.id = this.module
         var context = new $NodeCtx(iter_node) // create ordinary node
@@ -3303,10 +3258,6 @@ var $GlobalCtx = $B.parser.$GlobalCtx = function(context){
     this.toString = function(){return 'global ' + this.tree}
 
     this.add = function(name){
-        if(this.scope.annotations && this.scope.annotations.has(name)){
-            $_SyntaxError(context, ["annotated name '" + name +
-                "' can't be global"])
-        }
         this.scope.globals.add(name)
         this.module.binding[name] = true
     }
@@ -4336,60 +4287,7 @@ var $NodeCtx = $B.parser.$NodeCtx = function(node){
             node.add(new_node)
         }
         this.js = ""
-        if(this.tree[0]){
-            var is_not_def = this.scope.ntype != "def"
-            if(this.tree[0].annotation){
-                // Node is annotation
-                if(is_not_def){
-                    if(this.tree[0].type == "expr" &&
-                            ! this.tree[0].$in_parens &&
-                            this.tree[0].tree[0].type == "id"){
-                        var js = ""
-                        if(this.create_annotations){
-                            js += "locals.types = {};"
-                        }
-                        return js + "locals.types['" +
-                            this.tree[0].tree[0].value + "'] = " +
-                            this.tree[0].annotation.to_js() + ";"
-                    }else if(this.tree[0].type == "def"){
-                        // Evaluate annotation
-                        this.js = this.tree[0].annotation.to_js() + ";"
-                    }else{
-                        // Ignore
-                        this.js = ""
-                        this.tree = []
-                    }
-                }else if(this.tree[0].type != "def"){
-                    // Avoid evaluation
-                    this.tree = []
-                }
-            }else if(this.tree[0].type == "assign" &&
-                    ! this.tree[0].tree[0].$in_parens &&
-                    this.tree[0].tree[0].annotation){
-                // Left side of assignment is annoted
-                var left = this.tree[0].tree[0],
-                    right = this.tree[0].tree[1]
-                // Evaluate value first
-                if(this.create_annotations){
-                    this.js += "locals.types = {};"
-                }
-                this.js += "var value = " + right.to_js() + ";"
-                this.tree[0].tree.splice(1, 1)
-                new $RawJSCtx(this.tree[0], "value")
-                if(left.tree[0] && left.tree[0].type == "id" && is_not_def){
-                    this.js += "locals.types['" +
-                        left.tree[0].value + "'] = " +
-                        left.annotation.to_js() + ";"
-                }else{
-                    // Evaluate annotation
-                    this.js +=  $to_js(this.tree) + ";"
-                    if(is_not_def){
-                        this.js += left.annotation.to_js()
-                    }
-                    return this.js
-                }
-            }
-        }
+
         if(node.children.length == 0){
             this.js += $to_js(this.tree) + ';'
         }else{
@@ -5917,19 +5815,6 @@ var $transition = function(context, token, value){
           }
           return $transition(context.parent, token, value)
 
-        case 'annotation':
-            if(token == "eol" && context.tree.length == 1 &&
-                    context.tree[0].tree.length == 0){
-                $_SyntaxError(context, "empty annotation")
-            }else if(token == ':' && context.parent.type != "def"){
-                $_SyntaxError(context, "more than one annotation")
-            }else if(token == "augm_assign"){
-                $_SyntaxError(context, "augmented assign as annotation")
-            }else if(token == "op"){
-                $_SyntaxError(context, "operator as annotation")
-            }
-            return $transition(context.parent, token)
-
         case 'assert':
             if(token == 'eol'){return $transition(context.parent, token)}
             $_SyntaxError(context, token)
@@ -6245,14 +6130,12 @@ var $transition = function(context, token, value){
                     }
                     context.has_args = true;
                     return new $FuncArgs(context)
-                case 'annotation':
-                    return new $AbstractExprCtx(new $AnnotationCtx(context), true)
-                case ':':
+                case 'eol':
                     if(context.has_args){
-                        return $BodyCtx(context)
+                        return context.parent
                     }
             }
-            $_SyntaxError(context, 'token ' + token + ' after ' + context)
+            $_SyntaxError(context, 'unexpected token ' + token)
 
         case 'del':
             if(token == 'eol'){return $transition(context.parent, token)}
@@ -6709,7 +6592,7 @@ var $transition = function(context, token, value){
                          new $AugmentedAssignCtx(context, value), true)
                 }
                 return $transition(context.parent, token, value)
-            case ":": // slice or annotation
+            case ":":
                 // slice only if expr parent is a subscription, or a tuple
                 // inside a subscription, or a slice
                 if(context.parent.type == "sub" ||
@@ -6718,18 +6601,6 @@ var $transition = function(context, token, value){
                     return new $AbstractExprCtx(new $SliceCtx(context.parent), false)
                 }else if(context.parent.type == "slice"){
                     return $transition(context.parent, token, value)
-                }else if(context.parent.type == "node"){
-                    // annotation
-                    if(context.tree.length == 1){
-                        var child = context.tree[0]
-                        if(["id", "sub", "attribute"].indexOf(child.type) > -1){
-                            return new $AbstractExprCtx(new $AnnotationCtx(context), false)
-                        }else if(child.real == "tuple" && child.expect == "," &&
-                                 child.tree.length == 1){
-                            return new $AbstractExprCtx(new $AnnotationCtx(child.tree[0]), false)
-                        }
-                    }
-                    $_SyntaxError(context, "invalid target for annotation")
                 }
                 break
             case '=':
@@ -6741,7 +6612,6 @@ var $transition = function(context, token, value){
                     }
                     return false
                 }
-                var annotation
                if(context.expect == ','){
                    if(context.parent.type == "call_arg"){
                        // issue 708
@@ -6750,8 +6620,6 @@ var $transition = function(context, token, value){
                                ["keyword can't be an expression"])
                        }
                        return new $AbstractExprCtx(new $KwArgCtx(context), true)
-                   }else if(annotation = has_parent(context, "annotation")){
-                       return $transition(annotation, token, value)
                    }else if(context.parent.type == "op"){
                         // issue 811
                         $_SyntaxError(context, ["can't assign to operator"])
@@ -6780,8 +6648,7 @@ var $transition = function(context, token, value){
             case ':=':
                 // PEP 572 : assignment expression
                 var ptype = context.parent.type
-                if(["node", "assign", "kwarg", "annotation"].
-                        indexOf(ptype) > -1){
+                if(["node", "assign", "kwarg"].indexOf(ptype) > -1){
                     $_SyntaxError(context, ':= invalid, parent ' + ptype)
                 }else if(ptype == "func_arg_id" &&
                         context.parent.tree.length > 0){
@@ -6968,14 +6835,6 @@ var $transition = function(context, token, value){
                     }else{
                         return $transition(context.parent, token)
                     }
-                case ':':
-                    // annotation associated with a function parameter
-                    if(context.has_default){ // issue 610
-                        $_SyntaxError(context, 'token ' + token + ' after ' +
-                            context)
-                    }
-                    return new $AbstractExprCtx(new $AnnotationCtx(context),
-                        false)
             }
             $_SyntaxError(context, 'token ' + token + ' after ' + context)
 
@@ -7051,14 +6910,6 @@ var $transition = function(context, token, value){
                        context.parent.names.push('*')
                     }
                     return $transition(context.parent, token)
-                case ':':
-                    // annotation associated with a function parameter
-                    if(context.name === undefined){
-                        $_SyntaxError(context,
-                            'annotation on an unnamed parameter')
-                    }
-                    return new $AbstractExprCtx(
-                        new $AnnotationCtx(context), false)
             }// switch
             $_SyntaxError(context, 'token ' + token + ' after ' + context)
 
@@ -7776,7 +7627,7 @@ var $transition = function(context, token, value){
                     }
             }
             return $transition(context.parent, token, value)
-        
+
         case 'yield':
             if(token == 'from'){ // form "yield from <expr>"
                 if(context.tree[0].type != 'abstract_expr'){
@@ -8436,13 +8287,6 @@ var $tokenize = $B.parser.$tokenize = function(root, src) {
             case '!':
                 // Operators
 
-                // Special case for annotation syntax
-                if(car == '-' && src.charAt(pos + 1) == '>'){
-                    context = $transition(context, 'annotation')
-                    pos += 2
-                    continue
-                }
-
                 // Special case for @ : decorator if it's the first character
                 // in the instruction
                 if(car == '@' && context.type == "node"){
@@ -8534,9 +8378,6 @@ var $create_root_node = $B.parser.$create_root_node = function(src, module,
     root.imports = {}
     if(typeof src == "object"){
         root.is_comp = src.is_comp
-        if(src.has_annotations){
-            root.binding.__annotations__ = true
-        }
         src = src.src
     }
     root.src = src
@@ -8563,12 +8404,10 @@ $B.py2js = function(src, module, locals_id, parent_scope, line_num){
     parent_scope = parent_scope || $B.builtins_scope
 
     var t0 = new Date().getTime(),
-        is_comp = false,
-        has_annotations = true // determine if __annotations__ is created
+        is_comp = false
 
     if(typeof src == 'object'){
-        var is_comp = src.is_comp,
-            has_annotations = src.has_annotations
+        var is_comp = src.is_comp
         src = src.src
     }
 
@@ -8593,7 +8432,7 @@ $B.py2js = function(src, module, locals_id, parent_scope, line_num){
     var global_ns = 'locals_' + module.replace(/\./g,'_')
 
     var root = $create_root_node(
-        {src: src, is_comp: is_comp, has_annotations: has_annotations},
+        {src: src, is_comp: is_comp},
         module, locals_id, parent_scope, line_num)
 
     $tokenize(root, src)
@@ -8614,12 +8453,6 @@ $B.py2js = function(src, module, locals_id, parent_scope, line_num){
     offset++
 
     root.insert(offset++, $NodeJS('locals.name = "' + locals_id + '"'))
-
-    // annotations
-    if(root.binding.__annotations__){
-        root.insert(offset++,
-            $NodeJS('locals.types = {};'))
-    }
 
     // Code to create the execution frame and store it on the frames stack
     var enter_frame_pos = offset,

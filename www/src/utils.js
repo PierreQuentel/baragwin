@@ -19,11 +19,10 @@ $B.args = function(fname, required, defaults, extra_pos, extra_kw, args){
     //     extra_pos_args = 'args'
     //     extra_kw_args = 'kw'
     //     kwonlyargcount = 2
-
     var has_kw_args = false,
         filled = 0,
         extra_kw,
-        $ = {name: fname, types: {}}
+        $ = {name: fname}
 
     if(extra_pos){$[extra_pos] = []}
     if(extra_kw){$[extra_kw] = {}}
