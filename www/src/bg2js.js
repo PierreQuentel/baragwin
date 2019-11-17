@@ -767,13 +767,6 @@ var $AssignCtx = $B.parser.$AssignCtx = function(context, expression){
         if(context.type == 'expr'){context = context.tree[0]}
         // Bind all the ids in the list or tuple
         context.bind_ids(scope)
-    }else if(context.type == 'assign'){
-        context.tree.forEach(function(elt){
-            var assigned = elt.tree[0]
-            if(assigned.type == 'id'){
-                $bind(assigned.value, scope, this)
-            }
-        }, this)
     }else{
         var assigned = context.tree[0]
         if(assigned && assigned.type == 'id'){
@@ -825,38 +818,6 @@ var $AssignCtx = $B.parser.$AssignCtx = function(context, expression){
         var left = this.tree[0],
             right = this.tree[1],
             assigned = []
-
-        while(left.type == 'assign'){
-            assigned.push(left.tree[1])
-            left = left.tree[0]
-        }
-
-        if(assigned.length > 0){
-            assigned.push(left)
-
-            // replace current node by '$tempXXX = <right>'
-            var ctx = node.context
-            ctx.tree = []
-            var nleft = new $RawJSCtx(ctx, 'var $temp' + $loop_num)
-            nleft.tree = ctx.tree
-            var nassign = new $AssignCtx(nleft)
-            nassign.tree[1] = right
-
-            // create nodes with target set to right, from left to right
-            assigned.forEach(function(elt){
-                var new_node = new $Node(),
-                    node_ctx = new $NodeCtx(new_node)
-                new_node.locals = node.locals
-                new_node.line_num = node.line_num
-                node.parent.insert(rank + 1,new_node)
-                elt.parent = node_ctx
-                var assign = new $AssignCtx(elt)
-                new $RawJSCtx(assign, '$temp' + $loop_num)
-            })
-            $loop_num++
-            this.tree[0] = left
-            return
-        }
 
         var left_items = null
         switch(left.type){
@@ -951,8 +912,8 @@ var $AssignCtx = $B.parser.$AssignCtx = function(context, expression){
             node.parent.children.splice(rank, 1) // remove original line
 
             // evaluate right argument (it might be a function call)
-            var rname = create_temp_name('$right')
-            var rlname = create_temp_name('$rlist');
+            var rname = create_temp_name('right')
+            var rlname = create_temp_name('rlist');
 
             var new_node = $NodeJS('var ' + rname + ' = ' +
                     '$B.$getattr($B.$iter(' + right.to_js() +
@@ -962,10 +923,10 @@ var $AssignCtx = $B.parser.$AssignCtx = function(context, expression){
             node.parent.insert(rank++, new_node)
 
             node.parent.insert(rank++,
-                $NodeJS('var '+rlname+'=[], $pos=0;'+
+                $NodeJS('var ' + rlname + ' = [], pos=0;'+
                 'while(1){'+
                     'try{' +
-                        rlname + '[$pos++] = ' + rname +'()' +
+                        rlname + '[pos++] = ' + rname +'()' +
                     '}catch(err){'+
                        'break'+
                     '}'+
@@ -989,7 +950,7 @@ var $AssignCtx = $B.parser.$AssignCtx = function(context, expression){
             // Test if there were enough values in the right part
             node.parent.insert(rank++,
                 $NodeJS('if(' + rlname + '.length<' + min_length + '){' +
-                    'throw ValueError.$factory('+
+                    'throw _b_.$ValueError.$factory('+
                        '"need more than " +' + rlname +
                        '.length + " value" + (' + rlname +
                        '.length > 1 ?' + ' "s" : "") + " to unpack")}'
@@ -1000,7 +961,7 @@ var $AssignCtx = $B.parser.$AssignCtx = function(context, expression){
             if(packed == null){
                 node.parent.insert(rank++,
                     $NodeJS('if(' + rlname + '.length>' + min_length + '){' +
-                        'throw ValueError.$factory(' +
+                        'throw _b_.$ValueError.$factory(' +
                            '"too many values to unpack ' +
                            '(expected ' + left_items.length + ')"'+
                         ')'+
@@ -1128,9 +1089,6 @@ var $AssignCtx = $B.parser.$AssignCtx = function(context, expression){
               }
               return res
             }
-        }
-        if(this.already_bound){
-            console.log("was bound", this)
         }
         return left.to_js() + ' = ' + right.to_js()
     }
@@ -6053,14 +6011,14 @@ var $transition = function(context, token, value){
             return $transition(context.parent,token,value)
 
         case 'condition':
-            if(token == ':'){
+            if(token == 'eol'){
                 if(context.tree[0].type == "abstract_expr" &&
                         context.tree[0].tree.length == 0){ // issue #965
                     $_SyntaxError(context, 'token ' + token + ' after ' + context)
                 }
-                return $BodyCtx(context)
+                return context.parent
             }
-            $_SyntaxError(context, 'token ' + token + ' after ' + context)
+            $_SyntaxError(context, 'unexpected token ' + token)
 
         case 'continue':
             if(token == 'eol'){return context.parent}
@@ -6354,15 +6312,15 @@ var $transition = function(context, token, value){
                     }
                 case 'id':
                     if(context.expect == 'alias'){
-                        context.expect = ':'
+                        context.expect = 'eol'
                         context.set_alias(value)
                         return context
                     }
                     break
-                case ':':
+                case 'eol':
                     var _ce = context.expect
-                    if(_ce == 'id' || _ce == 'as' || _ce == ':'){
-                        return $BodyCtx(context)
+                    if(_ce == 'id' || _ce == 'as' || _ce == 'eol'){
+                        return context.parent
                     }
                     break
                 case '(':
@@ -6384,7 +6342,7 @@ var $transition = function(context, token, value){
                         return context
                     }
           }
-          $_SyntaxError(context, 'token ' + token + ' after ' + context.expect)
+          $_SyntaxError(context, 'unexpected token ' + token)
 
         case 'expr':
           switch(token) {
@@ -6612,7 +6570,7 @@ var $transition = function(context, token, value){
                     }
                     return false
                 }
-               if(context.expect == ','){
+                if(context.expect == ','){
                    if(context.parent.type == "call_arg"){
                        // issue 708
                        if(context.tree[0].type != "id"){
@@ -6642,6 +6600,9 @@ var $transition = function(context, token, value){
                        }
                    }
                    context = context.tree[0]
+                   if(context.type == "assign"){
+                       $_SyntaxError(context, "consecutive assignements")
+                   }
                    return new $AbstractExprCtx(new $AssignCtx(context), true)
                 }
                 break
@@ -7588,8 +7549,8 @@ var $transition = function(context, token, value){
             }
             return $transition(context.parent, token, value)
         case 'try':
-            if(token == ':'){return $BodyCtx(context)}
-            $_SyntaxError(context, 'token ' + token + ' after ' + context)
+            if(token == 'eol'){return context.parent}
+            $_SyntaxError(context, 'unexpected token ' + token)
         case 'unary':
             switch(token) {
                 case 'int':

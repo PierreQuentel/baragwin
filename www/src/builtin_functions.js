@@ -1479,7 +1479,7 @@ $B.$iter = function(obj, sentinel){
                         ln = len(obj)
                     return iterator_class.$factory(gi, len)
                 }catch(err){
-                    throw _b_.TypeError.$factory("'" + $B.class_name(obj) +
+                    throw _b_.$TypeError.$factory("'" + $B.class_name(obj) +
                         "' object is not iterable")
                 }
             }

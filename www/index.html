@@ -34,9 +34,15 @@
 
 <body onload="baragwin(2)">
 <script type="text/baragwin">
-x = 2
-if x > 1:
-  print(x, " > 1")
+x, a = 2, 7
+try
+    x, a = 2
+except TypeError
+    print("raised TypeError")
+    
+if x > 1
+  print(x, "> 1")
+
 print(x, "ok", end="-")
 
 def f(y, z=3)
