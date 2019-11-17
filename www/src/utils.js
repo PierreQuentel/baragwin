@@ -6,7 +6,7 @@ var _b_ = $B.builtins,
             ("function" === typeof importScripts) &&
             (navigator instanceof WorkerNavigator)
 
-$B.args = function(fname, required, defaults, extra_pos, extra_kw, args){
+$B.args = function(fname, args, required, defaults, extra_pos, extra_kw){
     // builds a namespace from the arguments provided in $args
     // in a function defined as
     //     foo(x, y, z=1, *args, u, v, **kw)
@@ -34,7 +34,7 @@ $B.args = function(fname, required, defaults, extra_pos, extra_kw, args){
         }else if(extra_pos){
             $[extra_pos].push(args[i])
         }else{
-            throw _b_.TypeError.$factory("too many arguments")
+            throw _b_.$TypeError.$factory(fname.substr(1) + " got too many arguments")
         }
         delete args[i]
         i++
@@ -49,8 +49,8 @@ $B.args = function(fname, required, defaults, extra_pos, extra_kw, args){
         }else if(extra_kw){
             $[extra_kw][key] = args[key]
         }else{
-            throw _b_.TypeError.$factory("unexpected keyword argument: " +
-                key.substr(1))
+            throw _b_.$TypeError.$factory("unexpected keyword argument for " +
+                fname.substr(1) + ": " + key.substr(1))
         }
     }
 
@@ -122,6 +122,27 @@ $B.get_class = function(obj){
 
 $B.class_name = function(obj){
     return $B.get_class(obj).$infos.__name__
+}
+
+$B.to_list = function(obj, expected){
+    // If obj is iterable, return the list made by iteration on it
+    if(obj[Symbol.iterator] === undefined){
+        throw _b_.$TypeError.$factory("'" + $B.class_name(obj) +
+            "' object is not iterable")
+    }
+    var list = []
+    for(const item of obj){
+        list.push(item)
+    }
+    if(list.length < expected){
+        throw _b_.$ValueError.$factory("need more than " + list.length +
+            " value" + (list.length > 1 ? "s" : "") + " to unpack")
+    }
+    if(list.length > expected){
+        throw _b_.$ValueError.$factory("too many values to unpack " +
+            "(expected " + expected + ")")
+    }
+    return list
 }
 
 $B.$list_comp = function(items){
@@ -728,7 +749,8 @@ $B.$call = function(callable){
     try{
         return $B.$getattr(callable, "__call__")
     }catch(err){
-        throw _b_.TypeError.$factory("'" + $B.class_name(callable) +
+        console.log("cannot call", callable)
+        throw _b_.$TypeError.$factory("'" + $B.class_name(callable) +
             "' object is not callable")
     }
 }
@@ -744,9 +766,9 @@ $io.flush = function(){
     // do nothing
 }
 
-$io.write = function(self, msg){
-    // Default to printing to browser console
-    console.log(msg)
+$io.write = function(args){
+    // Defaults to printing to browser console
+    console.log(args)
     return _b_.None
 }
 

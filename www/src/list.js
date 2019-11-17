@@ -358,7 +358,7 @@ list.__repr__ = function(self){
     var _r = []
     for(var i = 0; i < self.length; i++){
         if(self[i] === self){_r.push('[...]')}
-        else{_r.push(_b_.repr(self[i]))}
+        else{_r.push(_b_.$repr(self[i]))}
     }
 
     if(self.__class__ === tuple){

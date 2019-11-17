@@ -368,8 +368,7 @@ $B.handle_error = function(err){
     // Print the error traceback on the standard error stream
     if(err.__class__ !== undefined){
         var name = $B.class_name(err),
-            trace = $B.$getattr(err, 'info')
-        console.log("name", name)
+            trace = $B.$getattr(err, 'info')({})
         if(name == '$SyntaxError' || name == '$IndentationError'){
             var offset = err.args[3]
             trace += '\n    ' + ' '.repeat(offset) + '^' +

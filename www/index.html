@@ -33,13 +33,26 @@
 </head>
 
 <body onload="baragwin(2)">
+<span id="test">coucou</span>
 <script type="text/baragwin">
 x, a = 2, 7
+
 try
     x, a = 2
 except TypeError
     print("raised TypeError")
-    
+
+try
+    x, a = 1, 2, 3
+except ValueError
+    print("raised ValueError")
+
+try
+    x, a, b = 1, 2
+except ValueError as exc
+    print("raised ValueError", exc)
+
+
 if x > 1
   print(x, "> 1")
 
@@ -50,6 +63,8 @@ def f(y, z=3)
 
 assert f(5, z=6, *t, **kw) == 11
 assert f(5) == 8
+
+#print(document.select("#test"))
 </script>
 </body>
 </html>

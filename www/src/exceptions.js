@@ -317,7 +317,7 @@ BaseException.__repr__ = function(self){
 
 BaseException.__str__ = function(self){
     if(self.args.length > 0){
-        return _b_.str.$factory(self.args[0])
+        return _b_.$str.$factory(self.args[0])
     }
     return self.__class__.$infos.__name__
 }
@@ -406,6 +406,10 @@ BaseException.__getattr__ = function(self, attr){
     }
 }
 
+BaseException.info = function(args){
+    var $ = $B.args("info", args, ["self"], {}, null, null)
+    return getExceptionTrace($.self, false)
+}
 BaseException.with_traceback = function(self, tb){
     self.$traceback = tb
     return self
@@ -497,8 +501,9 @@ $B.is_exc = function(exc, exc_list){
     var this_exc_class = exc.__class__
     for(var i = 0; i < exc_list.length; i++){
         var exc_class = exc_list[i]
+        if(this_exc_class === exc_class){return true}
         if(this_exc_class === undefined){console.log("exc class undefined", exc)}
-        if(issubclass(this_exc_class, exc_class)){return true}
+        if(_b_.$issubclass(this_exc_class, exc_class)){return true}
     }
     return false
 }

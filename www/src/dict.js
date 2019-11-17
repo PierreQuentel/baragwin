@@ -860,7 +860,7 @@ $B.set_func_names(dict, "builtins")
 
 // This must be done after set_func_names, otherwise dict.fromkeys doesn't
 // have the attribute $infos
-dict.fromkeys = _b_.classmethod.$factory(dict.fromkeys)
+dict.fromkeys = _b_.$classmethod.$factory(dict.fromkeys)
 
 // Class for attribute __dict__ of classes
 var mappingproxy = $B.mappingproxy = $B.make_class("mappingproxy",

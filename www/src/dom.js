@@ -1300,13 +1300,15 @@ DOMNode.reset = function(self){ // for FORM
     return function(){self.elt.reset()}
 }
 
-DOMNode.select = function(self, selector){
+DOMNode.select = function(args){
     // alias for get(selector=...)
-    if(self.elt.querySelectorAll === undefined){
+    console.log("DOMNode.select receives args", args) 
+    var $ = $B.args("select", args, ["self", "selector"], {}, null, null)
+    if($.self.elt.querySelectorAll === undefined){
         throw _b_.TypeError.$factory("DOMNode object doesn't support " +
             "selection by selector")
     }
-    return make_list(self.elt.querySelectorAll(selector))
+    return make_list($.self.elt.querySelectorAll($.selector))
 }
 
 DOMNode.select_one = function(self, selector){

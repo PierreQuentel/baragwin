@@ -95,6 +95,8 @@
         browser.self.js.send = self.postMessage
     } else {
         browser.is_webworker = false
+        _b_.$document = $B.DOMNode.$factory(document)
+        _b_.$window = $B.win
         update(browser, {
             $$alert:function(message){
                 window.alert($B.builtins.str.$factory(message))
@@ -577,7 +579,7 @@
         }
     )
 
-    $B.cell.cell_contents = $B.$call(_b_.property)(
+    $B.cell.cell_contents = $B.$call(_b_.$property)(
         function(self){
             if(self.$cell_contents === null){
                 throw _b_.ValueError.$factory("empty cell")

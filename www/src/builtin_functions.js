@@ -901,252 +901,52 @@ $B.$getattr = function(obj, attr, _default){
 
     var is_class = obj.$is_class || obj.$factory
 
-    var klass = obj.__class__
-
-    var $test = false // attr == "__doc__" // && obj === $B // "Point"
-    if($test){console.log("$getattr", attr, obj, klass)}
-
-    // Shortcut for classes without parents
-    if(klass !== undefined && klass.__bases__ &&
-            (klass.__bases__.length == 0 ||
-                (klass.__bases__.length == 1 &&
-                 klass.__bases__[0] === _b_.object))){
-        if(obj.hasOwnProperty(attr)){
-            return obj[attr]
-        }else if(obj.__dict__ &&
-                obj.__dict__.$string_dict.hasOwnProperty(attr) &&
-                ! (klass.hasOwnProperty(attr) &&
-                   klass[attr].__get__)){
-            return obj.__dict__.$string_dict[attr]
-        }else if(klass.hasOwnProperty(attr)){
-            if(typeof klass[attr] != "function" &&
-                    attr != "__dict__" &&
-                    klass[attr].__get__ === undefined){
-                var kl = klass[attr].__class__
-                if(! in_mro(kl, "__get__")){
-                    return klass[attr]
-                }
-            }
-        }
-    }
-
-    if($test){console.log("attr", attr, "of", obj, "class", klass, "isclass", is_class)}
-    if(klass === undefined){
-        // avoid calling $B.get_class in simple cases for performance
-        if(typeof obj == 'string'){klass = _b_.$str}
-        else if(typeof obj == 'number'){
-            klass = obj % 1 == 0 ? _b_.int : _b_.float
-        }else if(obj instanceof Number){
-            klass = _b_.float
-        }else{
-            klass = $B.get_class(obj)
-            if(klass === undefined){
-                // for native JS objects used in Python code
-                if($test){console.log("no class", attr, obj.hasOwnProperty(attr), obj[attr])}
-                var res = obj[attr]
-                if(res !== undefined){
-                    if(typeof res == "function"){
-                        var f = function(){
-                            // In function, "this" is set to the object
-                            return res.apply(obj, arguments)
-                        }
-                        f.$infos = {
-                            __name__: attr,
-                            __qualname__: attr
-                        }
-                        return f
-                    }else{
-                        return $B.$JS2Py(res)
+    var klass = obj.__class__ || $B.get_class(obj),
+        res
+    if((res = obj[attr]) !== undefined){
+        return res
+    }else if(is_class){
+        // search in object __mro__
+        for(var i = 0, len = obj.__mro__.length; i < len; i++){
+            if((res = obj.__mro__[i][attr]) !== undefined){
+                if(typeof res == "function"){
+                    var method = function(args){
+                        if(args === undefined){args = {}}
+                        args.self = obj
+                        return res(args)
                     }
+                    method.__class__ = $B.method
+                    method.func = res
+                    return method
+                }else{
+                    return res
                 }
-                if(_default !== undefined){return _default}
-                throw _b_.AttributeError.$factory('object has no attribute ' + rawname)
             }
         }
-    }
-
-    switch(attr) {
-      case '__call__':
-          if(typeof obj == 'function'){
-              var res = function(){return obj.apply(null, arguments)}
-              res.__class__ = method_wrapper
-              res.$infos = {__name__: "__call__"}
-              return res
-          }
-          break
-      case '__class__':
-          // attribute __class__ is set for all Python objects
-          return klass
-      case '__dict__':
-          if(is_class){
-              return $B.mappingproxy.$factory(obj) // defined in py_dict.js
-          }else{
-              if(obj.hasOwnProperty(attr)){
-                  return obj[attr]
-              }else if(obj.$infos){
-                  if(obj.$infos.hasOwnProperty("__dict__")){
-                      return obj.$infos.__dict__
-                  }else if(obj.$infos.hasOwnProperty("__func__")){
-                      return obj.$infos.__func__.$infos.__dict__
-                  }
-              }
-              return $B.obj_dict(obj)
-          }
-      case '__doc__':
-          // for builtins objects, use $B.builtins_doc
-          for(var i = 0; i < builtin_names.length; i++){
-              if(obj === _b_[builtin_names[i]]){
-                  _get_builtins_doc()
-                  return $B.builtins_doc[builtin_names[i]]
-              }
-          }
-          break
-      case '__mro__':
-          if(obj.$is_class){
-              // The attribute __mro__ of class objects doesn't include the
-              // class itself
-              return _b_.tuple.$factory([obj].concat(obj.__mro__))
-          }
-          break
-      case '__subclasses__':
-          if(klass.$factory || klass.$is_class){
-              var subclasses = obj.$subclasses || []
-              return function(){return subclasses}
-          }
-          break
-      case '$$new':
-          if(klass === $B.JSObject && obj.js_func !== undefined){
-              return $B.JSConstructor.$factory(obj)
-          }
-          break
-    }
-
-    if(typeof obj == 'function') {
-        var value = obj[attr]
-        if(value !== undefined){
-            if(attr == '__module__'){
-                return value
-            }
-        }
-    }
-
-    if((! is_class) && klass.$native){
-        if($test){console.log("native class", klass, klass[attr])}
-        if(attr == "__doc__" && klass[attr] === undefined && klass.$infos){
-            _get_builtins_doc()
-            klass[attr] = $B.builtins_doc[klass.$infos.__name__]
-        }
-        if(klass[attr] === undefined){
-            var object_attr = _b_.object[attr]
-            if($test){console.log("object attr", object_attr)}
-            if(object_attr !== undefined){
-                klass[attr] = object_attr
-            }else{
-                if($test){console.log("obj[attr]", obj[attr])}
-                var attrs = obj.__dict__
-                if(attrs &&
-                        (object_attr = attrs.$string_dict[attr]) !== undefined){
-                    return object_attr
-                }
-                if(_default === undefined){
-                    attr_error(attr, klass.$infos.__name__)
-                }
-                return _default
-            }
-        }
-        if(klass.$descriptors && klass.$descriptors[attr] !== undefined){
-            return klass[attr](obj)
-        }
-        if(typeof klass[attr] == 'function'){
-            var func = klass[attr]
-            // new is a static method
-            if(attr == '__new__'){func.$type = "staticmethod"}
-
-            if(func.$type == "staticmethod"){return func}
-
-            var self = klass[attr].__class__ == $B.method ? klass : obj
-            function method(){
-                var args = [self]
-                for(var i = 0, len = arguments.length; i < len; i++){
-                    args.push(arguments[i])
-                }
-                return klass[attr].apply(null, args)
-            }
-            method.__class__ = $B.method
-            method.$infos = {
-                __func__: func,
-                __name__: attr,
-                __self__: self,
-                __qualname__: klass.$infos.__name__ + "." + attr
-            }
-            return method
-        }else if(klass[attr] !== undefined){
-            return klass[attr]
-        }
-        attr_error(rawname, klass.$infos.__name__)
-    }
-
-    var mro, attr_func
-
-    if(is_class){
-        attr_func = _b_.type.__getattribute__ // XXX metaclass
+        
     }else{
-        attr_func = klass.__getattribute__
-        if(attr_func === undefined){
-            var mro = klass.__mro__
-            if(mro === undefined){
-                console.log(obj, attr, "no mro, klass", klass)
-            }
-            for(var i = 0, len = mro.length; i < len; i++){
-                attr_func = mro[i]['__getattribute__']
-                if(attr_func !== undefined){break}
-            }
-        }
-    }
-    if(typeof attr_func !== 'function'){
-        console.log(attr + ' is not a function ' + attr_func, klass)
-    }
-    if($test){console.log("attr_func is odga", attr_func,
-        attr_func === odga, obj[attr])}
-    if(attr_func === odga){
-        var res = obj[attr]
-        if(Array.isArray(obj) && Array.prototype[attr] !== undefined){
-            // Special case for list subclasses. Cf issue 1081.
-            res = undefined
-        }
-        if(res === null){return null}
-        else if(res === undefined && obj.hasOwnProperty(attr)){
-            return res
-        }else if(res !== undefined){
-            if($test){console.log(obj, attr, obj[attr],
-                res.__set__ || res.$is_class)}
-            // Cf. issue 1081
-            //var in_proto = Object.getPrototypeOf(obj)[attr]
-            if(res.__set__ === undefined || res.$is_class){
-                if($test){console.log("return", res, res+'',
-                    res.__set__, res.$is_class)}
-                return res
+        var classes = [klass].concat(klass.__mro__)
+        for(var i = 0, len = classes.length; i < len; i++){
+            if((res = classes[i][attr]) !== undefined){
+                if(typeof res == "function"){
+                    var method = function(args){
+                        if(args === undefined){args = {}}
+                        args.self = obj
+                        return res(args)
+                    }
+                    method.__class__ = $B.method
+                    method.func = res
+                    return method
+                }else{
+                    return res
+                }
             }
         }
-    }
-
-    try{
-        var res = attr_func(obj, attr)
-        if($test){console.log("result of attr_func", res)}
-    }catch(err){
-        if(_default !== undefined){
+        if(_default){
             return _default
         }
-        throw err
+        throw _b_.$AttributeError.$factory(attr)
     }
-
-    if(res !== undefined){return res}
-    if(_default !== undefined){return _default}
-
-    var cname = klass.$infos.__name__
-    if(is_class){cname = obj.$infos.__name__}
-
-    attr_error(rawname, cname)
 }
 
 //globals() (built in function)
@@ -1311,7 +1111,6 @@ function isinstance(obj, cls){
     check_nb_args('isinstance', 2, arguments)
 
     if(obj === null){return cls === None}
-    if(obj === undefined){return false}
     if(cls.constructor === Array){
         for(var i = 0; i < cls.length; i++){
             if(isinstance(obj, cls[i])){return true}
@@ -1324,9 +1123,9 @@ function isinstance(obj, cls){
             "or tuple of types")
     }
 
-    if(cls === _b_.int && (obj === True || obj === False)){return True}
+    if(cls === _b_.$int && (obj === True || obj === False)){return True}
 
-    if(cls === _b_.bool){
+    if(cls === _b_.$bool){
         switch(typeof obj){
             case "string":
                 return false
@@ -1345,12 +1144,12 @@ function isinstance(obj, cls){
                 return false
             }
         }else if(obj.contructor === Number && Number.isFinite(obj)){
-            if(cls == _b_.float){return true}
+            if(cls == _b_.$float){return true}
             else if($B.builtin_classes.indexOf(cls) > -1){
                 return false
             }
         }else if(typeof obj == 'number' && Number.isFinite(obj)){
-            if(Number.isFinite(obj) && cls == _b_.int){return true}
+            if(Number.isFinite(obj) && cls == _b_.$int){return true}
             else if($B.builtin_classes.indexOf(cls) > -1){
                 return false
             }
@@ -1377,16 +1176,10 @@ function isinstance(obj, cls){
        }
     }
 
-    // Search __instancecheck__ on cls's class (ie its metaclass)
-    var instancecheck = $B.$getattr(cls.__class__ || $B.get_class(cls),
-        '__instancecheck__', _b_.None)
-    if(instancecheck !== _b_.None){
-        return instancecheck(cls, obj)
-    }
     return false
 }
 
-function issubclass(klass,classinfo){
+function issubclass(klass, classinfo){
     check_no_kw('issubclass', klass, classinfo)
     check_nb_args('issubclass', 2, arguments)
 
@@ -1394,6 +1187,7 @@ function issubclass(klass,classinfo){
             !(klass.$factory !== undefined || klass.$is_class !== undefined)){
         throw _b_.TypeError.$factory("issubclass() arg 1 must be a class")
     }
+
     if(isinstance(classinfo, _b_.tuple)){
         for(var i = 0; i < classinfo.length; i++){
            if(issubclass(klass, classinfo[i])){return true}
@@ -1401,23 +1195,7 @@ function issubclass(klass,classinfo){
         return false
     }
 
-    if(classinfo.$factory || classinfo.$is_class){
-        if(klass === classinfo ||
-            klass.__mro__.indexOf(classinfo) > -1){return true}
-    }
-
-    // Search __subclasscheck__ on classinfo
-    var sch = $B.$getattr(classinfo, '__subclasscheck__', _b_.None)
-
-    if(sch == _b_.None){
-        return false
-    }
-    if(classinfo === _b_.type ||
-            (classinfo.__bases__ &&
-             classinfo.__bases__.indexOf(_b_.type) > -1)){
-        return sch(classinfo, klass)
-    }
-    return sch(klass)
+    return klass.__mro__.indexOf(classinfo) > -1
 }
 
 // Utility class for iterators built from objects that have a __getitem__ and
@@ -1471,7 +1249,9 @@ $B.$iter = function(obj, sentinel){
         var klass = obj.__class__ || $B.get_class(obj)
         try{
             var _iter = $B.$call($B.$getattr(klass, '__iter__'))
+            console.log("found __ietr__", _iter)
         }catch(err){
+            console.log("exc in iter", err, err.__class__, err.args)
             if(err.__class__ === _b_.AttributeError){
                 try{
                     var gi_method = $B.$call($B.$getattr(klass, '__getitem__')),
@@ -1500,13 +1280,12 @@ $B.$iter = function(obj, sentinel){
     }
 }
 
-function iter(){
+function iter(args){
     // Function exposed to _Baragwin programs, with arguments control
-    var $ = $B.args('iter', 1, {obj: null}, ['obj'], arguments,
-        {}, 'args', 'kw'),
+    var $ = $B.args('iter', args, ['obj'], {}, null, null),
         sentinel
-    if($.args.length > 0){
-        var sentinel = $.args[0]
+    if($.obj.length > 0){
+        var sentinel = $.obj[0]
     }
     return $B.$iter($.obj, sentinel)
 }
@@ -1838,7 +1617,7 @@ function pow(x, y) {
 }
 
 function $print(arg){
-    var $ = $B.args('print', [], {}, 'args', 'kw', arg)
+    var $ = $B.args('print', arg, [], {}, 'args', 'kw')
 
     var args = $.args,
         kw = $.kw,
@@ -2922,9 +2701,9 @@ for(var i = 0; i < builtin_names.length; i++){
     if(name == 'open'){name1 = '$url_open'}
     if(name == 'super'){name = name1 = '$$super'}
     if(name == 'eval'){name = name1 = '$$eval'}
-    if(name == 'print'){name1 = '$print'}
+    //if(name == 'print'){name1 = '$print'}
     try{
-        _b_[name] = eval(name1)
+        _b_['$' + name] = eval(name1)
         if($B.builtin_funcs.indexOf(orig_name) > -1){
             _b_[name].__class__ = builtin_function
             // used by inspect module

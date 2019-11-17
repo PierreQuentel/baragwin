@@ -854,55 +854,42 @@ var $AssignCtx = $B.parser.$AssignCtx = function(context, expression){
         }
 
         var right_items = null
-        if(right.type == 'list' || right.type == 'tuple'||
+        if(right.type == 'list_or_tuple'||
                 (right.type == 'expr' && right.tree.length > 1)){
             right_items = right.tree
         }
 
         if(right_items !== null){ // form x, y = a, b
-            if(right_items.length > left_items.length){
-                throw Error('ValueError : too many values to unpack (expected ' +
-                    left_items.length + ')')
-            }else if(right_items.length < left_items.length){
-                throw Error('ValueError : need more than ' +
-                    right_items.length + ' to unpack')
-            }
-            var new_nodes = [], pos = 0
-            // replace original line by dummy line : the next one might also
-            // be a multiple assignment
-            var new_node = new $Node()
-            new_node.line_num = node.line_num
-            new $NodeJSCtx(new_node,'void(0)')
-            new_nodes[pos++] = new_node
-
-            var $var = '$temp' + $loop_num
-            var new_node = new $Node()
-            new_node.line_num = node.line_num
-            new $NodeJSCtx(new_node, 'var ' + $var + ' = [], $pos = 0')
-            new_nodes[pos++] = new_node
-
-            right_items.forEach(function(right_item){
-                var js = $var + '[$pos++] = ' + right_item.to_js()
-                var new_node = new $Node()
-                new_node.line_num = node.line_num
-                new $NodeJSCtx(new_node, js)
-                new_nodes[pos++] = new_node
-            })
-            var this_node = $get_node(this)
-            left_items.forEach(function(left_item){
-                var new_node = new $Node()
-                new_node.id = this_node.module
-                new_node.locals = this_node.locals
-                new_node.line_num = node.line_num
-                var context = new $NodeCtx(new_node) // create ordinary node
-                left_item.parent = context
-                // assignment to left operand
-                // set "check_unbound" to false
-                var assign = new $AssignCtx(left_item, false)
-                assign.tree[1] = new $JSCode($var + '[' + i + ']')
-                new_nodes[pos++] = new_node
-            }, this)
             node.parent.children.splice(rank,1) // remove original line
+            if(right_items.length > left_items.length){
+                node.parent.insert(rank,
+                    $NodeJS("throw _b_.$ValueError.$factory(" +
+                        '"too many values to unpack (expected ' +
+                        left_items.length + ')")'))
+                return
+            }else if(right_items.length < left_items.length){
+                node.parent.insert(rank,
+                    $NodeJS("throw _b_.$ValueError.$factory(" +
+                        '"need more than ' + right_items.length +
+                        ' to unpack")'))
+                return
+            }
+            var new_nodes = [],
+                pos = 0
+            new_nodes.push($NodeJS("var right" + $loop_num +
+                " = []"))
+            var loop_node = $NodeJS("for(const item" + $loop_num + " of " +
+                right.to_js()+ ")")
+            loop_node.add($NodeJS("right" + $loop_num + ".push(item" +
+                $loop_num + ")"))
+            new_nodes.push(loop_node)
+            left_items.forEach(function(item, rank){
+                if(item.type == "expr" && item.tree[0].type == "id"){
+                    $bind(item.tree[0].value, scope, this.tree[0])
+                }
+                new_nodes.push($NodeJS(item.to_js() + " = right" + $loop_num +
+                    "[" + rank + "]"))
+            }, this)
             for(var i = new_nodes.length - 1; i >= 0; i--){
                 node.parent.insert(rank, new_nodes[i])
             }
@@ -912,26 +899,14 @@ var $AssignCtx = $B.parser.$AssignCtx = function(context, expression){
             node.parent.children.splice(rank, 1) // remove original line
 
             // evaluate right argument (it might be a function call)
-            var rname = create_temp_name('right')
-            var rlname = create_temp_name('rlist');
+            var rname = create_temp_name('right'),
+                rlname = create_temp_name('rlist'),
+                rjs = right.to_js()
 
-            var new_node = $NodeJS('var ' + rname + ' = ' +
-                    '$B.$getattr($B.$iter(' + right.to_js() +
-                    '), "__next__");')
-
+            var new_node = $NodeJS('var ' + rlname + ' = $B.to_list(' + 
+                rjs + ", " + left_items.length +")")
             new_node.line_num = node.line_num // set attribute line_num for debugging
             node.parent.insert(rank++, new_node)
-
-            node.parent.insert(rank++,
-                $NodeJS('var ' + rlname + ' = [], pos=0;'+
-                'while(1){'+
-                    'try{' +
-                        rlname + '[pos++] = ' + rname +'()' +
-                    '}catch(err){'+
-                       'break'+
-                    '}'+
-                '}')
-            )
 
             // If there is a packed tuple in the list of left items, store
             // its rank in the list
@@ -946,29 +921,6 @@ var $AssignCtx = $B.parser.$AssignCtx = function(context, expression){
                     break
                 }
             }
-
-            // Test if there were enough values in the right part
-            node.parent.insert(rank++,
-                $NodeJS('if(' + rlname + '.length<' + min_length + '){' +
-                    'throw _b_.$ValueError.$factory('+
-                       '"need more than " +' + rlname +
-                       '.length + " value" + (' + rlname +
-                       '.length > 1 ?' + ' "s" : "") + " to unpack")}'
-               )
-            )
-
-             // Test if there were enough variables in the left part
-            if(packed == null){
-                node.parent.insert(rank++,
-                    $NodeJS('if(' + rlname + '.length>' + min_length + '){' +
-                        'throw _b_.$ValueError.$factory(' +
-                           '"too many values to unpack ' +
-                           '(expected ' + left_items.length + ')"'+
-                        ')'+
-                    '}')
-                )
-            }
-
 
             left_items.forEach(function(left_item, i){
 
@@ -2278,9 +2230,9 @@ var $DefCtx = $B.parser.$DefCtx = function(context){
         this.env = []
 
         // Code in the worst case, uses $B.args in py_utils.js
-        var js = 'var locals = $B.args("' + this.name + '", ' +
+        var js = 'var locals = $B.args("' + this.name + '", args, ' +
             '[' + slot_list.join(', ') + '], {' + defs1.join(', ') +
-            '}, ' + this.other_args + ', ' + this.other_kw + ', args);'
+            '}, ' + this.other_args + ', ' + this.other_kw + ');'
 
         nodes.push($NodeJS(js))
 
@@ -2633,6 +2585,7 @@ var $ExceptCtx = $B.parser.$ExceptCtx = function(context){
     this.toString = function(){return '(except) '}
 
     this.set_alias = function(alias){
+        alias = '$' + alias
         this.tree[0].alias = alias
         $bind(alias, this.scope, this)
     }
@@ -3423,365 +3376,21 @@ var $IdCtx = $B.parser.$IdCtx = function(context, value){
     }
 
     this.to_js = function(arg){
-        // Store the result in this.result
-        // For generator expressions, to_js() is called in $make_node
-        if(this.result !== undefined && this.scope.ntype == 'generator'){
-            return this.result
-        }
-
-        this.js_processed = true
-        var val = this.value
-
-        var is_local = this.scope.binding[val] !== undefined,
-            this_node = $get_node(this),
-            bound_before = this_node.bound_before
-
-        // If name is bound in the scope, but not yet bound when this
-        // instance of $IdCtx was created, it is resolved by a call to
-        // $search or $local_search
-        this.unbound = this.unbound || (is_local && !this.bound &&
-            bound_before && bound_before.indexOf(val) == -1)
-
-        if((!this.bound) && this.scope.context
-                && this.scope.ntype == 'class' &&
-                this.scope.context.tree[0].name == val){
-            // Name of class referenced inside the class. Cf. issue #649
-            return '$B.$search("' + val + '")'
-        }
-
-        if(this.unbound){
-            if(this.scope.ntype == 'def' || this.scope.ntype == 'generator'){
-                return '$B.$local_search("' + val + '")'
-            }else{
-                return '$B.$search("' + val + '")'
-            }
-        }
-
-        // Special cases
-        if(val == '__BARAGWIN__' || val == '$B'){return val}
-
-        var innermost = $get_scope(this),
-            scope = innermost,
-            found = []
-
-        var search_ids = ['"' + innermost.id + '"']
-        // get global scope
-        var gs = innermost
-
-        var $test = val == "bx"
-
-        if($test){
-            console.log("this", this)
-        }
-
-        while(true){
-            if($test){
-                console.log(gs.id, gs)
-            }
-            if(gs.parent_block){
-                if(gs.parent_block == $B.builtins_scope){break}
-                else if(gs.parent_block.id === undefined){break}
-                gs = gs.parent_block
-            }
-            search_ids.push('"' + gs.id + '"')
-        }
-        search_ids = "[" + search_ids.join(", ") + "]"
-
-        if (innermost.globals && innermost.globals.has(val)){
-            search_ids = ['"' + gs.id + '"']
-            innermost = gs
-        }
-
-        if($test){
-            console.log("search ids", search_ids)
-        }
-
-        if(this.bound){
-            var bscope = this.firstBindingScopeId()
-            if($test){console.log("binding", bscope)}
-            // Might be undefined, for augmented assignments or if the name
-            // has been deleted before (by del)
-            if(bscope !== undefined){
-                return "locals_" + bscope.replace(/\./g, "_") + '["' +
-                    val + '"]'
-            }else if(this.bound){
-                return "locals_" + innermost.id.replace(/\./g, "_") +
-                    '["' + val + '"]'
-            }
-        }
-
-        var global_ns = 'locals_' + gs.id.replace(/\./g, '_')
-
-        // Build the list of scopes where the variable name is bound
-        while(1){
-            if(scope.globals !== undefined &&
-                    scope.globals.has(val)){
-                if($test){
-                    console.log("in globals of", scope.id)
-                }
-                // Variable is declared as global. If the name is bound in the
-                // global scope, use it ; if the name is being bound, bind it
-                // in the global namespace.
-                // Else return a call to a function that searches the name in
-                // globals, and throws NameError if not found.
-                if(this.boundBefore(gs)){
-                    if($test){console.log("bound before in gs", gs)}
-                    return global_ns + '["' + val + '"]'
+        var value = this.value,
+            scope = this.scope
+        while(scope){
+            if(scope.binding.hasOwnProperty(value)){
+                if(scope === this.scope){
+                    return "locals." + value
+                }else if(scope.id == "__builtins__"){
+                    return "_b_." + value
                 }else{
-                    if($test){console.log("use global search", this)}
-                    if(this.augm_assign){
-                        return global_ns + '["' + val + '"]'
-                    }else{
-                        return '$B.$global_search("' + val + '")'
-                    }
+                    return "locals_" + scope.id + "." + value
                 }
             }
-            if($test){
-                console.log("scope", scope, "innermost", innermost,
-                    scope === innermost, "bound_before", bound_before,
-                    "found", found.slice())
-            }
-            if(scope === innermost){
-                // Handle the case when the same name is used at both sides
-                // of an assignment and the right side is defined in an
-                // upper scope, eg "range = range"
-                if(bound_before){
-                    if(bound_before.indexOf(val) > -1){found.push(scope)}
-                    else if(scope.context &&
-                            scope.context.tree[0].type == 'def' &&
-                            scope.context.tree[0].env.indexOf(val) > -1){
-                        found.push(scope)
-                    }
-                }else{
-                    if(scope.binding[val]){
-                        // the name is bound somewhere in the local scope
-                        if(this_node.locals[val] === undefined){
-                            // the name is referenced (not bound) but it was
-                            // not bound before the current statement
-                            if(!scope.is_comp &&
-                                    (!scope.parent_block ||
-                                        !scope.parent_block.is_comp)){
-                                // put scope in found, except if the scope is
-                                // a comprehension or generator expression
-                                found.push(scope)
-                            }
-                        }else{
-                            found.push(scope)
-                            break
-                        }
-                        if($test){console.log(val, "found in", scope.id)}
-                    }
-                }
-            }else{
-                if(scope.binding === undefined){
-                    console.log("scope", scope, val, "no binding", innermost)
-                }
-                if(scope.binding[val]){
-                    found.push(scope)
-                }
-            }
-            if(scope.parent_block){scope = scope.parent_block}
-            else{break}
+            scope = scope.parent_block
         }
-        this.found = found
-        if($test){
-            console.log("found", found)
-            found.forEach(function(item){
-                console.log(item.id)
-            })
-        }
-
-        if(found.length > 0){
-            // If name is not in the left part of an assignment,
-            // and it is bound in the current block but not yet bound when the
-            // line is parsed,
-            // and it is not an internal variable starting with "$",
-            // return the execution of function $B.$local_search(val) in
-            // py_utils.js that searches the name in the local namespace
-            // and raises UnboundLocalError if it is undefined
-
-            // The id may be valid in code like :
-
-            // def f():
-            //     for i in range(2):
-            //         if i == 1:
-            //             return x   # x is local but not yet found by parser
-            //         elif i == 0:
-            //             x = 'ok'
-
-            if(found[0].context && found[0] === innermost
-                    && val.charAt(0) != '$'){
-                var locs = this_node.locals || {}
-
-                if(locs[val] === undefined &&
-                        ((innermost.type != 'def' ||
-                             innermost.type != 'generator') &&
-                        innermost.ntype != 'class' &&
-                        innermost.context.tree[0].args.indexOf(val) == -1) &&
-                        (nonlocs === undefined || nonlocs[val] === undefined)){
-                    this.result = '$B.$local_search("' + val + '")'
-                    return this.result
-                }
-            }
-            if(found.length > 1 && found[0].context){
-                if(found[0].context.tree[0].type == 'class'){
-                    var ns0 = 'locals_' + found[0].id.replace(/\./g, '_'),
-                        ns1 = 'locals_' + found[1].id.replace(/\./g, '_'),
-                        res
-
-                    // If the id is referenced in a class body, and an id of
-                    // the same name is bound in an upper scope, we must check
-                    // if it has already been bound in the class, else we use
-                    // the upper scope
-                    // This happens in code like
-                    //
-                    //    x = 0
-                    //    class A:
-                    //        print(x)    # should print 0
-                    //        def x(self):
-                    //            pass
-                    //        print(x)    # should print '<function x>'
-                    //
-                    if(bound_before){
-                        if(bound_before.indexOf(val) > -1){
-                            this.found = found[0].binding[val]
-                            res = ns0
-                        }else{
-                            this.found = found[1].binding[val]
-                            res = ns1
-                        }
-                        this.result = res + '["' + val + '"]'
-                        return this.result
-                    }else{
-                        this.found = false
-                        var res = ns0 + '["' + val + '"] !== undefined ? '
-                        res += ns0 + '["' + val + '"] : '
-                        this.result = "(" + res + ns1 + '["' + val + '"])'
-                        return this.result
-                    }
-                }
-            }
-
-            var scope = found[0]
-            this.found = scope.binding[val]
-
-            var scope_ns = 'locals_' + scope.id.replace(/\./g, '_')
-            if(scope === innermost){
-               scope_ns = 'locals'
-            }
-
-            if(scope.context === undefined){
-                if($test){console.log("module level", scope.id, scope.module)}
-                // name found at module level
-                if(scope.id == '__builtins__'){
-                    if(gs.blurred){
-                        // If the program has "from <module> import *" we
-                        // can't be sure by syntax analysis that the builtin
-                        // name is not overridden
-                        val = '(' + global_ns + '["' + val + '"] || ' + val + ')'
-                    }else{
-                        // Builtin name ; it might be redefined inside the
-                        // script, eg to redefine open()
-                        if(val !== '__builtins__'){
-                            val = '$B.builtins.' + val
-                        }
-                        this.is_builtin = true
-                    }
-                }else{
-                    // Name found at module level
-                    if($test){console.log("name found at module level")}
-                    if(this.bound || this.augm_assign){
-                        // If the id is in the left part of a binding or
-                        // an augmented assign, eg "x = 0" or "x += 5"
-                        val = scope_ns + '.' + val
-                    }else{
-                        if(scope === innermost && this.env[val] === undefined){
-                            // Call a function to return the value if it is
-                            // defined in locals or globals, or raise a
-                            // NameError
-                            this.result = '$B.$search("' + val + '")'
-                            return this.result
-                        }else{
-                            if($test){
-                                console.log("boudn before ?", this.boundBefore(scope))
-                            }
-                            if(this.boundBefore(scope)){
-                                // We are sure that the name is defined in the
-                                // scope
-                                val = scope_ns + '.' + val
-                            }else{
-                                // Else we must check if the name is actually
-                                // defined, cf issue #362. This can be the case
-                                // in code like :
-                                //     if False:
-                                //         x = 0
-                                if($test){console.log("use check def")}
-                                val = '$B.$check_def("' + val + '",' +
-                                    scope_ns + '["' + val + '"])'
-                            }
-                        }
-                    }
-                }
-            }else if(scope === innermost){
-                if($test){console.log("scope is innermost", scope.id)}
-                if(scope.globals && scope.globals.has(val)){
-                    val = global_ns + '["' + val + '"]'
-                }else if(!this.bound && !this.augm_assign){
-                    // Search all the lines in the scope where the name is
-                    // bound. If it is not "above" the current line when going
-                    // up the code tree, use $check_def_local which will
-                    // check at run time if the name is defined or not.
-                    // Cf. issue #836
-                    if(this.boundBefore(scope)){
-                        val = 'locals.' + val
-                    }else{
-                        val = '$B.$check_def_local("' + val + '",locals["' +
-                            val + '"])'
-                    }
-                }else{
-                    val = 'locals.' + val
-                }
-            }else if(!this.augm_assign){
-                // name was found between innermost and the global of builtins
-                // namespace
-                if(scope.ntype == 'generator'){
-                    // If the name is bound in a generator, we must search the
-                    // value in the locals object for the currently executed
-                    // function. It can be found as the second element of the
-                    // frame stack at the same level up than the generator
-                    // function.
-                    var up = 0, // number of levels of the generator above innermost
-                        sc = innermost
-                    while(sc !== scope){up++; sc = sc.parent_block}
-                    var scope_name = "$B.frames_stack[$B.frames_stack.length-1-" +
-                        up + "][1]"
-                    val = '$B.$check_def_free1("' + val + '", "' +
-                        scope.id.replace(/\./g, "_") + '")'
-                }else{
-                    val = '$B.$check_def_free("' + val + '",' + scope_ns +
-                        '["' + val + '"])'
-                }
-            }else{
-                val = scope_ns + '["' + val + '"]'
-            }
-            this.result = val + $to_js(this.tree, '')
-            return this.result
-        }else{
-            // Name was not found in bound names
-            // It may have been introduced in the globals namespace by an exec,
-            // or by "from A import *"
-
-            // First set attribute "unknown_binding", used to avoid using
-            // augmented assignement operators in this case
-            this.unknown_binding = true
-
-            // If the name exists at run time in the global namespace, use it,
-            // else raise a NameError
-            // Function $search is defined in py_utils.js
-
-            this.result = '$B.$global_search("' + val + '")'
-            return this.result
-        }
+        return "$B.search('" + value + "')"
     }
 }
 
