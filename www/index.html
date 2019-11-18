@@ -64,7 +64,10 @@ def f(y, z=3)
 assert f(5, z=6, *t, **kw) == 11
 assert f(5) == 8
 
-#print(document.select("#test"))
+elts = document.select("#test")
+print(elts)
+for elt in elts
+  print(elt.innerText)
 </script>
 </body>
 </html>

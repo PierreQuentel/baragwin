@@ -24,6 +24,12 @@ $B.args = function(fname, args, required, defaults, extra_pos, extra_kw){
         extra_kw,
         $ = {name: fname}
 
+    if(required === undefined){
+        required = []
+        defaults = {}
+    }else if(defaults === undefined){
+        defaults = {}
+    }
     if(extra_pos){$[extra_pos] = []}
     if(extra_kw){$[extra_kw] = {}}
 
@@ -42,7 +48,7 @@ $B.args = function(fname, args, required, defaults, extra_pos, extra_kw){
 
     for(key in args){
         if($[key] !== undefined){
-            throw _b_.TypeError.$factory("double argument: " + key.substr(1))
+            throw _b_.$TypeError.$factory("double argument: " + key.substr(1))
         }
         if(required.indexOf(key) > -1){
             $[key] = args[key]
@@ -60,7 +66,7 @@ $B.args = function(fname, args, required, defaults, extra_pos, extra_kw){
             if(defaults[x] !== undefined){
                 $[x] = defaults[x]
             }else{
-                throw _b_.TypeError.$factory("no value for " + x)
+                throw _b_.$TypeError.$factory("no value for " + x)
             }
         }
     }

@@ -172,9 +172,8 @@
                     }
                 }
 
-                dict.__init__ = function(){
-                    var $ns = $B.args('pow', 1, {self: null}, ['self'],
-                        arguments, {}, 'args', 'kw'),
+                dict.__init__ = function(args){
+                    var $ns = $B.args('pow', args, ['self'], {}, 'args', 'kw'),
                         self = $ns['self'],
                         args = $ns['args']
                     if(args.length == 1){
@@ -210,30 +209,29 @@
                     }
 
                     // attributes
-                    var items = _b_.list.$factory(_b_.dict.items($ns['kw']))
-                    for(var i = 0, len = items.length; i < len; i++){
+                    var items = $ns['kw']
+                    for(var key in items){
                         // keyword arguments
-                        var arg = items[i][0],
-                            value = items[i][1]
-                        if(arg.toLowerCase().substr(0,2) == "on"){
+                        var value = items[key]
+                        if(key.toLowerCase().substr(0,2) == "on"){
                             // Event binding passed as argument "onclick", "onfocus"...
                             // Better use method bind of DOMNode objects
                             var js = '$B.DOMNode.bind(self,"' +
-                                arg.toLowerCase().substr(2)
+                                key.toLowerCase().substr(2)
                             eval(js + '",function(){' + value + '})')
-                        }else if(arg.toLowerCase() == "style"){
-                            $B.DOMNode.set_style(self,value)
+                        }else if(key.toLowerCase() == "style"){
+                            $B.DOMNode.set_style(self, value)
                         }else{
                             if(value !== false){
                                 // option.selected = false sets it to true :-)
                                 try{
                                     // Call attribute mapper (cf. issue#1187)
                                     arg = $B.imported["browser.html"].
-                                        attribute_mapper(arg)
-                                    self.elt.setAttribute(arg, value)
+                                        attribute_mapper(key)
+                                    self.elt.setAttribute(key, value)
                                 }catch(err){
                                     throw _b_.ValueError.$factory(
-                                        "can't set attribute " + arg)
+                                        "can't set attribute " + key)
                                 }
                             }
                         }
@@ -281,7 +279,7 @@
                     }
                     res.__class__ = klass
                     // apply __init__
-                    klass.__init__(res, ...arguments)
+                    klass.__init__([res].concat(Array.prototype.slice.call(arguments)))
                     return res
                 }
                 return factory

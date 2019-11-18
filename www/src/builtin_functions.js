@@ -898,7 +898,7 @@ $B.$getattr = function(obj, attr, _default){
     if(obj === undefined){
         console.log("get attr", attr, "of undefined")
     }
-
+    
     var is_class = obj.$is_class || obj.$factory
 
     var klass = obj.__class__ || $B.get_class(obj),
@@ -923,15 +923,22 @@ $B.$getattr = function(obj, attr, _default){
                 }
             }
         }
-        
     }else{
         var classes = [klass].concat(klass.__mro__)
         for(var i = 0, len = classes.length; i < len; i++){
             if((res = classes[i][attr]) !== undefined){
                 if(typeof res == "function"){
                     var method = function(args){
-                        if(args === undefined){args = {}}
-                        args.self = obj
+                        if(args === undefined){
+                            args = {}
+                        }else{
+                            var i = 0
+                            while(args[i] !== undefined){i++}
+                            for(var j = i; j > 0; j--){
+                                args[j] = args[j - 1]
+                            }
+                            args[0] = obj
+                        }
                         return res(args)
                     }
                     method.__class__ = $B.method

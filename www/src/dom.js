@@ -570,11 +570,14 @@ DOMNode.$factory = function(elt, fromtag){
         // add a unique id for comparisons
         elt.$baragwin_id = "DOM-" + $B.UUID()
     }
-
+    elt.__class__ = DOMNode
+    return elt
+    /*
     return {
         __class__: DOMNode,
         elt: elt
     }
+    */
 }
 
 
@@ -923,7 +926,7 @@ DOMNode.__radd__ = function(self, other){ // add to a string
 }
 
 DOMNode.__str__ = DOMNode.__repr__ = function(self){
-    var proto = Object.getPrototypeOf(self.elt)
+    var proto = Object.getPrototypeOf(self)
     if(proto){
         var name = proto.constructor.name
         if(name === undefined){ // IE
@@ -933,8 +936,8 @@ DOMNode.__str__ = DOMNode.__repr__ = function(self){
         return "<" + name + " object>"
     }
     var res = "<DOMNode object type '"
-    return res + $NodeTypes[self.elt.nodeType] + "' name '" +
-        self.elt.nodeName + "'>"
+    return res + $NodeTypes[self.nodeType] + "' name '" +
+        self.nodeName + "'>"
 }
 
 DOMNode.__setattr__ = function(self, attr, value){
@@ -1186,7 +1189,7 @@ DOMNode.get = function(self){
     var obj = self.elt,
         args = []
     for(var i = 1; i < arguments.length; i++){args.push(arguments[i])}
-    var $ns = $B.args("get", 0, {}, [], args, {}, null, "kw"),
+    var $ns = $B.args("get", args, [], {}, null, "kw"),
         $dict = {},
         items = _b_.list.$factory(_b_.dict.items($ns["kw"]))
     items.forEach(function(item){
@@ -1302,13 +1305,12 @@ DOMNode.reset = function(self){ // for FORM
 
 DOMNode.select = function(args){
     // alias for get(selector=...)
-    console.log("DOMNode.select receives args", args) 
-    var $ = $B.args("select", args, ["self", "selector"], {}, null, null)
-    if($.self.elt.querySelectorAll === undefined){
+    var $ = $B.args("select", args, ["self", "selector"])
+    if($.self.querySelectorAll === undefined){
         throw _b_.TypeError.$factory("DOMNode object doesn't support " +
             "selection by selector")
     }
-    return make_list($.self.elt.querySelectorAll($.selector))
+    return make_list($.self.querySelectorAll($.selector))
 }
 
 DOMNode.select_one = function(self, selector){

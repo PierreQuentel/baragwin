@@ -407,7 +407,7 @@ BaseException.__getattr__ = function(self, attr){
 }
 
 BaseException.info = function(args){
-    var $ = $B.args("info", args, ["self"], {}, null, null)
+    var $ = $B.args("info", args, ["self"])
     return getExceptionTrace($.self, false)
 }
 BaseException.with_traceback = function(self, tb){

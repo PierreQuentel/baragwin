@@ -903,7 +903,7 @@ var $AssignCtx = $B.parser.$AssignCtx = function(context, expression){
                 rlname = create_temp_name('rlist'),
                 rjs = right.to_js()
 
-            var new_node = $NodeJS('var ' + rlname + ' = $B.to_list(' + 
+            var new_node = $NodeJS('var ' + rlname + ' = $B.to_list(' +
                 rjs + ", " + left_items.length +")")
             new_node.line_num = node.line_num // set attribute line_num for debugging
             node.parent.insert(rank++, new_node)
@@ -2733,9 +2733,6 @@ var $ForExpr = $B.parser.$ForExpr = function(context){
     this.toString = function(){return '(for) ' + this.tree}
 
     this.transform = function(node,rank){
-        if(this.async){
-            return this.transform_async(node, rank)
-        }
         var scope = $get_scope(this),
             target = this.tree[0],
             target_is_1_tuple = target.tree.length == 1 && target.expect == 'id',
@@ -2744,23 +2741,10 @@ var $ForExpr = $B.parser.$ForExpr = function(context){
             local_ns = 'locals_' + scope.id.replace(/\./g, '_'),
             h = '\n' + ' '.repeat(node.indent + 4)
 
-        // Because loops like "for x in range(...)" are very common and can be
-        // optimised, check if the target is a call to the builtin function
-        // "range"
-        var $range = false
-        if(target.tree.length == 1 &&
-                ! scope.blurred &&
-                target.expct != 'id' &&
-                iterable.type == 'expr' &&
-                iterable.tree[0].type == 'expr' &&
-                iterable.tree[0].tree[0].type == 'call'){
-            var call = iterable.tree[0].tree[0]
-            if(call.func.type == 'id'){
-                var func_name = call.func.value
-                if(func_name == 'range' && call.tree.length < 3 &&
-                        call.tree.length > 0){ // issue 1104
-                    $range = call
-                }
+        for(var i = 0, len = target.tree.length; i < len; i++){
+            var tg = target.tree[i]
+            if(tg.type == "expr" && tg.tree[0].type == "id"){
+                $bind(tg.tree[0].value, scope, this.parent)
             }
         }
 
@@ -4622,6 +4606,41 @@ var $StringCtx = $B.parser.$StringCtx = function(context,value){
     }
 }
 
+function $StructCtx(context){
+    this.type = "struct"
+    var node = context.parent
+    this.parent = context.parent
+    this.tree = []
+    this.expect = "id"
+
+    this.id = context.tree[0]
+    context.parent.tree = [this]
+
+    var scope = $get_scope(context)
+    $bind(context.tree[0].value, scope, context)
+
+    this.transform = function(node, rank){
+        console.log(this.tree)
+        var create_obj_node = $NodeJS("return")
+        var params = []
+        this.tree.forEach(function(item, i){
+            params.push('"' + item + '"')
+            line = item + ": $." + item
+            if(i < this.tree.length - 1){
+                line += ","
+            }
+            create_obj_node.add($NodeJS(line))
+        }, this)
+        node.add($NodeJS('var $ = $B.args("' + this.id.value + '", args, [' +
+            params.join(", ") + "])"))
+        node.add(create_obj_node)
+}
+
+    this.to_js = function(){
+        return this.id.to_js() + " = function(args)"
+    }
+
+}
 var $SubCtx = $B.parser.$SubCtx = function(context){
     // Class for subscription or slicing, eg x in t[x]
     this.type = 'sub'
@@ -5247,7 +5266,7 @@ var $to_js = $B.parser.$to_js = function(tree,sep){
 // Python source code
 
 var $transition = function(context, token, value){
-    // console.log("context", context, "token", token, value)
+    //console.log("context", context, "token", token, value)
     switch(context.type){
         case 'abstract_expr':
 
@@ -6014,6 +6033,8 @@ var $transition = function(context, token, value){
                 return new $AbstractExprCtx(new $SubCtx(context), true)
             case '(':
                 return new $CallCtx(context)
+            case ':':
+                return new $StructCtx(context)
             case 'op':
                 // handle operator precedence ; fasten seat belt ;-)
                 var op_parent = context.parent,
@@ -6298,15 +6319,14 @@ var $transition = function(context, token, value){
                 case 'in':
                     return new $AbstractExprCtx(
                         new $ExprCtx(context,'target list', true), false)
-                case ':':
+                case 'eol':
                     if(context.tree.length < 2 // issue 638
                             || context.tree[1].tree[0].type == "abstract_expr"){
-                        $_SyntaxError(context, 'token ' + token + ' after ' +
-                            context)
+                        $_SyntaxError(context, 'token ' + token)
                     }
-                    return $BodyCtx(context)
+                    return context.parent
             }
-            $_SyntaxError(context, 'token ' + token + ' after ' + context)
+            $_SyntaxError(context, 'token ' + token)
 
         case 'from':
             switch(token) {
@@ -7081,6 +7101,32 @@ var $transition = function(context, token, value){
                     return context
             }
             return $transition(context.parent, token, value)
+
+        case 'struct':
+            switch(token){
+                case 'id':
+                    if(context.expect == "id"){
+                        context.tree.push(value)
+                        context.expect = ","
+                        return context
+                    }
+                    $_SyntaxError(context, 'token ' + token)
+                case ',':
+                    if(context.expect == ","){
+                        context.expect = "id"
+                        return context
+                    }
+                    $_SyntaxError(context, 'token ' + token)
+                case 'eol':
+                    if(context.expect == ","){
+                        return context.parent
+                    }
+                    $_SyntaxError(context, 'token ' + token)
+                default:
+                    $_SyntaxError(context, 'token ' + token)
+
+            }
+
         case 'sub':
             // subscription x[a] or slicing x[a:b:c]
             switch(token) {
