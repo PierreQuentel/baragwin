@@ -2573,6 +2573,27 @@ var $EndOfPositionalCtx = $B.parser.$EndOfConditionalCtx = function(context){
     }
 }
 
+
+function $EventCtx(context){
+    this.type = "event"
+    this.parent = context
+    this.tree = []
+    this.expect = "id"
+    this.var_name = ""
+
+    context.tree = [this]
+
+    this.transform = function(node, rank){
+        node.parent.insert(rank + 1, $NodeJS("])"))
+    }
+
+    this.to_js = function(){
+        var js = "$B.DOMNode.bind([" + this.tree[0].to_js() +
+            ', "' + this.event_name + '", function(' + this.var_name + ")"
+        return js
+    }
+}
+
 var $ExceptCtx = $B.parser.$ExceptCtx = function(context){
     // Class for keyword "except"
     this.type = 'except'
@@ -3374,7 +3395,7 @@ var $IdCtx = $B.parser.$IdCtx = function(context, value){
             }
             scope = scope.parent_block
         }
-        return "$B.search('" + value + "')"
+        return "$B.$global_search('" + value + "')"
     }
 }
 
@@ -5912,6 +5933,44 @@ var $transition = function(context, token, value){
             }
             $_SyntaxError(context, 'token ' + token + ' after ' + context)
 
+        case 'event':
+            switch(token){
+                case 'id':
+                    if(context.expect == "id"){
+                        context.event_name = value
+                        context.expect = "on"
+                        return context
+                    }else if(context.expect == "expr"){
+                        context.expect = "as"
+                        var expr = new $ExprCtx(context, "event", false)
+                        expr.tree[0] = new $IdCtx(expr, value)
+                        return expr
+                    }else if(context.expect == "alias"){
+                        context.expect = "eol"
+                        context.var_name = value
+                        return context
+                    }
+                    $_SyntaxError(context, 'token ' + token + ", expected id")
+                case 'on':
+                    if(context.expect == "on"){
+                        context.expect = "expr"
+                        return context
+                    }
+                    $_SyntaxError(context, 'token ' + token + ", expected 'on'")
+                case 'as':
+                    if(context.expect == "as"){
+                        context.expect = "alias"
+                        return context
+                    }
+                    $_SyntaxError(context, 'token ' + token)
+                case 'eol':
+                    if(context.expect == "as" || context.expect == "eol"){
+                        return context.parent
+                    }
+                    $_SyntaxError(context, 'token ' + token)
+            }
+            $_SyntaxError(context, 'token ' + token)
+
         case 'except':
             switch(token) {
                 case 'id':
@@ -6840,25 +6899,23 @@ var $transition = function(context, token, value){
                             return $transition(expr, token, value)
                     }
                     break
+                case 'assert':
+                    return new $AbstractExprCtx(
+                        new $AssertCtx(context), 'assert', true)
                 case 'async':
                     return new $AsyncCtx(context)
                 case 'await':
                     return new $AbstractExprCtx(new $AwaitCtx(context), true)
-                    /*
-                    var yexpr = new $AbstractExprCtx(
-                        new $YieldCtx(context, true), true)
-                    return $transition(yexpr, "from")
-                    */
                 case 'class':
                     return new $ClassCtx(context)
                 case 'continue':
                     return new $ContinueCtx(context)
-                case '__debugger__':
-                    return new $DebuggerCtx(context)
                 case 'break':
                     return new $BreakCtx(context)
                 case 'def':
                     return new $DefCtx(context)
+                case 'del':
+                    return new $AbstractExprCtx(new $DelCtx(context),true)
                 case 'for':
                     return new $TargetListCtx(new $ForExpr(context))
                 case 'if':
@@ -6880,6 +6937,8 @@ var $transition = function(context, token, value){
                         $_SyntaxError(context, 'else after ' + previous.type)
                     }
                     return new $SingleKwCtx(context,token)
+                case 'event':
+                    return new $EventCtx(context)
                 case 'finally':
                     var previous = $previous(context)
                     if(['try', 'except'].indexOf(previous.type) == -1 &&
@@ -6888,17 +6947,12 @@ var $transition = function(context, token, value){
                         $_SyntaxError(context, 'finally after ' + previous.type)
                     }
                     return new $SingleKwCtx(context,token)
-                case 'try':
-                    return new $TryCtx(context)
                 case 'except':
                     var previous = $previous(context)
                     if(['try', 'except'].indexOf(previous.type) == -1){
                         $_SyntaxError(context, 'except after ' + previous.type)
                     }
                     return new $ExceptCtx(context)
-                case 'assert':
-                    return new $AbstractExprCtx(
-                        new $AssertCtx(context), 'assert', true)
                 case 'from':
                     return new $FromCtx(context)
                 case 'import':
@@ -6913,10 +6967,10 @@ var $transition = function(context, token, value){
                     return new $AbstractExprCtx(new $RaiseCtx(context), true)
                 case 'return':
                     return new $AbstractExprCtx(new $ReturnCtx(context),true)
+                case 'try':
+                    return new $TryCtx(context)
                 case 'yield':
                     return new $AbstractExprCtx(new $YieldCtx(context),true)
-                case 'del':
-                    return new $AbstractExprCtx(new $DelCtx(context),true)
                 case '@':
                     return new $DecoratorCtx(context)
                 case 'eol':
@@ -7275,6 +7329,7 @@ var $tokenize = $B.parser.$tokenize = function(root, src) {
         br_stack = "",
         br_pos = []
     var kwdict = [
+        "event", "on",
         "class", "return", "break", "for", "lambda", "try", "finally",
         "raise", "def", "from", "while", "del", "global",
         "as", "elif", "else", "if", "yield", "assert", "import",
@@ -7283,7 +7338,8 @@ var $tokenize = $B.parser.$tokenize = function(root, src) {
         ]
     var unsupported = []
     var $indented = [
-        "class", "def", "for", "condition", "single_kw", "try", "except"
+        "class", "def", "for", "condition", "single_kw", "try", "except",
+            "event"
     ]
     // from https://developer.mozilla.org/en-US/docs/JavaScript/Reference/Reserved_Words
 

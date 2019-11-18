@@ -286,7 +286,7 @@ $B.$global_search = function(name){
             return frame[name]
         }
     }
-    throw _b_.NameError.$factory("name '" + name.substr(1) +
+    throw _b_.$NameError.$factory("name '" + name.substr(1) +
         "' is not defined")
 }
 

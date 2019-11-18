@@ -1054,12 +1054,10 @@ DOMNode.abs_top = {
     }
 }
 
-DOMNode.bind = function(self, event){
+DOMNode.bind = function(args){
     // bind functions to the event (event = "click", "mouseover" etc.)
-    var $ = $B.args("bind", 4,
-            {self: null, event: null, func: null, options: null},
-            ["self", "event", "func", "options"], arguments,
-            {options: _b_.None}, null, null),
+    var $ = $B.args("bind", args, ["self", "event", "func", "options"], 
+            {options: _b_.$None}),
             self = $.self,
             event = $.event,
             func = $.func,
@@ -1087,15 +1085,15 @@ DOMNode.bind = function(self, event){
     callback.$attrs = func.$attrs || {}
     callback.$func = func
     if(typeof options == "boolean"){
-        self.elt.addEventListener(event, callback, options)
+        self.addEventListener(event, callback, options)
     }else if(options.__class__ === _b_.dict){
-        self.elt.addEventListener(event, callback, options.$string_dict)
-    }else if(options === _b_.None){
-        self.elt.addEventListener(event, callback, false)
+        self.addEventListener(event, callback, options)
+    }else if(options === _b_.$None){
+        self.addEventListener(event, callback, false)
     }
-    self.elt.$events = self.elt.$events || {}
-    self.elt.$events[event] = self.elt.$events[event] || []
-    self.elt.$events[event].push([func, callback])
+    self.events = self.events || {}
+    self.events[event] = self.events[event] || []
+    self.events[event].push([func, callback])
     return self
 }
 
