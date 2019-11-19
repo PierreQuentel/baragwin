@@ -95,11 +95,11 @@
         browser.self.js.send = self.postMessage
     } else {
         browser.is_webworker = false
-        _b_.$document = $B.DOMNode.$factory(document)
-        _b_.$window = $B.win
+        _b_.$Document = $B.DOMNode.$factory(document)
+        _b_.$Window = $B.JSObject.$factory(window)
         update(browser, {
             $$alert:function(message){
-                window.alert($B.builtins.str.$factory(message))
+                window.alert($B.builtins.$str.$factory(message))
             },
             confirm: $B.JSObject.$factory(window.confirm),
             $$document:$B.DOMNode.$factory(document),
@@ -152,7 +152,7 @@
                 results = regex.exec(location.search);
             results = results === null ? "" :
                 decodeURIComponent(results[1].replace(/\+/g, " "));
-            return $B.builtins.str.$factory(results);
+            return $B.builtins.$str.$factory(results);
             }
         })
 
@@ -173,9 +173,10 @@
                 }
 
                 dict.__init__ = function(args){
-                    var $ns = $B.args('pow', args, ['self'], {}, 'args', 'kw'),
-                        self = $ns['self'],
-                        args = $ns['args']
+                    var $ns = $B.args('__init__', args, ['$self'], {}, 
+                            '$args', '$kw'),
+                        self = $ns['$self'],
+                        args = $ns['$args']
                     if(args.length == 1){
                         var first = args[0]
                         if(_b_.isinstance(first,[_b_.str, _b_.int, _b_.float])){
@@ -264,7 +265,6 @@
             function makeFactory(klass){
                 var factory = function(){
                     if(klass.$elt_wrap !== undefined) {
-                        // DOMNode is piggybacking on us to autogenerate a node
                         var elt = klass.$elt_wrap  // keep track of the to wrap element
                         klass.$elt_wrap = undefined  // nullify for later calls
                         var res = $B.DOMNode.$factory(elt, true)  // generate the wrapped DOMNode
