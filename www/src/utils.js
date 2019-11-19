@@ -31,11 +31,9 @@ $B.args = function(fname, args, required, defaults, extra_pos, extra_kw){
         defaults = {}
     }
     if(extra_pos){
-        extra_pos = '$' + extra_pos
         $[extra_pos] = []
     }
     if(extra_kw){
-        extra_kw = '$' + extra_kw
         $[extra_kw] = {}
     }
     var positionals = [],
@@ -49,7 +47,8 @@ $B.args = function(fname, args, required, defaults, extra_pos, extra_kw){
         }else if(extra_pos){
             $[extra_pos].push(args[i])
         }else{
-            throw _b_.$TypeError.$factory(fname.substr(1) + " got too many arguments")
+            throw _b_.$TypeError.$factory(fname.substr(1) +
+                " got too many arguments")
         }
         delete args[i]
         i++
@@ -65,6 +64,7 @@ $B.args = function(fname, args, required, defaults, extra_pos, extra_kw){
         }else if(extra_kw){
             $[extra_kw][key] = args[key]
         }else{
+            console.log("required", required, "$", $)
             throw _b_.$TypeError.$factory("unexpected keyword argument for " +
                 fname.substr(1) + ": " + key.substr(1))
         }
@@ -164,6 +164,13 @@ $B.to_list = function(obj, expected){
     return list
 }
 
+$B.test_iter = function(candidate){
+    if(candidate[Symbol.iterator] === undefined){
+        throw _b_.$TypeError.$factory($B.class_name(candidate) +
+            " object is not iterable")
+    }
+}
+
 $B.$list_comp = function(items){
     // Called for list comprehensions
     // items[0] is the Python code for the comprehension expression
@@ -175,11 +182,13 @@ $B.$list_comp = function(items){
         indent = 0
     for(var i = 1, len = items.length; i < len; i++){
         var item = items[i].replace(/\s+$/, "").replace(/\n/g, "")
-        py += " ".repeat(indent) + item + ":\n"
+        py += " ".repeat(indent) + item + "\n"
         indent += 4
     }
     py += " ".repeat(indent)
     py += "x" + ix + ".append(" + items[0] + ")\n"
+
+    console.log("list comp", py)
 
     return [py, ix]
 }

@@ -128,7 +128,6 @@ list.__eq__ = function(self, other){
 }
 
 list.__getitem__ = function(args){
-    console.log("args of getitem", args)
     var $ = $B.args("__getitem__", args,
         ["self", "key"]),
         self = $.self,
@@ -142,7 +141,7 @@ list.__getitem__ = function(args){
         if(key < 0){pos = items.length + pos}
         if(pos >= 0 && pos < items.length){return items[pos]}
 
-        throw _b_.IndexError.$factory("list index out of range")
+        throw _b_.$IndexError.$factory("list index out of range")
     }
     if(_b_.$isinstance(key, _b_.$slice)){
         // Find integer values for start, stop and step
@@ -289,8 +288,8 @@ list.__le__ = function(self, other){
     return ! res
 }
 
-list.__len__ = function(self){
-    return self.length
+list.len = function(args){
+    return args[0].length
 }
 
 list.__lt__ = function(self, other){
@@ -425,29 +424,26 @@ $B.make_rmethods(list)
 
 var _ops = ["add", "sub"]
 
-list.append = function(){
-    var $ = $B.args("append", 2 ,{self: null, x: null}, ["self", "x"],
-        arguments, {}, null, null)
-    $.self[$.self.length] = $.x
+list.append = function(args){
+    var $ = $B.args("append", args, ["self", "x"])
+    console.log("append", $.x)
+    $.self.push($.x)
     return $N
 }
 
-list.clear = function(){
-    var $ = $B.args("clear", 1, {self: null}, ["self"],
-        arguments, {}, null, null)
+list.clear = function(args){
+    var $ = $B.args("clear", args, ["self"])
     while($.self.length){$.self.pop()}
     return $N
 }
 
-list.copy = function(){
-    var $ = $B.args("copy", 1, {self: null}, ["self"],
-        arguments, {}, null, null)
+list.copy = function(args){
+    var $ = $B.args("copy", args, ["self"])
     return $.self.slice()
 }
 
-list.count = function(){
-    var $ = $B.args("count", 2, {self: null, x: null}, ["self", "x"],
-        arguments, {}, null, null)
+list.count = function(args){
+    var $ = $B.args("count", args, ["self", "x"])
     var res = 0,
         _eq = function(other){return $B.rich_comp("__eq__", $.x, other)},
         i = $.self.length
@@ -455,9 +451,8 @@ list.count = function(){
     return res
 }
 
-list.extend = function(){
-    var $ = $B.args("extend", 2, {self: null, t: null}, ["self", "t"],
-        arguments, {}, null, null)
+list.extend = function(args){
+    var $ = $B.args("extend", args, ["self", "t"])
     var other = list.$factory($B.$iter($.t))
     for(var i = 0; i < other.length; i++){$.self.push(other[i])}
     return $N
@@ -497,10 +492,9 @@ list.insert = function(){
     return $N
 }
 
-list.pop = function(){
+list.pop = function(args){
     var missing = {}
-    var $ = $B.args("pop", 2, {self: null, pos: null}, ["self", "pos"],
-        arguments, {pos: missing}, null, null),
+    var $ = $B.args("pop", args, ["self", "pos"], {pos: missing}),
         self = $.self,
         pos = $.pos
     check_not_tuple(self, "pop")
@@ -515,21 +509,19 @@ list.pop = function(){
     return res
 }
 
-list.remove = function(){
-    var $ = $B.args("remove", 2, {self: null, x: null}, ["self", "x"],
-        arguments, {}, null, null)
+list.remove = function(args){
+    var $ = $B.args("remove", args, ["self", "x"])
     for(var i = 0, len = $.self.length; i < len; i++){
         if($B.rich_comp("__eq__", $.self[i], $.x)){
             $.self.splice(i, 1)
             return $N
         }
     }
-    throw _b_.ValueError.$factory(_b_.str.$factory($.x) + " is not in list")
+    throw _b_.$ValueError.$factory(_b_.str.$factory($.x) + " is not in list")
 }
 
-list.reverse = function(self){
-    var $ = $B.args("reverse", 1, {self: null}, ["self"],
-        arguments, {}, null, null),
+list.reverse = function(args){
+    var $ = $B.args("reverse", args, ["self"]),
         _len = $.self.length - 1,
         i = parseInt($.self.length / 2)
     while(i--){
@@ -613,20 +605,19 @@ function $elts_class(self){
     return cl
 }
 
-list.sort = function(self){
-    var $ = $B.args("sort", 1, {self: null}, ["self"],
-        arguments, {}, null, "kw")
+list.sort = function(args){
+    var $ = $B.args("sort", args, ["self"], {}, null, "kw")
 
     check_not_tuple(self, "sort")
     var func = $N,
         reverse = false,
         kw_args = $.kw,
-        keys = _b_.list.$factory(_b_.dict.$$keys(kw_args))
+        keys = Object.keys(kw_args)
 
-    for(var i = 0; i < keys.length; i++){
-        if(keys[i] == "key"){func = kw_args.$string_dict[keys[i]]}
-        else if(keys[i] == "reverse"){reverse = kw_args.$string_dict[keys[i]]}
-        else{throw _b_.TypeError.$factory("'" + keys[i] +
+    for(const key of keys){
+        if(key == "key"){func = kw_args[key]}
+        else if(key == "reverse"){reverse = kw_args[key]}
+        else{throw _b_.$TypeError.$factory("'" + key +
             "' is an invalid keyword argument for this function")}
     }
     if(self.length == 0){return}

@@ -570,7 +570,7 @@ JSObject.$factory = function(obj){
     // we need to do this or nan is returned, when doing json.loads(...)
     if(klass === _b_.$float){return _b_.$float.$factory(obj)}
     // Javascript array wrapper
-    if(klass === _b_.list){
+    if(klass === _b_.$list){
         return $B.JSArray.$factory(obj) // defined in py_list.js
     }
 

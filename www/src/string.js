@@ -614,13 +614,16 @@ var UnsupportedChar = function(){
     this.name = "UnsupportedChar"
 }
 
-str.__mod__ = function(self, args) {
-
+str.__mod__ = function(args) {
+    var $ = $B.args("__mod__", args, ["self", "args"]),
+        self = $.$self,
+        args = $.$args
+        
     var length = self.length,
         pos = 0 | 0,
         argpos = null,
         getitem
-    if(_b_.isinstance(args, _b_.tuple)){
+    if(_b_.$isinstance(args, _b_.tuple)){
         argpos = 0 | 0
     }else{
         getitem = _b_.getattr(args, "__getitem__", _b_.None)
@@ -631,7 +634,7 @@ str.__mod__ = function(self, args) {
         ++pos
         var rslt = kwarg_key.exec(s.substring(newpos))
         if(! rslt){
-            throw _b_.ValueError.$factory("incomplete format key")
+            throw _b_.$ValueError.$factory("incomplete format key")
         }
         var key = rslt[1]
         newpos += rslt[0].length
@@ -641,7 +644,7 @@ str.__mod__ = function(self, args) {
             if(err.name === "KeyError"){
                 throw err
             }
-            throw _b_.TypeError.$factory("format requires a mapping")
+            throw _b_.$TypeError.$factory("format requires a mapping")
         }
         return get_string_value(s, self)
     }
@@ -657,7 +660,7 @@ str.__mod__ = function(self, args) {
         }else{
             self = args[argpos++]
             if(self === undefined){
-                throw _b_.TypeError.$factory(
+                throw _b_.$TypeError.$factory(
                     "not enough arguments for format string")
             }
         }
@@ -683,9 +686,9 @@ str.__mod__ = function(self, args) {
                 if(err.name == "UnsupportedChar"){
                     invalid_char = s[newpos]
                     if(invalid_char === undefined){
-                        throw _b_.ValueError.$factory("incomplete format")
+                        throw _b_.$ValueError.$factory("incomplete format")
                     }
-                    throw _b_.ValueError.$factory(
+                    throw _b_.$ValueError.$factory(
                         "unsupported format character '" + invalid_char +
                         "' (0x" + invalid_char.charCodeAt(0).toString(16) +
                         ") at index " + newpos)
@@ -701,7 +704,7 @@ str.__mod__ = function(self, args) {
                     }else{
                         cls = cls.$infos.__name__
                     }
-                    throw _b_.TypeError.$factory("%" + try_char +
+                    throw _b_.$TypeError.$factory("%" + try_char +
                         " format: a number is required, not " + cls)
                 }else{
                     throw err
@@ -732,21 +735,21 @@ str.__mod__ = function(self, args) {
             }
         }else{
             // % at end of string
-            throw _b_.ValueError.$factory("incomplete format")
+            throw _b_.$ValueError.$factory("incomplete format")
         }
         pos = newpos + 1
     }while(pos < length)
 
     if(argpos !== null){
         if(args.length > argpos){
-            throw _b_.TypeError.$factory(
+            throw _b_.$TypeError.$factory(
                 "not enough arguments for format string")
         }else if(args.length < argpos){
-            throw _b_.TypeError.$factory(
+            throw _b_.$TypeError.$factory(
                 "not all arguments converted during string formatting")
         }
     }else if(nbph == 0){
-        throw _b_.TypeError.$factory(
+        throw _b_.$TypeError.$factory(
             "not all arguments converted during string formatting")
     }
     return ret
