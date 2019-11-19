@@ -869,11 +869,10 @@ function attr_error(attr, cname){
     }
 }
 
-function getattr(){
+function getattr(args){
     var missing = {}
-    var $ = $B.args("getattr", 3, {obj: null, attr: null, _default: null},
-        ["obj", "attr", "_default"], arguments, {_default: missing},
-        null, null)
+    var $ = $B.args("getattr", args3, ["obj", "attr", "_default"],
+            {_default: missing})
     return $B.$getattr($.obj, $.attr,
         $._default === missing ? undefined : $._default)
 }
@@ -895,8 +894,10 @@ $B.$getattr = function(obj, attr, _default){
     var rawname = attr
     attr = $B.to_alias(attr)
 
-    if(obj === undefined){
-        console.log("get attr", attr, "of undefined")
+    var test = attr == "Date"
+
+    if(test){
+        console.log("get attr", attr, "of", obj, obj.__class__ === $B.JSObject)
     }
 
     var is_class = obj.$is_class || obj.$factory
@@ -921,6 +922,28 @@ $B.$getattr = function(obj, attr, _default){
                 }else{
                     return res
                 }
+            }
+        }
+    }else if(klass === $B.JSObject){
+        var res = obj.js[attr.substr(1)]
+        if(res !== undefined){
+            if(typeof res == "function"){
+                var f = function(args){
+                    var $ = $B.args("$" + res.name, args, [], {}, "$args")
+                    return res.apply(obj.js, $.$args)
+                }
+                f.__class__ = $B.JSObject
+                f.js = res
+                return f
+            }else{
+                return $B.JSObject.$factory(res)
+            }
+        }else if(attr == "$new" && typeof obj.js == "function"){
+            return function(args){
+                var $ = $B.args(obj.js.name, args, [], {}, "$args"),
+                    factory = obj.js.bind.apply(obj.js, $.$args),
+                    res = new factory()
+                return $B.JSObject.$factory(res)
             }
         }
     }else{
@@ -949,11 +972,11 @@ $B.$getattr = function(obj, attr, _default){
                 }
             }
         }
-        if(_default){
-            return _default
-        }
-        throw _b_.$AttributeError.$factory(attr)
     }
+    if(_default){
+        return _default
+    }
+    throw _b_.$AttributeError.$factory(attr)
 }
 
 //globals() (built in function)
@@ -1297,23 +1320,6 @@ function iter(args){
     return $B.$iter($.obj, sentinel)
 }
 
-function len(args){
-    check_no_kw('len', args)
-    check_nb_args('len', 1, args)
-
-    var obj = args[0]
-
-    var klass = obj.__class__ || $B.get_class(obj)
-    console.log("get __len__ of", obj, klass)
-    try{
-        var method = $B.$getattr(klass, '__len__')
-    }catch(err){
-        throw _b_.$TypeError.$factory("object of type '" +
-            $B.class_name(obj) + "' has no len()")
-    }
-    return $B.$call(method)(obj)
-}
-
 function locals(){
     // The last item in __BARAGWIN__.frames_stack is
     // [locals_name, locals_obj, globals_name, globals_obj]
@@ -1627,8 +1633,7 @@ function pow(x, y) {
 }
 
 function $print(arg){
-    var $ = $B.args('print', arg, [], {}, 'args', 'kw')
-
+    var $ = $B.args('print', arg, [], {}, '$args', '$kw')
     var args = $.$args,
         kw = $.$kw,
         end = kw.$end === undefined ? "\n" : kw.$end,
@@ -1999,7 +2004,7 @@ $B.$setattr = function(obj, attr, value){
             obj.__dict__.$string_dict[attr] = value
         }
     }else{
-        _setattr(obj, attr, value)
+        _setattr([obj, attr, value])
     }
 
     return None
@@ -2655,7 +2660,7 @@ $B.builtin_funcs = [
     "abs", "all", "any", "ascii", "bin", "callable", "chr", "compile",
     "delattr", "dir", "divmod", "eval", "exec", "exit", "format", "getattr",
     "globals", "hasattr", "hash", "help", "hex", "id", "input", "isinstance",
-    "issubclass", "iter", "len", "locals", "max", "min", "next", "oct",
+    "issubclass", "iter", "locals", "max", "min", "next", "oct",
     "open", "ord", "pow", "print", "quit", "repr", "round", "setattr",
     "sorted", "sum", "vars"
 ]
