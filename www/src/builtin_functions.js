@@ -15,22 +15,13 @@ $B.$inv_comps = {'>': 'lt', '>=': 'le', '<': 'gt', '<=': 'ge'}
 
 function check_nb_args(name, expected, args){
     // Check the number of arguments
-    var len = args.length,
-        last = args[len - 1]
-    if(last && last.$nat == "kw"){
-        var kw = last.kw
-        if(Array.isArray(kw) && kw[1] && kw[1].__class__ === _b_.dict){
-            if(Object.keys(kw[1].$string_dict).length == 0){
-                len--
-            }
-        }
-    }
+    var len = Object.keys(args).length
     if(len != expected){
         if(expected == 0){
-            throw _b_.TypeError.$factory(name + "() takes no argument" +
+            throw _b_.$TypeError.$factory(name + "() takes no argument" +
                 " (" + len + " given)")
         }else{
-            throw _b_.TypeError.$factory(name + "() takes exactly " +
+            throw _b_.$TypeError.$factory(name + "() takes exactly " +
                 expected + " argument" + (expected < 2 ? '' : 's') +
                 " (" + len + " given)")
         }
@@ -42,8 +33,17 @@ function check_no_kw(name, x, y){
     if(x === undefined){
         console.log("x undef", name, x, y)
     }
+    var keys = Object.keys(x)
+    for(var key in x){
+        if(isNaN(parseInt(key))){
+            return false
+        }
+    }
+    return true
+    /*
     if(x.$nat || (y !== undefined && y.$nat)){
         throw _b_.TypeError.$factory(name + "() takes no keyword arguments")}
+    */
 }
 
 var NoneType = {
@@ -898,7 +898,7 @@ $B.$getattr = function(obj, attr, _default){
     if(obj === undefined){
         console.log("get attr", attr, "of undefined")
     }
-    
+
     var is_class = obj.$is_class || obj.$factory
 
     var klass = obj.__class__ || $B.get_class(obj),
@@ -1297,15 +1297,18 @@ function iter(args){
     return $B.$iter($.obj, sentinel)
 }
 
-function len(obj){
-    check_no_kw('len', obj)
-    check_nb_args('len', 1, arguments)
+function len(args){
+    check_no_kw('len', args)
+    check_nb_args('len', 1, args)
+
+    var obj = args[0]
 
     var klass = obj.__class__ || $B.get_class(obj)
+    console.log("get __len__ of", obj, klass)
     try{
         var method = $B.$getattr(klass, '__len__')
     }catch(err){
-        throw _b_.TypeError.$factory("object of type '" +
+        throw _b_.$TypeError.$factory("object of type '" +
             $B.class_name(obj) + "' has no len()")
     }
     return $B.$call(method)(obj)
@@ -1626,8 +1629,8 @@ function pow(x, y) {
 function $print(arg){
     var $ = $B.args('print', arg, [], {}, 'args', 'kw')
 
-    var args = $.args,
-        kw = $.kw,
+    var args = $.$args,
+        kw = $.$kw,
         end = kw.$end === undefined ? "\n" : kw.$end,
         sep = kw.$sep === undefined ? " " : kw.$sep,
         file = kw.$file === undefined ? $B.stdout : kw.$file,

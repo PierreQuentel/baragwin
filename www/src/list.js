@@ -127,15 +127,16 @@ list.__eq__ = function(self, other){
     return _b_.NotImplemented
 }
 
-list.__getitem__ = function(self, arg){
-    var $ = $B.args("__getitem__",2,{self: null, key: null},
-        ["self", "key"], arguments, {}, null, null),
+list.__getitem__ = function(args){
+    console.log("args of getitem", args)
+    var $ = $B.args("__getitem__", args,
+        ["self", "key"]),
         self = $.self,
         key = $.key
 
     var factory = $B.get_class(self).$factory
 
-    if(isinstance(key, _b_.int)){
+    if(_b_.$isinstance(key, _b_.$int)){
         var items = self.valueOf(),
             pos = key
         if(key < 0){pos = items.length + pos}
@@ -143,7 +144,7 @@ list.__getitem__ = function(self, arg){
 
         throw _b_.IndexError.$factory("list index out of range")
     }
-    if(isinstance(key, _b_.slice)){
+    if(_b_.$isinstance(key, _b_.$slice)){
         // Find integer values for start, stop and step
         var s = _b_.slice.$conv_for_seq(key, self.length)
         // Return the sliced list
@@ -169,11 +170,11 @@ list.__getitem__ = function(self, arg){
         }
     }
 
-    if(_b_.hasattr(key, "__int__") || _b_.hasattr(key, "__index__")){
-       return list.__getitem__(self, _b_.int.$factory(key))
+    if(_b_.$hasattr(key, "__int__") || _b_.$hasattr(key, "__index__")){
+       return list.__getitem__(self, _b_.$int.$factory(key))
     }
 
-    throw _b_.TypeError.$factory("list indices must be integer, not " +
+    throw _b_.$TypeError.$factory("list indices must be integer, not " +
         $B.class_name(key))
 }
 
@@ -354,7 +355,7 @@ list.__new__ = function(cls, ...args){
 
 
 list.__repr__ = function(self){
-   
+
     var _r = []
     for(var i = 0; i < self.length; i++){
         if(self[i] === self){_r.push('[...]')}

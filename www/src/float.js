@@ -540,7 +540,7 @@ float.__repr__ = float.__str__ = function(self){
 
     var res = self.valueOf() + "" // coerce to string
     if(res.indexOf(".") == -1){res += ".0"}
-    return _b_.str.$factory(res)
+    return _b_.$str.$factory(res)
 }
 
 float.__setattr__ = function(self, attr, value){

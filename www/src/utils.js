@@ -30,11 +30,20 @@ $B.args = function(fname, args, required, defaults, extra_pos, extra_kw){
     }else if(defaults === undefined){
         defaults = {}
     }
-    if(extra_pos){$[extra_pos] = []}
-    if(extra_kw){$[extra_kw] = {}}
+    if(extra_pos){
+        extra_pos = '$' + extra_pos
+        $[extra_pos] = []
+    }
+    if(extra_kw){
+        extra_kw = '$' + extra_kw
+        $[extra_kw] = {}
+    }
+    var positionals = [],
+        keywords = []
 
     var i = 0
     while(args[i] !== undefined){
+        positionals.push(args[i])
         if(required[i] !== undefined){
             $[required[i]] = args[i]
         }else if(extra_pos){
@@ -47,6 +56,7 @@ $B.args = function(fname, args, required, defaults, extra_pos, extra_kw){
     }
 
     for(key in args){
+        keywords.push(key)
         if($[key] !== undefined){
             throw _b_.$TypeError.$factory("double argument: " + key.substr(1))
         }
@@ -70,6 +80,9 @@ $B.args = function(fname, args, required, defaults, extra_pos, extra_kw){
             }
         }
     }
+
+    $.positionals = positionals
+    $.keywords = keywords
 
     return $
 }
@@ -473,7 +486,7 @@ $B.$getitem = function(obj, item){
     }
 
     var gi = $B.$getattr(obj, "__getitem__", _b_.None)
-    if(gi !== _b_.None){return gi(item)}
+    if(gi !== _b_.None){return gi([item])}
 
     throw _b_.TypeError.$factory("'" + $B.class_name(obj) +
         "' object is not subscriptable")
