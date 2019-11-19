@@ -207,6 +207,8 @@ $B.scripts = {} // for Python scripts embedded in a JS file
 
 $B.$options = {}
 
+$B.modules = {}
+
 // Update the Virtual File System
 $B.update_VFS = function(scripts){
     $B.VFS = $B.VFS || {}
@@ -244,4 +246,13 @@ $B.python_to_js = function(src, script_id){
     return js
 }
 
+window.bg = function(src){
+    var bgcode = String.raw(src)
+    console.log(bgcode)
+    var root = $B.py2js(String.raw(src), "$script", "$script"),
+        module = root.module
+    eval(root)
+    $B.modules[module] = locals
+
+}
 })(__BARAGWIN__)
