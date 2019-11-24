@@ -566,18 +566,10 @@ DOMNode.$factory = function(elt, fromtag){
         }
         // all "else" ... default to old behavior of plain DOMNode wrapping
     }
-    if(elt["$baragwin_id"] === undefined || elt.nodeType == 9){
-        // add a unique id for comparisons
-        elt.$baragwin_id = "DOM-" + $B.UUID()
-    }
-    elt.__class__ = DOMNode
-    return elt
-    /*
     return {
         __class__: DOMNode,
         elt: elt
     }
-    */
 }
 
 
@@ -652,13 +644,13 @@ DOMNode.__dir__ = function(self){
     return res
 }
 
-DOMNode.__eq__ = function(self, other){
-    return self.elt == other.elt
+DOMNode.$eq = function(args){
+    var $ = $B.args("eq", args, ["$self", "$other"])
+    return $.$self == $.$other
 }
 
-DOMNode.__getattribute__ = function(self, attr){
-
-    if(attr.substr(0, 2) == "$$"){attr = attr.substr(2)}
+DOMNode.getattr = function(self, attr){
+    attr = attr.substr(1)
     switch(attr) {
         case "attrs":
             return Attributes.$factory(self.elt)
@@ -731,16 +723,23 @@ DOMNode.__getattribute__ = function(self, attr){
 
     // Looking for property. If the attribute is in the forbidden
     // arena ... look for the aliased version
-    var property = self.elt[attr]
-    if(property === undefined && $B.aliased_names[attr]){
-        property = self.elt["$$" + attr]
+    var res = self.elt[attr]
+
+    if(res !== undefined){
+        return res
     }
 
-    if(property === undefined){
-        return object.__getattribute__(self, attr)
+    res = DOMNode[attr]
+    if(res !== undefined){
+        if(typeof res == "function"){
+            return function(pos, kw){
+                var pos1 = pos.slice()
+                pos1.splice(0, 0, self)
+                return res(pos1, kw)
+            }
+        }
+        return res
     }
-
-    var res = property
 
     if(res !== undefined){
         if(res === null){return _b_.None}
@@ -929,8 +928,10 @@ DOMNode.__radd__ = function(self, other){ // add to a string
     return res
 }
 
-DOMNode.__str__ = DOMNode.__repr__ = function(self){
-    var proto = Object.getPrototypeOf(self)
+DOMNode.$str = function(pos, kw){
+    var $ = $B.args("str", pos, kw, ["$self"]),
+        self = $.$self
+    var proto = Object.getPrototypeOf(self.elt)
     if(proto){
         var name = proto.constructor.name
         if(name === undefined){ // IE
@@ -940,11 +941,11 @@ DOMNode.__str__ = DOMNode.__repr__ = function(self){
         return "<" + name + " object>"
     }
     var res = "<DOMNode object type '"
-    return res + $NodeTypes[self.nodeType] + "' name '" +
-        self.nodeName + "'>"
+    return res + $NodeTypes[self.elt.nodeType] + "' name '" +
+        self.elt.nodeName + "'>"
 }
 
-DOMNode.__setattr__ = function(args){
+DOMNode.$setattr = function(args){
     // Sets the *property* attr of the underlying element (not its
     // *attribute*)
     var $ = $B.args("$__setattr__", args, ["$self", "$attr", "$value"]),
@@ -1310,14 +1311,14 @@ DOMNode.reset = function(self){ // for FORM
     return function(){self.elt.reset()}
 }
 
-DOMNode.select = function(args){
+DOMNode.select = function(pos, kw){
     // alias for get(selector=...)
-    var $ = $B.args("select", args, ["self", "selector"])
-    if($.$self.querySelectorAll === undefined){
-        throw _b_.TypeError.$factory("DOMNode object doesn't support " +
+    var $ = $B.args("select", pos, kw, ["$self", "$selector"])
+    if($.$self.elt.querySelectorAll === undefined){
+        throw _b_.$TypeError.$factory("DOMNode object doesn't support " +
             "selection by selector")
     }
-    return make_list($.$self.querySelectorAll($.$selector))
+    return make_list($.$self.elt.querySelectorAll($.$selector))
 }
 
 DOMNode.select_one = function(self, selector){

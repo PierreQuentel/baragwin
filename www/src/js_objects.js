@@ -269,6 +269,35 @@ JSObject.__dir__ = function(self){
     return Object.keys(self.js)
 }
 
+JSObject.$getattr = function(args){
+    var $ = $B.args("getattr", args, ["$self", "$attr"]),
+        self = $.self,
+        attr = $.attr
+    var res = obj.js[attr.substr(1)]
+    if(res !== undefined){
+        if(typeof res == "function"){
+            var f = function(args){
+                var $ = $B.args("$" + res.name, args, [], {}, "$args")
+                return res.apply(obj.js, $.$args)
+            }
+            f.__class__ = $B.JSObject
+            f.js = res
+            return f
+        }else{
+            return $B.JSObject.$factory(res)
+        }
+    }else if(attr == "$new" && typeof obj.js == "function"){
+        return function(args){
+            var $ = $B.args(obj.js.name, args, [], {}, "$args"),
+                factory = obj.js.bind.apply(obj.js, $.$args),
+                res = new factory()
+            return $B.JSObject.$factory(res)
+        }
+    }
+    throw _b_.$AttributeError.$factory("no attribute " + attr + ' for ' +
+        self.js)
+}
+
 JSObject.__getattribute__ = function(self,attr){
     var $test = false //attr == "data"
     if($test){console.log("get attr", attr, "of", self)}

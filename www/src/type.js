@@ -595,6 +595,10 @@ type.__repr__ = type.__str__ = function(kls){
     return "<class '" + qualname + "'>"
 }
 
+type.str = function(klass){
+    console.log("type str", klass)
+    return "klass" + klass
+}
 type.__prepare__ = function(){
     return _b_.dict.$factory()
 }

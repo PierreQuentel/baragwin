@@ -173,7 +173,7 @@
                 }
 
                 dict.__init__ = function(args){
-                    var $ns = $B.args('__init__', args, ['$self'], {}, 
+                    var $ns = $B.args('__init__', args, ['$self'], {},
                             '$args', '$kw'),
                         self = $ns['$self'],
                         args = $ns['$args']
@@ -323,7 +323,7 @@
                 }
                 var klass = dicts[tag] = makeTagDict(tag)
                 klass.$factory = makeFactory(klass)
-                obj.tags.$string_dict[tag] = klass
+                obj.tags.set(tag, klass)
                 return klass
             }
 

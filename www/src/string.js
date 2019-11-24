@@ -618,7 +618,7 @@ str.__mod__ = function(args) {
     var $ = $B.args("__mod__", args, ["self", "args"]),
         self = $.$self,
         args = $.$args
-        
+
     var length = self.length,
         pos = 0 | 0,
         argpos = null,
@@ -1971,51 +1971,17 @@ str.$factory = function(arg, encoding, errors){
     }
     switch(typeof arg) {
         case "string":
-            return str.__str__(arg)
+            return arg
         case "number":
-            if(isFinite(arg)){return arg.toString()}
+            return arg.toString()
     }
-    try{
-        if(arg.$is_class || arg.$factory){
-            // arg is a class
-            // In this case, str() doesn't use the attribute __str__ of the
-            // class or its subclasses, but the attribute __str__ of the
-            // class metaclass (usually "type") or its subclasses (usually
-            // "object")
-            // The metaclass is the attribute __class__ of the class dictionary
-            var func = $B.$getattr(arg.__class__, "__str__")
-            return func(arg)
-        }
-        if(arg.__class__ && arg.__class__ === _b_.bytes &&
-                encoding !== undefined){
-            // str(bytes, encoding, errors) is equal to
-            // bytes.decode(encoding, errors)
-            // Arguments may be passed as keywords (cf. issue #1060)
-            var $ = $B.args("str", 3, {arg: null, encoding: null, errors: null},
-                    ["arg", "encoding", "errors"], arguments,
-                    {encoding: "utf-8", errors: "strict"}, null, null)
-            return _b_.bytes.decode(arg, $.encoding, $.errors)
-        }
-        // Implicit invocation of __str__ uses method __str__ on the class,
-        // even if arg has an attribute __str__
-        var klass = arg.__class__ || $B.get_class(arg)
-        var method = $B.$getattr(klass, "__str__", null)
-        if(method === null ||
-                // if not better than object.__str__, try __repr__
-                (arg.__class__ && arg.__class__ !== _b_.object &&
-                method.$infos && method.$infos.__func__ === _b_.object.__str__)){
-            var method = $B.$getattr(klass, "__repr__")
-        }
+    if(arg instanceof Number){
+        return arg.toString()
     }
-    catch(err){
-        console.log("no __str__ for", arg)
-        console.log("err ", err)
-        if($B.debug > 1){console.log(err)}
-        console.log("Warning - no method __str__ or __repr__, " +
-            "default to toString", arg)
-        throw err
+    var klass = arg.__class__ || $B.get_class(arg)
+    if(klass.$str){
+        return klass.$str([arg])
     }
-    return $B.$call(method)(arg)
 }
 
 str.__new__ = function(cls){

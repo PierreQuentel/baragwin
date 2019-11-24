@@ -1,7 +1,12 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8">
+<meta charset="iso-8859-1">
+<style>
+body,td,th{font-family:sans-serif}
+a.sort_link{margin-left:10px;text-decoration:none}
+</style>
+
 <script type="text/javascript" src="/src/builtins.js"></script>
 <script type="text/javascript" src="/src/bg2js.js"></script>
 <script type="text/javascript" src="/src/loaders.js"></script>
@@ -24,51 +29,66 @@
 <script type="text/javascript" src="/src/complex.js"></script>
 <script type="text/javascript" src="/src/dict.js"></script>
 <script type="text/javascript" src="/src/list.js"></script>
-<script type="text/javascript" src="/src/generator.js"></script>
 <script type="text/javascript" src="/src/dom.js"></script>
-
 <script type="text/javascript" src="/src/builtin_modules.js"></script>
 <script type="text/javascript" src="/src/import_hooks.js"></script>
 <script type="text/javascript" src="/src/async.js"></script>
+
 </head>
+<body onLoad="baragwin(2)">
 
-<body onload="baragwin(2)">
-<span id="test">coucou</span>
+<div id="result">(empty)</div>
+<button id="get_text">get text file</button>
+<button id="i_dont_exist">file not found</button>
+<button id="get_test">GET request</button>
+<button id="post_test">POST request</button>
+
 <script type="text/baragwin">
-x, a = 2, 7
+def fake_qs()
+    time = Window.Date.new().getTime()
+    return f"?foo={time}"
 
-try
-    x, a = 2
-except TypeError
-    print("raised TypeError")
+def show(req)
+    if req.status == 200
+        Document["result"].innerText = req.responseText
 
-try
-    x, a = 1, 2, 3
-except ValueError
-    print("raised ValueError")
+def get(url, timeout=5, oncomplete=None, data=None)
+    req = Window.XMLHttpRequest.new()
+    req.open("GET", url)
+    req.send()
+    when readystatechange on req
+        if req.readyState == 4 and oncomplete is not None
+            oncomplete(req)
 
-try
-    x, a, b = 1, 2
-except ValueError as exc
-    print("raised ValueError", exc)
+def post(url, timeout=5, oncomplete=None, data=None)
+    req = Window.XMLHttpRequest.new()
 
+Ajax: get, post
 
-if x > 1
-  print(x, "> 1")
+ajax = Ajax(get, post)
 
-print(x, "ok", end="-")
+when click on Document["get_test"]
+    ajax.get("/cgi-bin/get_test.py",
+             oncomplete=show,
+             data={"foo": 34})
 
-def f(y, z=3)
-    return y + z
+when click on Document["post_test"]
+    ajax.post("/cgi-bin/post_test.py",
+             oncomplete=show,
+             data={"foo": 34})
 
-assert f(5, z=6, *t, **kw) == 11
-assert f(5) == 8
+when click on Document["get_text"]
+    ajax.get("ajax_data.txt" + fake_qs(),
+             timeout=7,
+             oncomplete=show)
 
-print("Document", Document)
-elts = Document.select("#test")
-print(elts)
-for elt in elts
-  print(elt.innerText)
+when click on Document["i_dont_exist"]
+    ajax.get("i_dont_exist.txt" + fake_qs(),
+             timeout=7,
+             oncomplete=show)
+
 </script>
+
 </body>
 </html>
+

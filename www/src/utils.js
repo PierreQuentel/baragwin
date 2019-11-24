@@ -6,7 +6,8 @@ var _b_ = $B.builtins,
             ("function" === typeof importScripts) &&
             (navigator instanceof WorkerNavigator)
 
-$B.args = function(fname, args, required, defaults, extra_pos, extra_kw){
+$B.args = function(fname, positionals, keywords, required, defaults,
+        extra_pos, extra_kw){
     // builds a namespace from the arguments provided in $args
     // in a function defined as
     //     foo(x, y, z=1, *args, u, v, **kw)
@@ -36,37 +37,32 @@ $B.args = function(fname, args, required, defaults, extra_pos, extra_kw){
     if(extra_kw){
         $[extra_kw] = {}
     }
-    var positionals = [],
-        keywords = []
-
+    
     var i = 0
-    while(args[i] !== undefined){
-        positionals.push(args[i])
+    for(const positional of positionals){
         if(required[i] !== undefined){
-            $[required[i]] = args[i]
+            $[required[i]] = positional
         }else if(extra_pos){
-            $[extra_pos].push(args[i])
+            $[extra_pos].push(positional)
         }else{
-            throw _b_.$TypeError.$factory(fname.substr(1) +
+            throw _b_.$TypeError.$factory(fname +
                 " got too many arguments")
         }
-        delete args[i]
         i++
     }
 
-    for(key in args){
-        keywords.push(key)
+    for(key in keywords){
         if($[key] !== undefined){
             throw _b_.$TypeError.$factory("double argument: " + key.substr(1))
         }
         if(required.indexOf(key) > -1){
-            $[key] = args[key]
+            $[key] = keywords[key]
         }else if(extra_kw){
-            $[extra_kw][key] = args[key]
+            $[extra_kw][key] = keywords[key]
         }else{
             console.log("required", required, "$", $)
             throw _b_.$TypeError.$factory("unexpected keyword argument for " +
-                fname.substr(1) + ": " + key.substr(1))
+                fname + ": " + key.substr(1))
         }
     }
 
@@ -463,44 +459,50 @@ function index_error(obj){
     throw _b_.IndexError.$factory(type + " index out of range")
 }
 
-$B.$getitem = function(obj, item){
-    var is_list = Array.isArray(obj) && obj.__class__ === _b_.list
-    if(typeof item == "number"){
-        if(is_list || typeof obj == "string"){
-            item = item >=0 ? item : obj.length + item
-            if(obj[item] !== undefined){return obj[item]}
-            else{index_error(obj)}
+$B.getitem = function(obj, item){
+    var res
+    if(obj instanceof Node){
+        return $B.DOMNode.__getitem__([obj, item])
+    }else if(obj instanceof Map){
+        res = obj.get(item)
+    }else if(typeof obj == "string"){
+        if(typeof obj != "number"){
+            throw _b_.TypeError.$factory("list indice must be int, not " +
+                $B.get_class(obj))
         }
-    }
-
-    try{item = $B.$GetInt(item)}catch(err){}
-    if((is_list || typeof obj == "string")
-        && typeof item == "number"){
-        item = item >=0 ? item : obj.length + item
-        if(obj[item] !== undefined){return obj[item]}
-        else{index_error(obj)}
-    }
-
-    // PEP 560
-    if(obj.$is_class){
-        var class_gi = $B.$getattr(obj, "__class_getitem__", _b_.None)
-        if(class_gi !== _b_.None){
-            return class_gi(item)
-        }else if(obj.__class__){
-            class_gi = $B.$getattr(obj.__class__, "__getitem__", _b_.None)
-            if(class_gi !== _b_.None){
-                return class_gi(obj, item)
-            }
+        res = obj.charAt(item)
+    }else if(Array.isArray(obj)){
+        if(typeof item != "number"){
+            throw _b_.$TypeError.$factory("list indice must be int, not " +
+                $B.get_class(obj))
         }
+        res = obj[item]
+    }else{
+        throw _b_.TypeError.$factory("'" + $B.class_name(obj) +
+            "' object is not subscriptable")
     }
-
-    var gi = $B.$getattr(obj, "__getitem__", _b_.None)
-    if(gi !== _b_.None){return gi([item])}
-
-    throw _b_.TypeError.$factory("'" + $B.class_name(obj) +
-        "' object is not subscriptable")
+    if(res === undefined){
+        throw _b_.KeyError.$factory(item)
+    }
+    return res
 }
 
+$B.setitem = function(obj, item, value){
+    if(obj instanceof Node){
+        return $B.DOMNode.__setitem__([obj, item])
+    }else if(obj instanceof Map){
+        obj.set(item, value)
+    }else if(Array.isArray(obj)){
+        if(typeof item != "number"){
+            throw _b_.$TypeError.$factory("list indice must be int, not " +
+                $B.get_class(obj))
+        }
+        obj[item] = value
+    }else{
+        throw _b_.TypeError.$factory("'" + $B.class_name(obj) +
+            "' object is not subscriptable")
+    }
+}
 
 // Set list key or slice
 $B.set_list_key = function(obj, key, value){
@@ -789,6 +791,9 @@ var $io = $B.make_class("io", function(){
     return {__class__: $io}
     }
 )
+$io.$getattr = function(self, attr){
+    return self[attr]
+}
 
 $io.flush = function(){
     // do nothing
@@ -1048,34 +1053,6 @@ $B.is_safe_int = function(){
     return true
 }
 
-$B.add = function(x, y){
-    if(typeof x.valueOf() == "number" && typeof y.valueOf() == "number"){
-        if(typeof x == "number" && typeof y == "number"){
-            // ints
-            var z = x + y
-            if(z < max_int){return z}
-            return $B.long_int.__add__($B.long_int.$factory(x),
-                $B.long_int.$factory(y))
-        }else{
-            // floats
-            return new Number(x + y)
-        }
-    }else if (typeof x == "string" && typeof y == "string"){
-        // strings
-        return x + y
-    }
-    try{
-        var method = $B.$getattr(x.__class__ || $B.get_class(x), "__add__")
-    }catch(err){
-        if(err.__class__ === _b_.AttributeError){
-            throw _b_.TypeError.$factory("unsupported operand type(s) for " +
-                "+: '" + $B.class_name(x) +"' and '" + $B.class_name(y) + "'")
-        }
-        throw err
-    }
-    return $B.$call(method)(x, y)
-}
-
 $B.div = function(x, y){
     var z = x / y
     if(x > min_int && x < max_int && y > min_int && y < max_int
@@ -1154,11 +1131,96 @@ var reversed_op = {"__lt__": "__gt__", "__le__":"__ge__",
 var method2comp = {"__lt__": "<", "__le__": "<=", "__gt__": ">",
     "__ge__": ">="}
 
+$B.compare = {
+    eq: function(x, y){
+        if(typeof x.valueOf() == "number" &&
+                typeof y.valueOf() == "number"){
+            return x.valueOf() == y.valueOf()
+        }else if(typeof x == "string" && typeof y == "string"){
+            return x == y
+        }else if(x.__class__ && x.__class__.$eq !== undefined){
+            return x.__class__.$eq([x, y])
+        }else{
+            throw _b_.$TypeError.$factory("cannot compare types " +
+                $B.class_name(x) + " and " + $B.class_name(y))
+        }
+    },
+    ge: function(x, y){
+        if(typeof x.valueOf() == "number" &&
+                typeof y.valueOf() == "number"){
+            return x.valueOf() >= y.valueOf()
+        }else if(typeof x == "string" && typeof y == "string"){
+            return x >= y
+        }else if(x.__class__ && x.__class__.$ge !== undefined){
+            return x.__class__.$ge([x, y])
+        }else{
+            throw _b_.$TypeError.$factory("cannot compare types " +
+                $B.class_name(x) + " and " + $B.class_name(y))
+        }
+    },
+    gt: function(x, y){
+        if(typeof x.valueOf() == "number" &&
+                typeof y.valueOf() == "number"){
+            return x.valueOf() > y.valueOf()
+        }else if(typeof x == "string" && typeof y == "string"){
+            return x > y
+        }else if(x.__class__ && x.__class__.$gt !== undefined){
+            return x.__class__.$gt([x, y])
+        }else{
+            throw _b_.$TypeError.$factory("cannot compare types " +
+                $B.class_name(x) + " and " + $B.class_name(y))
+        }
+    }
+}
+
+$B.operations = {
+    add: function(x, y){
+        if(typeof x.valueOf() == "number" &&
+                typeof y.valueOf() == "number"){
+            return x.valueOf() + y.valueOf()
+        }else if(typeof x == "string" && typeof y == "string"){
+            return x + y
+        }else if(x.__class__ && x.__class__.$add){
+            return x.__class__.$add([x, y])
+        }else{
+            throw _b_.$TypeError.$factory("+ not supported between types " +
+                $B.class_name(x) + " and " + $B.class_name(y))
+        }
+    },
+    mul: function(x, y){
+        if(typeof x.valueOf() == "number" &&
+                typeof y.valueOf() == "number"){
+            if(x instanceof Number || y instanceof Number){
+                return new Number(x * y)
+            }else{
+                return x.valueOf() * y.valueOf()
+            }
+        }else if(x.__class__ && x.__class__.$mul !== undefined){
+            return x.__class__.$mul([x, y])
+        }else{
+            throw _b_.$TypeError.$factory("* not supported between types " +
+                $B.class_name(x) + " and " + $B.class_name(y))
+        }
+
+    },
+    sub: function(x, y){
+        if(typeof x.valueOf() == "number" &&
+                typeof y.valueOf() == "number"){
+            return x.valueOf() - y.valueOf()
+        }else if(x.__class__ && x.__class__.$sub !== undefined){
+            return x.__class__.$sub([x, y])
+        }else{
+            throw _b_.$TypeError.$factory("- not supported between types " +
+                $B.class_name(x) + " and " + $B.class_name(y))
+        }
+    }
+}
+
 $B.rich_comp = function(op, x, y){
     var x1 = x.valueOf(),
         y1 = y.valueOf()
-    if(typeof x1 == "number" && typeof y1 == "number" &&
-            x.__class__ === undefined && y.__class__ === undefined){
+    if((typeof x1 == "number" && typeof y1 == "number") ||
+            (typeof x1 == "string" && typeof y1 == "string")){
         switch(op){
             case "__eq__":
                 return x1 == y1

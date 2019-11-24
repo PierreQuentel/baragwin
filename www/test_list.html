@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
+
 <script type="text/javascript" src="/src/builtins.js"></script>
 <script type="text/javascript" src="/src/bg2js.js"></script>
 <script type="text/javascript" src="/src/loaders.js"></script>
@@ -24,51 +25,30 @@
 <script type="text/javascript" src="/src/complex.js"></script>
 <script type="text/javascript" src="/src/dict.js"></script>
 <script type="text/javascript" src="/src/list.js"></script>
-<script type="text/javascript" src="/src/generator.js"></script>
 <script type="text/javascript" src="/src/dom.js"></script>
 
 <script type="text/javascript" src="/src/builtin_modules.js"></script>
 <script type="text/javascript" src="/src/import_hooks.js"></script>
 <script type="text/javascript" src="/src/async.js"></script>
+
 </head>
 
 <body onload="baragwin(2)">
-<span id="test">coucou</span>
+
 <script type="text/baragwin">
-x, a = 2, 7
+bg`
+f = ['x', 1, 2, ['a', 7.8]]
+print(f)
+assert f[2] == 2
+f[2] = 35
+assert f[2] == 35
+assert f.len() == 4
+assert f.pop() == ['a', 7.8]
 
-try
-    x, a = 2
-except TypeError
-    print("raised TypeError")
-
-try
-    x, a = 1, 2, 3
-except ValueError
-    print("raised ValueError")
-
-try
-    x, a, b = 1, 2
-except ValueError as exc
-    print("raised ValueError", exc)
-
-
-if x > 1
-  print(x, "> 1")
-
-print(x, "ok", end="-")
-
-def f(y, z=3)
-    return y + z
-
-assert f(5, z=6, *t, **kw) == 11
-assert f(5) == 8
-
-print("Document", Document)
-elts = Document.select("#test")
-print(elts)
-for elt in elts
-  print(elt.innerText)
+print("done")
+`
 </script>
+
+
 </body>
 </html>

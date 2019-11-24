@@ -68,7 +68,7 @@ $B.$syntax_err_line = function(exc, module, src, pos, line_num){
             if(lpos > 0){lpos--}
         }
         exc.offset = lpos
-        exc.args = [$B.$getitem(exc.args, 0), module,
+        exc.args = [$B.getitem(exc.args, 0), module,
             line_num, lpos, line]
     }
     exc.lineno = line_num
@@ -407,12 +407,8 @@ BaseException.__getattr__ = function(self, attr){
 }
 
 BaseException.info = function(args){
-    var $ = $B.args("info", args, ["self"])
+    var $ = $B.args("info", args, ["$self"])
     return getExceptionTrace($.$self, false)
-}
-BaseException.with_traceback = function(self, tb){
-    self.$traceback = tb
-    return self
 }
 
 function deep_copy(stack) {
