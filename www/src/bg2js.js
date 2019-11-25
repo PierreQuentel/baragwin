@@ -807,7 +807,7 @@ var $AttrCtx = $B.parser.$AttrCtx = function(context){
             // the arguments
             return '$B.$setattr(' + js + ',"' + this.name + '")'
         }else{
-            return '$B.$getattr(' + js + ',"$' + this.name + '")'
+            return '$B.$getattr(' + js + ',"' + this.name + '")'
         }
     }
 }
@@ -1130,7 +1130,7 @@ var $ClassCtx = $B.parser.$ClassCtx = function(context){
 
         rank++
         node.parent.insert(rank + 1,
-            $NodeJS('$' + this.name + '_' + this.random + ".__module__ = " +
+            $NodeJS(this.name + '_' + this.random + ".__module__ = " +
                 module_name))
 
         // class constructor
@@ -1565,7 +1565,7 @@ var $DefCtx = $B.parser.$DefCtx = function(context){
     this.set_name = function(name){
         if(name.type && name.type == "expr"){
             if(name.tree[0].type == "id"){
-                name = name.tree[0].value.substr(1)
+                name = name.tree[0].value
             }else{
                 this.assign_expr = name
                 if(name.tree[0].type == "sub"){
@@ -1576,7 +1576,7 @@ var $DefCtx = $B.parser.$DefCtx = function(context){
             }
         }
         //var id_ctx = new $IdCtx(this, name)
-        this.name = '$' + name
+        this.name = name
         this.id = this.scope.id + '_' + name
         this.id = this.id.replace(/\./g, '_') // for modules inside packages
         this.id += '_' + $B.UUID()
@@ -1609,7 +1609,6 @@ var $DefCtx = $B.parser.$DefCtx = function(context){
 
     this.transform = function(node, rank){
         // already transformed ?
-        console.log("transform", this)
         if(this.transformed !== undefined){return}
 
         var scope = this.scope
@@ -1718,7 +1717,7 @@ var $DefCtx = $B.parser.$DefCtx = function(context){
         this.env = []
 
         // Code in the worst case, uses $B.args in py_utils.js
-        var js = 'var locals = $B.args("' + this.name.substr(1) +
+        var js = 'var locals = $B.args("' + this.name +
             '", pos, kw, ' + '[' + slot_list.join(', ') + '], {' +
             defs1.join(', ') + '}, ' + this.other_args + ', ' +
             this.other_kw + ');'
@@ -2073,7 +2072,7 @@ var $ExceptCtx = $B.parser.$ExceptCtx = function(context){
     this.toString = function(){return '(except) '}
 
     this.set_alias = function(alias){
-        alias = '$' + alias
+        alias = alias
         this.tree[0].alias = alias
         $bind(alias, this.scope, this)
     }
@@ -2418,7 +2417,7 @@ var $FuncArgIdCtx = $B.parser.$FuncArgIdCtx = function(context,name){
     // id in function arguments
     // may be followed by = for default value
     this.type = 'func_arg_id'
-    this.name = '$' + name
+    this.name = name
     this.parent = context
 
     if(context.has_star_arg){
@@ -2474,7 +2473,7 @@ var $FuncStarArgCtx = $B.parser.$FuncStarArgCtx = function(context,op){
     }
 
     this.set_name = function(name){
-        this.name = '$' + name
+        this.name = name
 
         // bind name to function scope
         if(this.node.binding[name]){
@@ -2526,7 +2525,7 @@ var $IdCtx = $B.parser.$IdCtx = function(context, value){
     // Class for identifiers (variable names)
 
     this.type = 'id'
-    this.value = '$' + value
+    this.value = value
     this.parent = context
     this.tree = []
     context.tree[context.tree.length] = this
@@ -4014,8 +4013,8 @@ function $StructCtx(context){
         create_obj_node.add($NodeJS("__class__: " + this.id.to_js() + ","))
         var params = []
         this.tree.forEach(function(item, i){
-            params.push('"$' + item + '"')
-            line = '$' + item + ": $.$" + item
+            params.push('"' + item + '"')
+            line = item + ": $." + item
             if(i < this.tree.length - 1){
                 line += ","
             }
@@ -4544,7 +4543,7 @@ var $to_js = $B.parser.$to_js = function(tree,sep){
 // Python source code
 
 var $transition = function(context, token, value){
-    //console.log("context", context, "token", token, value)
+    // console.log("context", context, "token", token, value)
     switch(context.type){
         case 'abstract_expr':
           var packed = context.packed,
@@ -4718,6 +4717,9 @@ var $transition = function(context, token, value){
                 if(noassign[name] === true){$_SyntaxError(context,
                     ["cannot assign to " + name])}
                 context.name = name
+                return context.parent
+            }else if(kwdict.indexOf(token) > -1){
+                context.name = token
                 return context.parent
             }
             $_SyntaxError(context,token)
@@ -6607,18 +6609,19 @@ for(var i = 0; i < s_escaped.length; i++){
     is_escaped[s_escaped.charAt(i)] = true
 }
 
+var kwdict = [
+    "class", "return", "break", "for", "lambda", "try", "finally",
+    "raise", "def", "from", "while", "del", "global",
+    "as", "elif", "else", "if", "assert", "import",
+    "except", "raise", "in", "pass", "continue", "__debugger__",
+    "async", "await",
+    "when", "on", "module", "yield"
+    ]
+
 var $tokenize = $B.parser.$tokenize = function(root, src) {
     var br_close = {")": "(", "]": "[", "}": "{"},
         br_stack = "",
         br_pos = []
-    var kwdict = [
-        "class", "return", "break", "for", "lambda", "try", "finally",
-        "raise", "def", "from", "while", "del", "global",
-        "as", "elif", "else", "if", "assert", "import",
-        "except", "raise", "in", "pass", "continue", "__debugger__",
-        "async", "await",
-        "when", "on", "module", "yield"
-        ]
     var unsupported = []
     var $indented = [
         "class", "def", "for", "condition", "single_kw", "try", "except",

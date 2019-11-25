@@ -37,7 +37,7 @@ $B.args = function(fname, positionals, keywords, required, defaults,
     if(extra_kw){
         $[extra_kw] = {}
     }
-    
+
     var i = 0
     for(const positional of positionals){
         if(required[i] !== undefined){
@@ -45,15 +45,14 @@ $B.args = function(fname, positionals, keywords, required, defaults,
         }else if(extra_pos){
             $[extra_pos].push(positional)
         }else{
-            throw _b_.$TypeError.$factory(fname +
-                " got too many arguments")
+            throw _b_.TypeError.$factory(fname + " got too many arguments")
         }
         i++
     }
 
     for(key in keywords){
         if($[key] !== undefined){
-            throw _b_.$TypeError.$factory("double argument: " + key.substr(1))
+            throw _b_.TypeError.$factory("double argument: " + key.substr(1))
         }
         if(required.indexOf(key) > -1){
             $[key] = keywords[key]
@@ -61,7 +60,7 @@ $B.args = function(fname, positionals, keywords, required, defaults,
             $[extra_kw][key] = keywords[key]
         }else{
             console.log("required", required, "$", $)
-            throw _b_.$TypeError.$factory("unexpected keyword argument for " +
+            throw _b_.TypeError.$factory("unexpected keyword argument for " +
                 fname + ": " + key.substr(1))
         }
     }
@@ -72,7 +71,7 @@ $B.args = function(fname, positionals, keywords, required, defaults,
             if(defaults[x] !== undefined){
                 $[x] = defaults[x]
             }else{
-                throw _b_.$TypeError.$factory("no value for " + x)
+                throw _b_.TypeError.$factory(fname + " got no value for " + x)
             }
         }
     }
@@ -304,7 +303,7 @@ $B.$global_search = function(name){
             return frame[name]
         }
     }
-    throw _b_.$NameError.$factory("name '" + name.substr(1) +
+    throw _b_.NameError.$factory("name '" + name +
         "' is not defined")
 }
 
@@ -482,7 +481,8 @@ $B.getitem = function(obj, item){
             "' object is not subscriptable")
     }
     if(res === undefined){
-        throw _b_.KeyError.$factory(item)
+        console.log("error", obj, item)
+        throw _b_.$KeyError.$factory(item)
     }
     return res
 }
@@ -758,6 +758,9 @@ $B.$is_member = function(item, _set){
 }
 
 $B.$call = function(callable){
+    if(callable === undefined){
+        throw Error("callable undef")
+    }
     if(callable.__class__ === $B.method){
         return callable
     }
@@ -1138,8 +1141,8 @@ $B.compare = {
             return x.valueOf() == y.valueOf()
         }else if(typeof x == "string" && typeof y == "string"){
             return x == y
-        }else if(x.__class__ && x.__class__.$eq !== undefined){
-            return x.__class__.$eq([x, y])
+        }else if(x.__class__ && x.__class__.eq !== undefined){
+            return x.__class__.eq([x, y])
         }else{
             throw _b_.$TypeError.$factory("cannot compare types " +
                 $B.class_name(x) + " and " + $B.class_name(y))

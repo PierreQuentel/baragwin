@@ -2030,7 +2030,7 @@ StringSubclass.__new__ = function(cls){
 
 $B.set_func_names(StringSubclass, "builtins")
 
-_b_.$str = str
+_b_.str = str
 
 // Function to parse the 2nd argument of format()
 $B.parse_format_spec = function(spec){

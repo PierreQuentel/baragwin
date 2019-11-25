@@ -43,7 +43,7 @@ def f(x, y=1)
 Test.equal(f(4, 3), 1)
 Test.equal(f(3), 2)
 Test.equal(f(y=2, x=8), 6)
-Test.raise(TypeError, f, 2, {'x': 6})
+Test.raise(TypeError, f, 2, x=6)
 
 print("done")
 `

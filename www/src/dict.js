@@ -4,8 +4,8 @@ var bltns = $B.InjectBuiltins()
 eval(bltns)
 
 var object = _b_.object,
-    str_hash = _b_.$str.__hash__,
-    $N = _b_.$None
+    str_hash = _b_.str.__hash__,
+    $N = _b_.None
 
 var set_ops = ["eq", "add", "sub", "and", "or", "xor", "le", "lt", "ge", "gt"]
 
@@ -228,10 +228,10 @@ dict.__delitem__ = function(){
     return $N
 }
 
-dict.$eq = function(args){
-    var $ = $.args("eq", args, ["$self", "$other"]),
-        self = $.$self,
-        other = $.$other
+dict.eq = function(pos, kw){
+    var $ = $B.args("eq", pos, kw, ["self", "other"]),
+        self = $.self,
+        other = $.other
         
     if(! other instanceof Map){
         throw _b_.TypeError.$factory("cannot compare dict and " +
@@ -242,7 +242,7 @@ dict.$eq = function(args){
     }
     for(const key of self.keys()){
         if((! other.has(key)) ||
-            !$B.rich_comp('__eq__', self.get(key), other.get(key))){
+            ! $B.compare.eq(self.get(key), other.get(key))){
             return false
         }
     }
@@ -273,24 +273,23 @@ function init_from_list(self, args){
 }
 
 
-dict.$len = function(args){
-    var $ = $B.args("$len", args, ["$self"]),
-        self = $.$self,
+dict.len = function(pos, kw){
+    var $ = $B.args("len", pos, kw, ["self"]),
+        self = $.self,
         _count = 0
 
     if(self.$jsobj){
         for(var attr in self.$jsobj){if(attr.charAt(0) != "$"){_count++}}
         return _count
     }
-
     return self.size
 }
 
 dict.__ne__ = function(self, other){return ! dict.__eq__(self, other)}
 
-dict.$str = function(args){
-    var $ = $B.args("$str", args, ["$self"]),
-        self = $.$self
+dict.str = function(pos, kw){
+    var $ = $B.args("str", pos, kw, ["self"]),
+        self = $.self
 
     if(self.$jsobj){ // wrapper around Javascript object
         return dict.__repr__(jsobj2dict(self.$jsobj))
@@ -309,17 +308,17 @@ dict.$str = function(args){
     return "{" + res.join(", ") + "}"
 }
 
-dict.$clear = function(args){
+dict.clear = function(pos, kw){
     // Return a shallow copy of the dictionary
-    var $ = $B.args("$clear", args, ["$self"])
-    $.$self.clear()
+    var $ = $B.args("clear", pos, kw, ["self"])
+    $.self.clear()
     return _b_.$None
 }
 
-dict.$copy = function(args){
+dict.copy = function(pos, kw){
     // Return a shallow copy of the dictionary
-    var $ = $B.args("$copy", args, ["$self"]),
-        self = $.$self,
+    var $ = $B.args("copy", pos, kw, ["self"]),
+        self = $.self,
         res = dict.$factory(),
         key,
         value
@@ -329,12 +328,11 @@ dict.$copy = function(args){
     return res
 }
 
-dict.$get = function(args){
-    var $ = $B.args("get", args, ["$self", "$key", "$default"],
-            {$default: _b_.$None})
-
-    var res = $.$self.get($.$key)
-    return res === undefined ? $.$default : res
+dict.get = function(pos, kw){
+    var $ = $B.args("get", pos, kw, ["self", "key", "default"],
+            {default: _b_.None})
+    var res = $.self.get($.key)
+    return res === undefined ? $.default : res
 }
 
 dict.update = function(self){

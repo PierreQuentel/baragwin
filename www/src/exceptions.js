@@ -406,9 +406,9 @@ BaseException.__getattr__ = function(self, attr){
     }
 }
 
-BaseException.info = function(args){
-    var $ = $B.args("info", args, ["$self"])
-    return getExceptionTrace($.$self, false)
+BaseException.info = function(pos, kw){
+    var $ = $B.args("info", pos, kw, ["self"])
+    return getExceptionTrace($.self, false)
 }
 
 function deep_copy(stack) {
@@ -531,14 +531,13 @@ function make_exc(names, parent){
                 name = name[0]
         }
         // create a class for exception called "name"
-        name = "$" + name
         $B.builtins_scope[name] = true
         var $exc = (BaseException.$factory + "").replace(/\$BaseException/g,name)
         $exc = $exc.replace("//placeholder//", code)
         // class dictionary
         _str[pos++] = "_b_." + name + ' = {__class__:_b_.type, ' +
-            '__mro__: [_b_.' + parent.$infos.__name__ +
-            "].concat(parent.__mro__), $is_class: true," +
+            '__parent__: _b_.' + parent.$infos.__name__ +
+            ", $is_class: true," +
             "$infos: {__name__:'" + name + "'}}"
         _str[pos++] = "_b_." + name + ".$factory = " + $exc
         _str[pos++] = "_b_." + name + '.$factory.$infos = {__name__: "' +
@@ -560,42 +559,42 @@ make_exc([["StopIteration","err.value = arguments[0]"],
     "ArithmeticError", "AssertionError", "AttributeError",
     "BufferError", "EOFError", "ImportError", "LookupError", "MemoryError",
     "NameError", "OSError", "ReferenceError", "RuntimeError", "SyntaxError",
-    "SystemError", "TypeError", "ValueError", "Warning"],_b_.$Exception)
+    "SystemError", "TypeError", "ValueError", "Warning"],_b_.Exception)
 make_exc(["FloatingPointError", "OverflowError", "ZeroDivisionError"],
-    _b_.$ArithmeticError)
-make_exc(["ModuleNotFoundError"], _b_.$ImportError)
-make_exc(["IndexError","KeyError"], _b_.$LookupError)
-make_exc(["UnboundLocalError"], _b_.$NameError)
+    _b_.ArithmeticError)
+make_exc(["ModuleNotFoundError"], _b_.ImportError)
+make_exc(["IndexError","KeyError"], _b_.LookupError)
+make_exc(["UnboundLocalError"], _b_.NameError)
 make_exc(["BlockingIOError", "ChildProcessError", "ConnectionError",
     "FileExistsError", "FileNotFoundError", "InterruptedError",
     "IsADirectoryError", "NotADirectoryError", "PermissionError",
-    "ProcessLookupError", "TimeoutError"], _b_.$OSError)
+    "ProcessLookupError", "TimeoutError"], _b_.OSError)
 make_exc(["BrokenPipeError", "ConnectionAbortedError",
-    "ConnectionRefusedError", "ConnectionResetError"], _b_.$ConnectionError)
-make_exc(["NotImplementedError", "RecursionError"], _b_.$RuntimeError)
-make_exc(["IndentationError"], _b_.$SyntaxError)
-make_exc(["TabError"], _b_.$IndentationError)
-make_exc(["UnicodeError"], _b_.$ValueError)
+    "ConnectionRefusedError", "ConnectionResetError"], _b_.ConnectionError)
+make_exc(["NotImplementedError", "RecursionError"], _b_.RuntimeError)
+make_exc(["IndentationError"], _b_.SyntaxError)
+make_exc(["TabError"], _b_.IndentationError)
+make_exc(["UnicodeError"], _b_.ValueError)
 make_exc(["UnicodeDecodeError", "UnicodeEncodeError",
-    "UnicodeTranslateError"], _b_.$UnicodeError)
+    "UnicodeTranslateError"], _b_.UnicodeError)
 make_exc(["DeprecationWarning", "PendingDeprecationWarning",
     "RuntimeWarning", "SyntaxWarning", "UserWarning", "FutureWarning",
     "ImportWarning", "UnicodeWarning", "BytesWarning", "ResourceWarning"],
-    _b_.$Warning)
+    _b_.Warning)
 
 make_exc(["EnvironmentError", "IOError", "VMSError", "WindowsError"],
-    _b_.$OSError)
+    _b_.OSError)
 
 $B.$TypeError = function(msg){
     throw _b_.TypeError.$factory(msg)
 }
 
 // SyntaxError instances have special attributes
-var se = _b_.$SyntaxError.$factory
+var se = _b_.SyntaxError.$factory
 
-_b_.$SyntaxError.$factory = function(){
+_b_.SyntaxError.$factory = function(){
     var arg = arguments[0]
-    if(arg.__class__ === _b_.$SyntaxError){
+    if(arg.__class__ === _b_.SyntaxError){
         return arg
     }
 

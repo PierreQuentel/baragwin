@@ -891,7 +891,7 @@ function in_mro(klass, attr){
 
 $B.$getattr = function(obj, attr){
     // Used internally to avoid having to parse the arguments
-    var test = false // attr == "$select"
+    var test = false // attr == "info"
     var klass = obj.__class__
 
     if(test){
@@ -902,15 +902,13 @@ $B.$getattr = function(obj, attr){
     if(typeof obj == "number" || obj instanceof Number){
         throw _b_.$TypeError.$factory("numbers have no attribute")
     }else if(typeof obj == "string"){
-        return _b_.$str.$getattr([obj, attr])
-    }else if(klass && klass.getattr){
-        return klass.getattr(obj, attr)
+        return _b_.str.$getattr([obj, attr])
     }else if(klass === $B.JSObject){
         var res = obj.js[attr.substr(1)]
         if(res !== undefined){
             if(typeof res == "function"){
-                var f = function(args){
-                    var $ = $B.args("$" + res.name, args, [], {}, "$args")
+                var f = function(pos, kw){
+                    var $ = $B.args(res.name, pos, kw, [], {}, "args")
                     return res.apply(obj.js, $.$args)
                 }
                 f.__class__ = $B.JSObject
@@ -928,9 +926,25 @@ $B.$getattr = function(obj, attr){
             }
         }
     }else{
-        var res = obj[attr]
-        if(res !== undefined){
-            return res
+        while(klass){
+            if(test){
+                console.log("search", attr, "in class", klass)
+            }
+            if(klass.getattr){
+                return klass.getattr([obj, attr])
+            }
+            if(klass[attr]){
+                if(typeof klass[attr] == "function"){
+                    return function(pos, kw){
+                        var pos1 = pos.slice()
+                        pos1.splice(0, 0, obj)
+                        return klass[attr](pos1, kw)
+                    }
+                }else{
+                    return klass[attr]
+                }
+            }
+            klass = klass.__parent__
         }
         /*
         var classes = [klass].concat(klass.__mro__)
@@ -965,8 +979,8 @@ $B.$getattr = function(obj, attr){
         }
         */
     }
-    console.log(obj, attr)
-    throw _b_.$AttributeError.$factory(attr)
+    console.log(obj, 'klass', klass, 'no attr', attr)
+    throw _b_.AttributeError.$factory(attr)
 }
 
 //globals() (built in function)
@@ -1426,115 +1440,6 @@ function max(){
     return $extreme(arguments, '__gt__')
 }
 
-var memoryview = $B.make_class('memoryview',
-    function(obj){
-        check_no_kw('memoryview', obj)
-        check_nb_args('memoryview', 1, arguments)
-        if(obj.__class__ === memoryview){return obj}
-        if($B.get_class(obj).$buffer_protocol){
-            return {
-                __class__: memoryview,
-                obj: obj,
-                // XXX fix me : next values are only for bytes and bytearray
-                format: 'B',
-                itemsize: 1,
-                ndim: 1,
-                shape: _b_.tuple.$factory([_b_.len(obj)]),
-                strides: _b_.tuple.$factory([1]),
-                suboffsets: _b_.tuple.$factory([]),
-                c_contiguous: true,
-                f_contiguous: true,
-                contiguous: true
-            }
-        }else{
-            throw _b_.TypeError.$factory("memoryview: a bytes-like object " +
-                "is required, not '" + $B.class_name(obj) + "'")
-        }
-    }
-)
-memoryview.__eq__ = function(self, other){
-    if(other.__class__ !== memoryview){return false}
-    return $B.$getattr(self.obj, '__eq__')(other.obj)
-}
-
-memoryview.__getitem__ = function(self, key){
-    if(isinstance(key, _b_.int)){
-        var start = key * self.itemsize
-        if(self.format == "I"){
-            var res = self.obj.source[start],
-                coef = 256
-            for(var i = 1; i < 4; i++){
-                res += self.obj.source[start + i] * coef
-                coef *= 256
-            }
-            return res
-        }else if("B".indexOf(self.format) > -1){
-            if(key > self.obj.source.length - 1){
-                throw _b_.KeyError.$factory(key)
-            }
-            return self.obj.source[key]
-        }else{
-            // fix me
-            return self.obj.source[key]
-        }
-    }
-    // fix me : add slice support for other formats than B
-    var res = self.obj.__class__.__getitem__(self.obj, key)
-    if(key.__class__ === _b_.slice){return memoryview.$factory(res)}
-}
-
-memoryview.__len__ = function(self){
-    return len(self.obj) / self.itemsize
-}
-
-memoryview.cast = function(self, format){
-    switch(format){
-        case "B":
-            return memoryview.$factory(self.obj)
-        case "I":
-            var res = memoryview.$factory(self.obj),
-                objlen = len(self.obj)
-            res.itemsize = 4
-            res.format = "I"
-            if(objlen % 4 != 0){
-                throw _b_.TypeError.$factory("memoryview: length is not " +
-                    "a multiple of itemsize")
-            }
-            return res
-    }
-}
-memoryview.hex = function(self){
-    var res = '',
-        bytes = _b_.bytes.$factory(self)
-    bytes.source.forEach(function(item){
-        res += item.toString(16)
-    })
-    return res
-}
-memoryview.tobytes = function(self){
-    return _b_.bytes.$factory(self.obj)
-}
-memoryview.tolist = function(self){
-    if(self.itemsize == 1){
-        return _b_.list.$factory(_b_.bytes.$factory(self.obj))
-    }else if(self.itemsize == 4){
-        if(self.format == "I"){
-            var res = []
-            for(var i = 0; i < self.obj.source.length; i += 4){
-                var item = self.obj.source[i],
-                    coef = 256
-                for(var j = 1; j < 4; j++){
-                    item += coef * self.obj.source[i + j]
-                    coef *= 256
-                }
-                res.push(item)
-            }
-            return res
-        }
-    }
-}
-
-$B.set_func_names(memoryview, "builtins")
 
 function min(){
     return $extreme(arguments, '__lt__')
@@ -1631,7 +1536,7 @@ function $print(pos, kw){
         file = kw.$file === undefined ? $B.stdout : kw.$file,
         items = []
     args.forEach(function(arg){
-        items.push(_b_.$str.$factory(arg))
+        items.push(_b_.str.$factory(arg))
     })
     // Special handling of \a and \b
     var res = items.join(sep) + end
@@ -1979,25 +1884,30 @@ $$super.__repr__ = $$super.__str__ = function(self){
 $B.set_func_names($$super, "builtins")
 
 var Test = {
-    $equal: function(pos, kw){
+    equal: function(pos, kw){
         var $ = $B.args("equal", pos, kw, ["$x", "$y"])
         if(! $B.compare.eq($.$x, $.$y)){
             throw _b_.$AssertionError.$factory("not equal")
         }
     },
-    $raise: function(pos, kw){
+    raise: function(pos, kw){
         var $ = $B.args("raise", pos, kw,
-                ["$exception", "$func"], {}, "$pos", "$kw")
-        console.log("raise", pos, kw)
-        console.log($)
+                ["exception", "func"], {}, "pos", "kw")
         try{
-            $.$func($.$pos, $.$kw)
-            throw _b_.$AssertionError.$factory("exception not raised")
+            $.func($.pos, $.kw)
+            throw _b_.AssertionError.$factory("exception not raised")
         }catch(err){
-            if(err.__class__ !== $.$exception){
-                throw _b_.$AssertionError.$factory("exception not raised")
+            if(err.__class__ !== $.exception){
+                throw _b_.AssertionError.$factory("exception not raised")
             }
         }
+    }
+}
+
+Test.__class__ = {
+    getattr: function(pos, kw){
+        var $ = $B.args("getattr", pos, kw, ["self", "attr"])
+        return $.self[$.attr]
     }
 }
 
@@ -2018,126 +1928,6 @@ function vars(){
     }
 }
 
-var $Reader = $B.make_class("Reader")
-
-$Reader.__enter__ = function(self){return self}
-
-$Reader.__exit__ = function(self){return false}
-
-$Reader.__iter__ = function(self){
-    // Iteration ignores last empty lines (issue #1059)
-    return iter($Reader.readlines(self))
-}
-
-$Reader.__len__ = function(self){return self.lines.length}
-
-$Reader.close = function(self){self.closed = true}
-
-$Reader.flush = function(self){return None}
-
-$Reader.read = function(){
-    var $ = $B.args("read", 2, {self: null, size: null},
-            ["self", "size"], arguments, {size: -1}, null, null),
-            self = $.self,
-            size = $B.$GetInt($.size)
-    if(self.closed === true){
-        throw _b_.ValueError.$factory('I/O operation on closed file')
-    }
-    var binary = self.$content.__class__ === _b_.bytes,
-        len = binary ? self.$content.source.length : self.$content.length
-    if(size < 0){
-        size = len
-    }
-
-    if(self.$content.__class__ === _b_.bytes){
-        res = _b_.bytes.$factory(self.$content.source.slice(self.$counter,
-            self.$counter + size))
-    }else{
-        res = self.$content.substr(self.$counter, size)
-    }
-    self.$counter += size
-    return res
-}
-
-$Reader.readable = function(self){return true}
-
-$Reader.readline = function(self, size){
-    var $ = $B.args("readline", 2, {self: null, size: null},
-            ["self", "size"], arguments, {size: -1}, null, null),
-            self = $.self,
-            size = $B.$GetInt($.size)
-    // set line counter
-    self.$lc = self.$lc === undefined ? -1 : self.$lc
-
-    if(self.closed === true){
-        throw _b_.ValueError.$factory('I/O operation on closed file')
-    }
-
-    if(self.$lc == self.$lines.length - 1){
-        return ''
-    }
-    self.$lc++
-    var line = self.$lines[self.$lc]
-    if(size > 0){
-        line = line.substr(0, size)
-    }
-    self.$counter += line.length
-    return line
-}
-
-$Reader.readlines = function(){
-    var $ = $B.args("readlines", 2, {self: null, hint: null},
-            ["self", "hint"], arguments, {hint: -1}, null, null),
-            self = $.self,
-            hint = $B.$GetInt($.hint)
-    var nb_read = 0
-    if(self.closed === true){
-        throw _b_.ValueError.$factory('I/O operation on closed file')
-    }
-    self.$lc = self.$lc === undefined ? -1 : self.$lc
-    if(hint < 0){
-        var lines = self.$lines.slice(self.$lc + 1)
-    }else{
-        var lines = []
-        while(self.$lc < self.$lines.length &&
-                nb_read < hint){
-            self.$lc++
-            lines.push(self.$lines[self.$lc])
-        }
-    }
-    while(lines[lines.length - 1] == ''){lines.pop()}
-    return lines
-}
-
-$Reader.seek = function(self, offset, whence){
-    if(self.closed === True){
-        throw _b_.ValueError.$factory('I/O operation on closed file')
-    }
-    if(whence === undefined){whence = 0}
-    if(whence === 0){self.$counter = offset}
-    else if(whence === 1){self.$counter += offset}
-    else if(whence === 2){self.$counter = self.$content.length + offset}
-}
-
-$Reader.seekable = function(self){return true}
-
-$Reader.tell = function(self){return self.$counter}
-
-$Reader.writable = function(self){return false}
-
-$B.set_func_names($Reader, "builtins")
-
-var $BufferedReader = $B.make_class('_io.BufferedReader')
-
-$BufferedReader.__mro__ = [$Reader, object]
-
-var $TextIOWrapper = $B.make_class('_io.TextIOWrapper')
-
-$TextIOWrapper.__mro__ = [$Reader, object]
-
-$B.set_func_names($TextIOWrapper, "builtins")
-
-$B.TextIOWrapper = $TextIOWrapper
 
 function $url_open(){
     // first argument is file : can be a string, or an instance of a DOM File object
@@ -2554,9 +2344,9 @@ for(var i = 0; i < builtin_names.length; i++){
     if(name == 'open'){name1 = '$url_open'}
     if(name == 'super'){name = name1 = '$$super'}
     if(name == 'eval'){name = name1 = '$$eval'}
-    //if(name == 'print'){name1 = '$print'}
+    if(name == 'print'){name1 = '$print'}
     try{
-        _b_['$' + name] = eval(name1)
+        _b_[name] = eval(name1)
         if($B.builtin_funcs.indexOf(orig_name) > -1){
             _b_[name].__class__ = builtin_function
             // used by inspect module

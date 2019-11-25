@@ -369,13 +369,13 @@ $B.handle_error = function(err){
     if(err.__class__ !== undefined){
         console.log("handle error", err.__class__, err.args)
         var name = $B.class_name(err),
-            trace = $B.$getattr(err, 'info')({})
+            trace = $B.$getattr(err, 'info')([], {})
         if(name == '$SyntaxError' || name == '$IndentationError'){
             var offset = err.args[3]
             trace += '\n    ' + ' '.repeat(offset) + '^' +
-                '\n' + name.substr(1) + ': '+err.args[0]
+                '\n' + name + ': '+err.args[0]
         }else{
-            trace += '\n' + name.substr(1) + ': ' + err.args
+            trace += '\n' + name + ': ' + err.args
         }
     }else{
         console.log(err)
