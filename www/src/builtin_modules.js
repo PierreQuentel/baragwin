@@ -95,8 +95,8 @@
         browser.self.js.send = self.postMessage
     } else {
         browser.is_webworker = false
-        _b_.$Document = $B.DOMNode.$factory(document)
-        _b_.$Window = $B.JSObject.$factory(window)
+        _b_.Document = $B.DOMNode.$factory(document)
+        _b_.Window = $B.JSObject.$factory(window)
         update(browser, {
             $$alert:function(message){
                 window.alert($B.builtins.$str.$factory(message))

@@ -473,13 +473,6 @@ var finder_VFS = {
 
 $B.set_func_names(finder_VFS, "<import>")
 
-for(var method in finder_VFS){
-    if(typeof finder_VFS[method] == "function"){
-        finder_VFS[method] = _b_.classmethod.$factory(
-            finder_VFS[method])
-    }
-}
-
 finder_VFS.$factory = function(){
     return {__class__: finder_VFS}
 }
@@ -574,13 +567,6 @@ var finder_stdlib_static = {
 
 $B.set_func_names(finder_stdlib_static, "<import>")
 
-for(var method in finder_stdlib_static){
-    if(typeof finder_stdlib_static[method] == "function"){
-        finder_stdlib_static[method] = _b_.classmethod.$factory(
-            finder_stdlib_static[method])
-    }
-}
-
 finder_stdlib_static.$factory = function (){
     return {__class__: finder_stdlib_static}
 }
@@ -669,12 +655,7 @@ var finder_path = {
 
 $B.set_func_names(finder_path, "<import>")
 
-for(var method in finder_path){
-    if(typeof finder_path[method] == "function"){
-        finder_path[method] = _b_.classmethod.$factory(
-            finder_path[method])
-    }
-}
+
 
 finder_path.$factory = function(){
     return {__class__: finder_path}

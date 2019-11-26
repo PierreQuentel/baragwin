@@ -343,10 +343,10 @@ var loop = $B.loop = function(){
             if(err.$py_error === undefined){
                 console.log('Javascript error', err)
                 if($B.is_recursion_error(err)){
-                    err = _b_.$RecursionError.$factory("too much recursion")
+                    err = _b_.RecursionError.$factory("too much recursion")
                 }else{
                     $B.print_stack()
-                    err = _b_.$RuntimeError.$factory(err + '')
+                    err = _b_.RuntimeError.$factory(err + '')
                 }
             }
             if($B.debug > 1){
@@ -370,7 +370,7 @@ $B.handle_error = function(err){
         console.log("handle error", err.__class__, err.args)
         var name = $B.class_name(err),
             trace = $B.$getattr(err, 'info')([], {})
-        if(name == '$SyntaxError' || name == '$IndentationError'){
+        if(name == 'SyntaxError' || name == 'IndentationError'){
             var offset = err.args[3]
             trace += '\n    ' + ' '.repeat(offset) + '^' +
                 '\n' + name + ': '+err.args[0]

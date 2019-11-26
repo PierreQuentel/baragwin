@@ -644,13 +644,16 @@ DOMNode.__dir__ = function(self){
     return res
 }
 
-DOMNode.$eq = function(args){
-    var $ = $B.args("eq", args, ["$self", "$other"])
-    return $.$self == $.$other
+DOMNode.eq = function(pos, kw){
+    var $ = $B.args("eq", pos, kw, ["self", "other"])
+    return $.self.elt == $.other.elt
 }
 
-DOMNode.getattr = function(self, attr){
-    attr = attr.substr(1)
+DOMNode.getattr = function(pos, kw){
+    var $ = $B.args("getattr", pos, kw, ["self", "attr"]),
+        self = $.self,
+        attr = $.attr
+
     switch(attr) {
         case "attrs":
             return Attributes.$factory(self.elt)
@@ -928,22 +931,6 @@ DOMNode.__radd__ = function(self, other){ // add to a string
     return res
 }
 
-DOMNode.$str = function(pos, kw){
-    var $ = $B.args("str", pos, kw, ["$self"]),
-        self = $.$self
-    var proto = Object.getPrototypeOf(self.elt)
-    if(proto){
-        var name = proto.constructor.name
-        if(name === undefined){ // IE
-            var proto_str = proto.constructor.toString()
-            name = proto_str.substring(8, proto_str.length - 1)
-        }
-        return "<" + name + " object>"
-    }
-    var res = "<DOMNode object type '"
-    return res + $NodeTypes[self.elt.nodeType] + "' name '" +
-        self.elt.nodeName + "'>"
-}
 
 DOMNode.$setattr = function(args){
     // Sets the *property* attr of the underlying element (not its
@@ -967,9 +954,9 @@ DOMNode.$setattr = function(args){
             case "height":
                 if(_b_.isinstance(value, _b_.int) && self.nodeType == 1){
                     self.style[attr] = value + "px"
-                    return _b_.$None
+                    return _b_.None
                 }else{
-                    throw _b_.$ValueError.$factory(attr + " value should be" +
+                    throw _b_.ValueError.$factory(attr + " value should be" +
                         " an integer, not " + $B.class_name(value))
                 }
                 break
@@ -1313,12 +1300,12 @@ DOMNode.reset = function(self){ // for FORM
 
 DOMNode.select = function(pos, kw){
     // alias for get(selector=...)
-    var $ = $B.args("select", pos, kw, ["$self", "$selector"])
-    if($.$self.elt.querySelectorAll === undefined){
-        throw _b_.$TypeError.$factory("DOMNode object doesn't support " +
+    var $ = $B.args("select", pos, kw, ["self", "selector"])
+    if($.self.elt.querySelectorAll === undefined){
+        throw _b_.TypeError.$factory("DOMNode object doesn't support " +
             "selection by selector")
     }
-    return make_list($.$self.elt.querySelectorAll($.$selector))
+    return make_list($.self.elt.querySelectorAll($.selector))
 }
 
 DOMNode.select_one = function(self, selector){
@@ -1333,6 +1320,24 @@ DOMNode.select_one = function(self, selector){
     }
     return DOMNode.$factory(res)
 }
+
+DOMNode.str = function(pos, kw){
+    var $ = $B.args("str", pos, kw, ["self"]),
+        self = $.self
+    var proto = Object.getPrototypeOf(self.elt)
+    if(proto){
+        var name = proto.constructor.name
+        if(name === undefined){ // IE
+            var proto_str = proto.constructor.toString()
+            name = proto_str.substring(8, proto_str.length - 1)
+        }
+        return "<" + name + " object>"
+    }
+    var res = "<DOMNode object type '"
+    return res + $NodeTypes[self.elt.nodeType] + "' name '" +
+        self.elt.nodeName + "'>"
+}
+
 
 DOMNode.style = function(self){
     // set attribute "float" for cross-browser compatibility

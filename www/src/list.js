@@ -32,29 +32,21 @@ var list = {
     __dir__: object.__dir__
 }
 
-list.__add__ = function(self, other){
-    if($B.get_class(self) !== $B.get_class(other)){
-        var radd = getattr(other, "__radd__", _b_.NotImplemented)
-        if(radd !== _b_.NotImplemented){return radd(self)}
-        throw _b_.TypeError.$factory('can only concatenate list (not "' +
-            $B.class_name(other) + '") to list')
-    }
-    var res = self.valueOf().concat(other.valueOf())
-    res.__baragwin__ = true
-    if(isinstance(self, tuple)){res = tuple.$factory(res)}
+list.add = function(pos, kw){
+    var $ = $B.args("add", pos, kw, ["self", "other"]),
+        res = $.self.slice().concat($.other)
+    res.__class__ = list
     return res
 }
 
-list.__contains__ = function(self,item){
-    var $ = $B.args("__contains__", 2, {self: null, item: null},
-        ["self", "item"], arguments, {}, null, null),
+list.contains = function(pos, kw){
+    var $ = $B.args("contains", pos, kw, ["self", "item"]),
         self = $.self,
         item = $.item
-    var _eq = function(other){return $B.rich_comp("__eq__", item, other)}
-    var i = 0
-    while(i < self.length) {
-        if(_eq(self[i])){return true}
-        i++
+    for(const elt of self){
+        if($B.compare.eq(elt, item)){
+            return true
+        }
     }
     return false
 }
@@ -113,19 +105,19 @@ list.__delitem__ = function(self, arg){
         _b_.str.$factory(arg.__class__))
 }
 
-list.$eq = function(pos, kw){
-    var $ = $B.args("eq", pos, kw, ["$self", "$other"]),
-        self = $.$self,
-        other = $.$other
+list.eq = function(pos, kw){
+    var $ = $B.args("eq", pos, kw, ["self", "other"]),
+        self = $.self,
+        other = $.other
 
     if(other.__class__ !== list){
-        throw _b_.$TypeError.$factory("cannot compare list and " +
+        throw _b_.TypeError.$factory("cannot compare list and " +
             $B.get_class(other))
     }
     if(other.length == self.length){
         var i = self.length
         while(i--){
-            if(! $B.compare_eq(self[i], other[i])){
+            if(! $B.compare.eq(self[i], other[i])){
                 return false
             }
         }
@@ -211,7 +203,7 @@ list.__le__ = function(self, other){
     return ! res
 }
 
-list.$len = function(args){
+list.len = function(args){
     return args[0].length
 }
 
@@ -264,16 +256,16 @@ list.__mul__ = function(self, other){
         $B.class_name(other) + "'")
 }
 
-list.$str = function(pos, args){
-    var $ = $B.args("str", pos, args, ["$self"]),
-        self = $.$self
+list.str = function(pos, args){
+    var $ = $B.args("str", pos, args, ["self"]),
+        self = $.self
 
     var res = []
     for(var i = 0; i < self.length; i++){
         if(self[i] === self){
             res.push('[...]')
         }else{
-            res.push(_b_.$str.$factory(self[i]))
+            res.push(_b_.str.$factory(self[i]))
         }
     }
 
@@ -380,16 +372,16 @@ list.insert = function(){
     return $N
 }
 
-list.$pop = function(args){
+list.pop = function(pos, kw){
     var missing = {}
-    var $ = $B.args("pop", args, ["$self", "$pos"], {$pos: missing}),
-        self = $.$self,
-        pos = $.$pos
+    var $ = $B.args("pop", pos, kw, ["self", "pos"], {pos: missing}),
+        self = $.self,
+        pos = $.pos
     if(pos === missing){pos = self.length - 1}
     if(pos < 0){pos += self.length}
     var res = self[pos]
     if(res === undefined){
-        throw _b_.$IndexError.$factory("pop index out of range")
+        throw _b_.IndexError.$factory("pop index out of range")
     }
     self.splice(pos, 1)
     return res
@@ -403,7 +395,7 @@ list.remove = function(args){
             return $N
         }
     }
-    throw _b_.$ValueError.$factory(_b_.str.$factory($.x) + " is not in list")
+    throw _b_.ValueError.$factory(_b_.str.$factory($.x) + " is not in list")
 }
 
 list.reverse = function(args){

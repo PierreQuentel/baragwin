@@ -732,7 +732,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
         path = self.translate_path(self.path)
         f = None
         if os.path.isdir(path):
-            print("path is dir", path)
             parts = urllib.parse.urlsplit(self.path)
             if not parts.path.endswith('/'):
                 # redirect browser - doing basically what apache does

@@ -634,7 +634,7 @@ str.__mod__ = function(args) {
         ++pos
         var rslt = kwarg_key.exec(s.substring(newpos))
         if(! rslt){
-            throw _b_.$ValueError.$factory("incomplete format key")
+            throw _b_.ValueError.$factory("incomplete format key")
         }
         var key = rslt[1]
         newpos += rslt[0].length
@@ -644,7 +644,7 @@ str.__mod__ = function(args) {
             if(err.name === "KeyError"){
                 throw err
             }
-            throw _b_.$TypeError.$factory("format requires a mapping")
+            throw _b_.TypeError.$factory("format requires a mapping")
         }
         return get_string_value(s, self)
     }
@@ -660,7 +660,7 @@ str.__mod__ = function(args) {
         }else{
             self = args[argpos++]
             if(self === undefined){
-                throw _b_.$TypeError.$factory(
+                throw _b_.TypeError.$factory(
                     "not enough arguments for format string")
             }
         }
@@ -686,9 +686,9 @@ str.__mod__ = function(args) {
                 if(err.name == "UnsupportedChar"){
                     invalid_char = s[newpos]
                     if(invalid_char === undefined){
-                        throw _b_.$ValueError.$factory("incomplete format")
+                        throw _b_.ValueError.$factory("incomplete format")
                     }
-                    throw _b_.$ValueError.$factory(
+                    throw _b_.ValueError.$factory(
                         "unsupported format character '" + invalid_char +
                         "' (0x" + invalid_char.charCodeAt(0).toString(16) +
                         ") at index " + newpos)
@@ -704,7 +704,7 @@ str.__mod__ = function(args) {
                     }else{
                         cls = cls.$infos.__name__
                     }
-                    throw _b_.$TypeError.$factory("%" + try_char +
+                    throw _b_.TypeError.$factory("%" + try_char +
                         " format: a number is required, not " + cls)
                 }else{
                     throw err
@@ -735,21 +735,21 @@ str.__mod__ = function(args) {
             }
         }else{
             // % at end of string
-            throw _b_.$ValueError.$factory("incomplete format")
+            throw _b_.ValueError.$factory("incomplete format")
         }
         pos = newpos + 1
     }while(pos < length)
 
     if(argpos !== null){
         if(args.length > argpos){
-            throw _b_.$TypeError.$factory(
+            throw _b_.TypeError.$factory(
                 "not enough arguments for format string")
         }else if(args.length < argpos){
-            throw _b_.$TypeError.$factory(
+            throw _b_.TypeError.$factory(
                 "not all arguments converted during string formatting")
         }
     }else if(nbph == 0){
-        throw _b_.$TypeError.$factory(
+        throw _b_.TypeError.$factory(
             "not all arguments converted during string formatting")
     }
     return ret
@@ -1971,7 +1971,13 @@ str.$factory = function(arg, encoding, errors){
     }
     switch(typeof arg) {
         case "string":
-            return arg
+            if(arg.indexOf("'") == -1){
+                return "'" + arg + "'"
+            }else if(arg.indexOf('"') == -1){
+                return '"' + arg + '"'
+            }else{
+                return "'" + arg.replace(new RegExpr("'", "g"), "\\'") + "'"
+            }
         case "number":
             return arg.toString()
     }
@@ -1979,8 +1985,8 @@ str.$factory = function(arg, encoding, errors){
         return arg.toString()
     }
     var klass = arg.__class__ || $B.get_class(arg)
-    if(klass.$str){
-        return klass.$str([arg])
+    if(klass.str){
+        return klass.str([arg])
     }
 }
 

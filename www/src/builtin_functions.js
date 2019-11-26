@@ -1,13 +1,7 @@
 // built-in functions
 ;(function($B){
 
-var bltns = $B.InjectBuiltins()
-eval(bltns)
-
-_b_.__debug__ = false
-
-var object = _b_.object,
-    odga = object.__getattribute__
+var _b_ = $B.builtins
 
 // maps comparison operator to method names
 $B.$comps = {'>':'gt','>=':'ge','<':'lt','<=':'le'}
@@ -56,10 +50,7 @@ var NoneType = {
     },
     __bool__: function(self){return False},
     __class__: _b_.type,
-    __hash__: function(self){return 0},
-    __mro__: [object],
-    __repr__: function(self){return 'None'},
-    __str__: function(self){return 'None'},
+    str: function(self){return 'None'},
     $is_class: true
 }
 
@@ -68,7 +59,7 @@ NoneType.__setattr__ = function(self, attr){
 }
 
 var None = {
-    __class__: NoneType,
+    __class__: NoneType
 }
 
 for(var $op in $B.$comps){ // None is not orderable with any type
@@ -148,23 +139,6 @@ function any(obj){
     }
 }
 
-function ascii(obj) {
-    check_nb_args('ascii', 1, arguments)
-    check_no_kw('ascii', obj)
-    var res = repr(obj), res1 = '', cp
-    for(var i = 0; i < res.length; i++){
-        cp = res.charCodeAt(i)
-        if(cp < 128){res1 += res.charAt(i)}
-        else if(cp < 256){res1 += '\\x' + cp.toString(16)}
-        else{
-            var s = cp.toString(16)
-            if(s.length % 2 == 1){s = "0" + s}
-            res1 += '\\u' + s
-        }
-    }
-    return res1
-}
-
 // used by bin, hex and oct functions
 function $builtin_base_convert_helper(obj, base) {
   var prefix = "";
@@ -217,13 +191,6 @@ function bin_hex_oct(base, obj){
     }
 }
 
-// bin() (built in function)
-function bin(obj) {
-    check_nb_args('bin', 1, arguments)
-    check_no_kw('bin', obj)
-    return bin_hex_oct(2, obj)
-}
-
 function callable(obj) {
     check_nb_args('callable', 1, arguments)
     check_no_kw('callable', obj)
@@ -240,78 +207,6 @@ function chr(i) {
     }
     return String.fromCodePoint(i)
 }
-
-//classmethod() (built in class)
-var classmethod = $B.make_class("classmethod",
-    function(func) {
-        check_nb_args('classmethod', 1, arguments)
-        check_no_kw('classmethod', func)
-        var f = function(){
-                    return func.apply(null, arguments)
-                }
-        f.__class__ = $B.method
-        // Set same attributes as those set to func by setattr
-        // Used for instance by @abc.abstractclassmethod
-        if(func.$attrs){
-            for(var key in func.$attrs){
-                f[key] = func.$attrs[key]
-            }
-        }
-        f.$infos = {
-            __func__: func,
-            __name__: func.$infos.__name__
-        }
-        f.__get__ = function(obj, cls){
-            var method = function(){
-                return f(cls, ...arguments)
-            }
-            method.__class__ = $B.method
-            method.$infos = {
-                __self__: cls,
-                __func__: f,
-                __name__: func.$infos.__name__,
-                __qualname__: cls.$infos.__name__ + "." + func.$infos.__name__
-            }
-            return method
-        }
-        f.__get__.__class__ = $B.method_wrapper
-        f.__get__.$infos = func.$infos
-        return f
-    }
-)
-
-$B.set_func_names(classmethod, "builtins")
-
-//compile() (built in function)
-var code = $B.code = $B.make_class("code")
-
-code.__repr__ = code.__str__ = function(self){
-    return '<code object ' + self.name + ', file ' + self.filename + '>'
-}
-
-code.__getattr__ = function(self, attr){
-    if(attr == "co_code"){return 'co_code'}
-    return self[attr]
-}
-
-function compile() {
-    var $ = $B.args('compile', 6,
-        {source:null, filename:null, mode:null, flags:null, dont_inherit:null,
-         optimize:null},
-         ['source', 'filename', 'mode', 'flags', 'dont_inherit', 'optimize'],
-         arguments, {flags: 0, dont_inherit: false, optimize: -1}, null, null)
-
-    var module_name = '$exec_' + $B.UUID()
-    $B.clear_ns(module_name)
-    $.__class__ = code
-    $.co_flags = $.flags
-    // Run py2js to detect potential syntax errors
-    $B.py2js($.source, module_name, module_name)
-    return $
-}
-
-
-//function complex is located in py_complex.js
 
 // built-in variable __debug__
 var __debug__ = $B.debug > 0
@@ -946,41 +841,8 @@ $B.$getattr = function(obj, attr){
             }
             klass = klass.__parent__
         }
-        /*
-        var classes = [klass].concat(klass.__mro__)
-        for(const klass of classes){
-            if(attr == "$innerText"){
-                console.log(attr, obj, klass === $B.DOMNode)
-            }
-            var res = klass === $B.DOMNode ? klass[attr.substr(1)] :
-                klass[attr]
-            if(res !== undefined){
-                if(typeof res == "function"){
-                    var method = function(args){
-                        if(args === undefined){
-                            args = {}
-                        }else{
-                            var i = 0
-                            while(args[i] !== undefined){i++}
-                            for(var j = i; j > 0; j--){
-                                args[j] = args[j - 1]
-                            }
-                            args[0] = obj
-                        }
-                        return res(args)
-                    }
-                    method.__class__ = $B.method
-                    method.func = res
-                    return method
-                }else{
-                    return res
-                }
-            }
-        }
-        */
+        return object.getattr([obj, attr])
     }
-    console.log(obj, 'klass', klass, 'no attr', attr)
-    throw _b_.AttributeError.$factory(attr)
 }
 
 //globals() (built in function)
@@ -1479,6 +1341,17 @@ var NotImplemented = {
 
 function $not(obj){return !$B.$bool(obj)}
 
+object = {
+    getattr: function(pos, kw){
+        var $ = $B.args("getattr", pos, kw, ["self", "attr"]),
+            res = $.self[$.attr]
+        if(res === undefined){
+            throw _b_.AttributeError.$factory($.attr)
+        }
+        return res
+    }
+}
+
 function oct(obj){
     check_no_kw('oct', obj)
     check_nb_args('oct', 1, arguments)
@@ -1528,12 +1401,12 @@ function pow(x, y) {
 }
 
 function $print(pos, kw){
-    var $ = $B.args('print', pos, kw, [], {}, '$args', '$kw')
-    var args = $.$args,
-        kw = $.$kw,
-        end = kw.$end === undefined ? "\n" : kw.$end,
-        sep = kw.$sep === undefined ? " " : kw.$sep,
-        file = kw.$file === undefined ? $B.stdout : kw.$file,
+    var $ = $B.args('print', pos, kw, [], {}, 'args', 'kw')
+    var args = $.args,
+        kw = $.kw,
+        end = kw.end === undefined ? "\n" : kw.end,
+        sep = kw.sep === undefined ? " " : kw.sep,
+        file = kw.file === undefined ? $B.stdout : kw.file,
         items = []
     args.forEach(function(arg){
         items.push(_b_.str.$factory(arg))
@@ -1739,24 +1612,6 @@ function sorted () {
     return _list
 }
 
-// staticmethod() built in function
-var staticmethod = $B.make_class("staticmethod",
-    function(func) {
-        var f = {
-            $infos: func.$infos,
-            __get__: function(){
-                return func
-            }
-        }
-        f.__get__.__class__ = $B.method_wrapper
-        f.__get__.$infos = func.$infos
-        return f
-    }
-)
-
-
-$B.set_func_names(staticmethod, "builtins")
-
 // str() defined in py_string.js
 
 function sum(iterable, start){
@@ -1885,9 +1740,9 @@ $B.set_func_names($$super, "builtins")
 
 var Test = {
     equal: function(pos, kw){
-        var $ = $B.args("equal", pos, kw, ["$x", "$y"])
-        if(! $B.compare.eq($.$x, $.$y)){
-            throw _b_.$AssertionError.$factory("not equal")
+        var $ = $B.args("equal", pos, kw, ["x", "y"])
+        if(! $B.compare.eq($.x, $.y)){
+            throw _b_.AssertionError.$factory("not equal")
         }
     },
     raise: function(pos, kw){
@@ -1901,13 +1756,12 @@ var Test = {
                 throw _b_.AssertionError.$factory("exception not raised")
             }
         }
-    }
-}
-
-Test.__class__ = {
-    getattr: function(pos, kw){
-        var $ = $B.args("getattr", pos, kw, ["self", "attr"])
-        return $.self[$.attr]
+    },
+    true: function(pos, kw){
+        var $ = $B.args("true", pos, kw, ["obj"])
+        if(! $B.$bool($.obj)){
+            throw _b_.AssertionError.$factory("not true")
+        }
     }
 }
 
@@ -2367,9 +2221,6 @@ for(var i = 0; i < builtin_names.length; i++){
 _b_['open'] = $url_open
 _b_['$print'] = $print
 _b_['$$super'] = $$super
-
-_b_.object.__init__.__class__ = wrapper_descriptor
-_b_.object.__new__.__class__ = builtin_function
 
 
 })(__BARAGWIN__)

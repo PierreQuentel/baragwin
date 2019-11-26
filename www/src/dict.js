@@ -232,7 +232,7 @@ dict.eq = function(pos, kw){
     var $ = $B.args("eq", pos, kw, ["self", "other"]),
         self = $.self,
         other = $.other
-        
+
     if(! other instanceof Map){
         throw _b_.TypeError.$factory("cannot compare dict and " +
             $B.class_name(other))
@@ -313,6 +313,13 @@ dict.clear = function(pos, kw){
     var $ = $B.args("clear", pos, kw, ["self"])
     $.self.clear()
     return _b_.$None
+}
+
+dict.contains = function(pos, kw){
+    var $ = $B.args("contains", pos, kw, ["self", "item"]),
+        self = $.self,
+        item = $.item
+    return self.has(item)
 }
 
 dict.copy = function(pos, kw){

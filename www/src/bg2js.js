@@ -607,13 +607,13 @@ var $AssignCtx = $B.parser.$AssignCtx = function(context, expression){
             node.parent.children.splice(rank,1) // remove original line
             if(right_items.length > left_items.length){
                 node.parent.insert(rank,
-                    $NodeJS("throw _b_.$ValueError.$factory(" +
+                    $NodeJS("throw _b_.ValueError.$factory(" +
                         '"too many values to unpack (expected ' +
                         left_items.length + ')")'))
                 return
             }else if(right_items.length < left_items.length){
                 node.parent.insert(rank,
-                    $NodeJS("throw _b_.$ValueError.$factory(" +
+                    $NodeJS("throw _b_.ValueError.$factory(" +
                         '"need more than ' + right_items.length +
                         ' to unpack")'))
                 return
@@ -812,6 +812,13 @@ var $AttrCtx = $B.parser.$AttrCtx = function(context){
     }
 }
 
+var augmop2method = {
+    "+=": "add",
+    "-=": "sub",
+    "*=": "mul",
+    "/=": "div"
+}
+
 var $AugmentedAssignCtx = $B.parser.$AugmentedAssignCtx = function(context, op){
     // Class for augmented assignments such as "+="
 
@@ -860,8 +867,9 @@ var $AugmentedAssignCtx = $B.parser.$AugmentedAssignCtx = function(context, op){
     }
 
     this.to_js = function(){
-        return this.tree[0].to_js() + " " + this.op + " " +
-            this.tree[1].to_js()
+        var left = this.tree[0].to_js()
+        return left + " = $B.operations." + augmop2method[this.op] +
+            "(" + left + ", " + this.tree[1].to_js() + ")"
     }
 }
 
@@ -3289,7 +3297,8 @@ var $OpCtx = $B.parser.$OpCtx = function(context,op){
         this.js_processed = true
         var comps = {'==': 'eq','!=': 'ne','>=': 'ge','<=': 'le',
             '<': 'lt','>': 'gt'},
-            args = this.tree[0].to_js() + ', ' + this.tree[1].to_js()
+            left = this.tree[0].to_js()
+            args = left + ', ' + this.tree[1].to_js()
         switch(this.op){
             case '==':
             case '>=':
@@ -3307,281 +3316,9 @@ var $OpCtx = $B.parser.$OpCtx = function(context,op){
                 return '$B.operations.sub(' + args + ')'
             case '*':
                 return '$B.operations.mul(' + args + ')'
-        }
-
-        /*
-        if(comps[this.op] !== undefined){
-            var method = comps[this.op]
-            if(this.tree[0].type == 'expr' && this.tree[1].type == 'expr'){
-                var t0 = this.tree[0].tree[0],
-                    t1 = this.tree[1].tree[0],
-                    js0 = t0.to_js(),
-                    js1 = t1.to_js()
-                switch(t1.type) {
-                    case 'int':
-                        switch (t0.type) {
-                            case 'int':
-                                if(Number.isSafeInteger(t0.value) &&
-                                    Number.isSafeInteger(t1.value)){
-                                        return js0 + this.op + js1
-                                }else{
-                                    return '$B.$getattr(' +
-                                        this.tree[0].to_js() + ',"__' +
-                                        method + '__")(' +
-                                        this.tree[1].to_js() + ')'
-                                }
-                            case 'str':
-                                switch(this.op){
-                                    case "==":
-                                        return "false"
-                                    case "!=":
-                                        return "true"
-                                    default:
-                                        return '$B.$TypeError("unorderable types: '+
-                                            " int() " + this.op + ' str()")'
-                                }
-                            case 'id':
-                                return 'typeof ' + js0 + ' == "number" ? ' +
-                                    js0 + this.op + js1 + ' : $B.rich_comp("__' +
-                                    method + '__",' + this.tree[0].to_js() +
-                                    ',' + this.tree[1].to_js() + ')'
-                        }
-
-                      break;
-                  case 'str':
-                      switch(t0.type){
-                          case 'str':
-                              return js0 + this.op + js1
-                          case 'int':
-                              switch(this.op){
-                                  case "==":
-                                      return "false"
-                                  case "!=":
-                                      return "true"
-                                  default:
-                                      return '$B.$TypeError("unorderable types: '+
-                                          ' str() ' + this.op + ' int()")'
-                              }
-                          case 'id':
-                              return 'typeof ' + js0 + ' == "string" ? ' +
-                                  js0 + this.op + js1 + ' : $B.rich_comp("__' +
-                                  method + '__",' + this.tree[0].to_js() +
-                                  ',' + this.tree[1].to_js() + ')'
-                      }
-                      break;
-                  case 'id':
-                      if(t0.type == 'id'){
-                          return 'typeof ' + js0 + '!="object" && typeof ' +
-                              js0 + '!="function" && typeof ' + js0 +
-                              ' == typeof ' + js1 + ' ? ' + js0 + this.op + js1 +
-                              ' : $B.rich_comp("__' + method + '__",' +
-                              this.tree[0].to_js() + ',' + this.tree[1].to_js() +
-                              ')'
-                      }
-                      break
-                }
-            }
-        }
-        switch(this.op) {
-            case 'and':
-                var op0 = this.tree[0].to_js(),
-                    op1 = this.tree[1].to_js()
-                if(this.wrap !== undefined){
-                    // attribute "wrap" is set if this is a chained comparison,
-                    // like expr0 < expr1 < expr2
-                    // In this case, it is transformed into
-                    //     (expr0 < expr1) && (expr1 < expr2)
-                    // expr1 may be a function call, so it must be evaluated
-                    // only once. We wrap the result in an anonymous function
-                    // of the form
-                    //     function(){
-                    //         var temp = expr1;
-                    //         return (expr0<temp && temp<expr2)
-                    //     }
-                    // The name of the temporary variable is stored in
-                    // this.wrap.name ; expr1.to_js() is stored in this.wrap.js
-                    // They are initialized in
-                    return '(function(){var ' + this.wrap.name + ' = ' +
-                        this.wrap.js + ';return $B.$test_expr($B.$test_item(' +
-                        op0 + ') && $B.$test_item(' + op1 + '))})()'
-                }else{
-                    return '$B.$test_expr($B.$test_item(' + op0 + ')&&' +
-                        '$B.$test_item(' + op1 + '))'
-                }
-            case 'or':
-                var res = '$B.$test_expr($B.$test_item(' +
-                    this.tree[0].to_js() + ')||'
-                return res + '$B.$test_item(' + this.tree[1].to_js() + '))'
             case 'in':
-                return '$B.$is_member(' + $to_js(this.tree) + ')'
-            case 'not_in':
-                return '!$B.$is_member(' + $to_js(this.tree) + ')'
-            case 'unary_neg':
-            case 'unary_pos':
-            case 'unary_inv':
-                // For unary operators, the left operand is the unary sign(s)
-                var op, method
-                if(this.op == 'unary_neg'){op = '-'; method = '__neg__'}
-                else if(this.op == 'unary_pos'){op = '+'; method = '__pos__'}
-                else{op = '~';method = '__invert__'}
-                // for integers or float, replace their value using
-                // Javascript operators
-                if(this.tree[1].type == "expr"){
-                    var x = this.tree[1].tree[0]
-                    switch(x.type) {
-                        case 'int':
-                            var v = parseInt(x.value[1], x.value[0])
-                            if(Number.isSafeInteger(v)){return op + v}
-                            // for long integers, use __neg__ or __invert__
-                            return '$B.$getattr(' + x.to_js() +', "' +
-                              method + '")()'
-                        case 'float':
-                            return 'float.$factory(' + op + x.value + ')'
-                        case 'imaginary':
-                            return '$B.make_complex(0,' + op + x.value + ')'
-                    }
-                }
-                return '$B.$getattr(' + this.tree[1].to_js() + ',"' +
-                    method + '")()'
-            case 'is':
-                return '$B.$is(' + this.tree[0].to_js() + ', ' +
-                    this.tree[1].to_js() + ')'
-            case 'is_not':
-                return this.tree[0].to_js() + '!==' + this.tree[1].to_js()
-            case '+':
-                return '$B.add(' + this.tree[0].to_js() + ', ' +
-                    this.tree[1].to_js() + ')'
-            case '*':
-            case '-':
-                var op = this.op,
-                    vars = [],
-                    has_float_lit = false,
-                    scope = $get_scope(this)
-                function is_simple(elt){
-                    if(elt.type == 'expr' && elt.tree[0].type == 'int'){
-                        return true
-                    }else if(elt.type == 'expr' &&
-                            elt.tree[0].type == 'float'){
-                        has_float_lit = true
-                        return true
-                    }else if(elt.type == 'expr' &&
-                            elt.tree[0].type == 'list_or_tuple' &&
-                            elt.tree[0].real == 'tuple' &&
-                            elt.tree[0].tree.length == 1 &&
-                            elt.tree[0].tree[0].type == 'expr'){
-                        return is_simple(elt.tree[0].tree[0].tree[0])
-                    }else if(elt.type == 'expr' && elt.tree[0].type == 'id'){
-                        var _var = elt.tree[0].to_js()
-                        if(vars.indexOf(_var) == -1){vars.push(_var)}
-                        return true
-                    }else if(elt.type == 'op' &&
-                            ['*', '+', '-'].indexOf(elt.op) > -1){
-                        for(var i = 0; i < elt.tree.length; i++){
-                            if(!is_simple(elt.tree[i])){return false}
-                        }
-                        return true
-                    }
-                    return false
-                }
-                function get_type(ns, v){
-                    var t
-                    if(['int', 'float', 'str'].indexOf(v.type) > -1){
-                        t = v.type
-                    }else if(v.type == 'id' && ns[v.value]){
-                        t = ns[v.value].type
-                    }
-                    return t
-                }
-                var e0 = this.tree[0],
-                    e1 = this.tree[1]
-                if(is_simple(this)){
-                    var v0 = this.tree[0].tree[0],
-                        v1 = this.tree[1].tree[0]
-                    if(vars.length == 0 && !has_float_lit){
-                        // only integer literals
-                        return this.simple_js()
-                    }else if(vars.length == 0){
-                        // numeric literals with at least one float
-                        return 'new Number(' + this.simple_js() + ')'
-                    }else{
-                        // at least one variable
-                        var ns = scope.binding,
-                            t0 = get_type(ns, v0),
-                            t1 = get_type(ns, v1)
-                        // Static analysis told us the type of both ids
-                        if((t0 == 'float' && t1 == 'float') ||
-                              (this.op == '+' && t0 == 'str' && t1 == 'str')){
-                            this.result_type = t0
-                            return v0.to_js() + this.op + v1.to_js()
-                        }else if(['int', 'float'].indexOf(t0) > -1 &&
-                                 ['int', 'float'].indexOf(t1) > -1){
-                            if(t0 == 'int' && t1 == 'int'){
-                                this.result_type = 'int'
-                            }else{this.result_type = 'float'}
-                            switch(this.op){
-                                case '-':
-                                    return '$B.sub(' + v0.to_js() + ',' +
-                                        v1.to_js() + ')'
-                                case '*':
-                                    return '$B.mul(' + v0.to_js() + ',' +
-                                        v1.to_js() + ')'
-                            }
-                        }
-
-                        var tests = [],
-                            tests1 = [], pos = 0
-                        vars.forEach(function(_var){
-                            // Test if all variables are numbers
-                            tests.push('typeof ' + _var +
-                                '.valueOf() == "number"')
-                            // Test if all variables are integers
-                            tests1.push('typeof ' + _var + ' == "number"')
-                        })
-                        var res = [tests.join(' && ') + ' ? ']
-
-                        res.push('(' + tests1.join(' && ') + ' ? ')
-
-                        // If true, use basic formula
-                        res.push(this.simple_js())
-
-                        // Else wrap simple formula in a float
-                        res.push(' : new Number(' + this.simple_js() + ')')
-
-                        // Close integers test
-                        res.push(')')
-                       // If at least one variable is not a number
-
-                        // For addition, test if both arguments are strings
-                        var t0 = this.tree[0].to_js(),
-                            t1 = this.tree[1].to_js()
-                        if(this.op == '+'){
-                            res.push(' : (typeof ' + t0 +
-                                ' == "string" && typeof ' + t1 +
-                                ' == "string") ? ' + t0 + '+' + t1)
-                        }
-                        res.push(': $B.rich_op("' + $operators[this.op] + '",' +
-                            t0 + ',' + t1 + ')')
-                        return '(' + res.join('') + ')'
-                    }
-                }
-                if(comps[this.op] !== undefined){
-                    return '$B.rich_comp("__' + $operators[this.op] + '__",' +
-                        e0.to_js() + ',' + e1.to_js() + ')'
-                }else{
-                    return '$B.rich_op("' + $operators[this.op] + '", ' +
-                        e0.to_js() + ', ' + e1.to_js() + ')'
-                }
-            default:
-                if(comps[this.op] !== undefined){
-                    return '$B.rich_comp("__' + $operators[this.op] + '__",' +
-                        this.tree[0].to_js() + ',' + this.tree[1].to_js() + ')'
-                }else{
-                    return '$B.rich_op("' + $operators[this.op] + '", ' +
-                        this.tree[0].to_js() + ', ' + this.tree[1].to_js() +
-                        ')'
-                }
+                return '$B.is_member(' + args + ')'
         }
-        */
     }
 
 

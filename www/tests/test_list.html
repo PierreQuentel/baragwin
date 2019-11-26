@@ -39,11 +39,20 @@
 bg`
 f = ['x', 1, 2, ['a', 7.8]]
 print(f)
-assert f[2] == 2
+Test.equal(f[2], 2)
 f[2] = 35
-assert f[2] == 35
-assert f.len() == 4
-assert f.pop() == ['a', 7.8]
+Test.equal(f[2], 35)
+Test.equal(f.len(), 4)
+Test.equal(f.pop(), ['a', 7.8])
+
+Test.true('x' in f)
+
+t1 = [1, 2]
+t2 = ['a', 'b']
+Test.equal(t1 + t2, [1, 2, 'a', 'b'])
+
+f += t1
+Test.equal(f, ['x', 1, 35, 1, 2])
 
 print("done")
 `

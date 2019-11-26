@@ -82,18 +82,97 @@ $B.args = function(fname, positionals, keywords, required, defaults,
     return $
 }
 
-$B.wrong_nb_args = function(name, received, expected, positional){
-    if(received < expected){
-        var missing = expected - received
-        throw _b_.TypeError.$factory(name + "() missing " + missing +
-            " positional argument" + (missing > 1 ? "s" : "") + ": " +
-            positional.slice(received))
-    }else{
-        throw _b_.TypeError.$factory(name + "() takes " + expected +
-            " positional argument" + (expected > 1 ? "s" : "") +
-            " but more were given")
+$B.augmented = {
+    add: function(x, y){
+        return $B.operations.add(x, y)
     }
 }
+
+$B.compare = {
+    eq: function(x, y){
+        if(typeof x.valueOf() == "number" &&
+                typeof y.valueOf() == "number"){
+            return x.valueOf() == y.valueOf()
+        }else if(typeof x == "string" && typeof y == "string"){
+            return x == y
+        }else if(x.__class__ && x.__class__.eq !== undefined){
+            return x.__class__.eq([x, y])
+        }else{
+            throw _b_.TypeError.$factory("cannot compare types " +
+                $B.class_name(x) + " and " + $B.class_name(y))
+        }
+    },
+    ge: function(x, y){
+        if(typeof x.valueOf() == "number" &&
+                typeof y.valueOf() == "number"){
+            return x.valueOf() >= y.valueOf()
+        }else if(typeof x == "string" && typeof y == "string"){
+            return x >= y
+        }else if(x.__class__ && x.__class__.$ge !== undefined){
+            return x.__class__.$ge([x, y])
+        }else{
+            throw _b_.$TypeError.$factory("cannot compare types " +
+                $B.class_name(x) + " and " + $B.class_name(y))
+        }
+    },
+    gt: function(x, y){
+        if(typeof x.valueOf() == "number" &&
+                typeof y.valueOf() == "number"){
+            return x.valueOf() > y.valueOf()
+        }else if(typeof x == "string" && typeof y == "string"){
+            return x > y
+        }else if(x.__class__ && x.__class__.$gt !== undefined){
+            return x.__class__.$gt([x, y])
+        }else{
+            throw _b_.$TypeError.$factory("cannot compare types " +
+                $B.class_name(x) + " and " + $B.class_name(y))
+        }
+    }
+}
+
+$B.operations = {
+    add: function(x, y){
+        if(typeof x.valueOf() == "number" &&
+                typeof y.valueOf() == "number"){
+            return x.valueOf() + y.valueOf()
+        }else if(typeof x == "string" && typeof y == "string"){
+            return x + y
+        }else if(x.__class__ && x.__class__.add){
+            return x.__class__.add([x, y])
+        }else{
+            throw _b_.TypeError.$factory("+ not supported between types " +
+                $B.class_name(x) + " and " + $B.class_name(y))
+        }
+    },
+    mul: function(x, y){
+        if(typeof x.valueOf() == "number" &&
+                typeof y.valueOf() == "number"){
+            if(x instanceof Number || y instanceof Number){
+                return new Number(x * y)
+            }else{
+                return x.valueOf() * y.valueOf()
+            }
+        }else if(x.__class__ && x.__class__.$mul !== undefined){
+            return x.__class__.$mul([x, y])
+        }else{
+            throw _b_.$TypeError.$factory("* not supported between types " +
+                $B.class_name(x) + " and " + $B.class_name(y))
+        }
+
+    },
+    sub: function(x, y){
+        if(typeof x.valueOf() == "number" &&
+                typeof y.valueOf() == "number"){
+            return x.valueOf() - y.valueOf()
+        }else if(x.__class__ && x.__class__.$sub !== undefined){
+            return x.__class__.$sub([x, y])
+        }else{
+            throw _b_.$TypeError.$factory("- not supported between types " +
+                $B.class_name(x) + " and " + $B.class_name(y))
+        }
+    }
+}
+
 
 
 $B.get_class = function(obj){
@@ -141,7 +220,7 @@ $B.class_name = function(obj){
 $B.to_list = function(obj, expected){
     // If obj is iterable, return the list made by iteration on it
     if(obj[Symbol.iterator] === undefined){
-        throw _b_.$TypeError.$factory("'" + $B.class_name(obj) +
+        throw _b_.TypeError.$factory("'" + $B.class_name(obj) +
             "' object is not iterable")
     }
     var list = []
@@ -149,11 +228,11 @@ $B.to_list = function(obj, expected){
         list.push(item)
     }
     if(list.length < expected){
-        throw _b_.$ValueError.$factory("need more than " + list.length +
+        throw _b_.ValueError.$factory("need more than " + list.length +
             " value" + (list.length > 1 ? "s" : "") + " to unpack")
     }
     if(list.length > expected){
-        throw _b_.$ValueError.$factory("too many values to unpack " +
+        throw _b_.ValueError.$factory("too many values to unpack " +
             "(expected " + expected + ")")
     }
     return list
@@ -705,56 +784,19 @@ $B.$is = function(a, b){
     return a === b
 }
 
-$B.$is_member = function(item, _set){
-    // used for "item in _set"
-    var f, _iter, method
-
-    // Use __contains__ if defined *on the class* (implicit invocation of
-    // special methods don't use object __dict__)
-    try{
-        method = $B.$getattr(_set.__class__ || $B.get_class(_set),
-            "__contains__")
-
-    }
-    catch(err){}
-
-    if(method){
-        return $B.$call(method)(_set, item)
-    }
-
-    // use __iter__ if defined
-    try{_iter = _b_.iter(_set)}
-    catch(err){}
-    if(_iter){
-        while(1){
-            try{
-                var elt = _b_.next(_iter)
-                if($B.rich_comp("__eq__", elt, item)){return true}
-            }catch(err){
-                return false
-            }
+$B.is_member = function(item, container){
+    // used for "item in container"
+    if(typeof container == "string"){
+        if(typeof item != "string"){
+            throw _b_.TypeError.$factory("cannot test " +
+                $B.class_name(item) + " in string")
         }
+        return container.indexOf(item) >  -1
+    }else if(container.__class__ && container.__class__.contains){
+        return container.__class__.contains([container, item])
     }
-
-    // use __getitem__ if defined
-    try{f = $B.$getattr(_set, "__getitem__")}
-    catch(err){
-        throw _b_.TypeError.$factory("'" + $B.class_name(_set) +
-            "' object is not iterable")
-    }
-    if(f){
-        var i = -1
-        while(1){
-            i++
-            try{
-                var elt = f(i)
-                if($B.rich_comp("__eq__", elt, item)){return true}
-            }catch(err){
-                if(err.__class__ === _b_.IndexError){return false}
-                throw err
-            }
-        }
-    }
+    throw _b_.TypeError.$factory("cannot test membership of " +
+        $B.class_name(item) + " in " + $B.class_name(container))
 }
 
 $B.$call = function(callable){
@@ -1134,90 +1176,6 @@ var reversed_op = {"__lt__": "__gt__", "__le__":"__ge__",
 var method2comp = {"__lt__": "<", "__le__": "<=", "__gt__": ">",
     "__ge__": ">="}
 
-$B.compare = {
-    eq: function(x, y){
-        if(typeof x.valueOf() == "number" &&
-                typeof y.valueOf() == "number"){
-            return x.valueOf() == y.valueOf()
-        }else if(typeof x == "string" && typeof y == "string"){
-            return x == y
-        }else if(x.__class__ && x.__class__.eq !== undefined){
-            return x.__class__.eq([x, y])
-        }else{
-            throw _b_.$TypeError.$factory("cannot compare types " +
-                $B.class_name(x) + " and " + $B.class_name(y))
-        }
-    },
-    ge: function(x, y){
-        if(typeof x.valueOf() == "number" &&
-                typeof y.valueOf() == "number"){
-            return x.valueOf() >= y.valueOf()
-        }else if(typeof x == "string" && typeof y == "string"){
-            return x >= y
-        }else if(x.__class__ && x.__class__.$ge !== undefined){
-            return x.__class__.$ge([x, y])
-        }else{
-            throw _b_.$TypeError.$factory("cannot compare types " +
-                $B.class_name(x) + " and " + $B.class_name(y))
-        }
-    },
-    gt: function(x, y){
-        if(typeof x.valueOf() == "number" &&
-                typeof y.valueOf() == "number"){
-            return x.valueOf() > y.valueOf()
-        }else if(typeof x == "string" && typeof y == "string"){
-            return x > y
-        }else if(x.__class__ && x.__class__.$gt !== undefined){
-            return x.__class__.$gt([x, y])
-        }else{
-            throw _b_.$TypeError.$factory("cannot compare types " +
-                $B.class_name(x) + " and " + $B.class_name(y))
-        }
-    }
-}
-
-$B.operations = {
-    add: function(x, y){
-        if(typeof x.valueOf() == "number" &&
-                typeof y.valueOf() == "number"){
-            return x.valueOf() + y.valueOf()
-        }else if(typeof x == "string" && typeof y == "string"){
-            return x + y
-        }else if(x.__class__ && x.__class__.$add){
-            return x.__class__.$add([x, y])
-        }else{
-            throw _b_.$TypeError.$factory("+ not supported between types " +
-                $B.class_name(x) + " and " + $B.class_name(y))
-        }
-    },
-    mul: function(x, y){
-        if(typeof x.valueOf() == "number" &&
-                typeof y.valueOf() == "number"){
-            if(x instanceof Number || y instanceof Number){
-                return new Number(x * y)
-            }else{
-                return x.valueOf() * y.valueOf()
-            }
-        }else if(x.__class__ && x.__class__.$mul !== undefined){
-            return x.__class__.$mul([x, y])
-        }else{
-            throw _b_.$TypeError.$factory("* not supported between types " +
-                $B.class_name(x) + " and " + $B.class_name(y))
-        }
-
-    },
-    sub: function(x, y){
-        if(typeof x.valueOf() == "number" &&
-                typeof y.valueOf() == "number"){
-            return x.valueOf() - y.valueOf()
-        }else if(x.__class__ && x.__class__.$sub !== undefined){
-            return x.__class__.$sub([x, y])
-        }else{
-            throw _b_.$TypeError.$factory("- not supported between types " +
-                $B.class_name(x) + " and " + $B.class_name(y))
-        }
-    }
-}
 
 $B.rich_comp = function(op, x, y){
     var x1 = x.valueOf(),
