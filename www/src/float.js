@@ -21,10 +21,7 @@ function float_value(obj){
 var float = {
     __class__: _b_.type,
     __dir__: object.__dir__,
-    $infos: {
-        __module__: "builtins",
-        __name__: "float"
-    },
+    __name__: "float",
     $is_class: true,
     $native: true,
     $descriptors: {

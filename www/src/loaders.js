@@ -367,7 +367,6 @@ $B.has_indexedDB = self.indexedDB !== undefined
 $B.handle_error = function(err){
     // Print the error traceback on the standard error stream
     if(err.__class__ !== undefined){
-        console.log("handle error", err.__class__, err.args)
         var name = $B.class_name(err),
             trace = $B.$getattr(err, 'info')([], {})
         if(name == 'SyntaxError' || name == 'IndentationError'){

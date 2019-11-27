@@ -173,7 +173,31 @@ $B.operations = {
     }
 }
 
-
+$B.call = function(callable){
+    if(callable === undefined){
+        throw Error("callable undef")
+    }
+    if(callable.__class__ === $B.method){
+        return callable
+    }
+    else if(callable.$is_func || typeof callable == "function"){
+        return callable
+    }else if(callable.$factory){
+        return callable.$factory
+    }else if(callable.$is_class){
+        // Use metaclass __call__, cache result in callable.$factory
+        return callable.$factory = $B.$instance_creator(callable)
+    }else if(callable.__class__ === $B.JSObject){
+        if(typeof(callable.js) == "function"){
+            return callable.js
+        }else{
+            throw _b_.TypeError.$factory("'" + $B.class_name(callable) +
+                "' object is not callable")
+        }
+    }
+    throw _b_.TypeError.$factory("'" + $B.class_name(callable) +
+        "' object is not callable")
+}
 
 $B.get_class = function(obj){
     // generally we get the attribute __class__ of an object by obj.__class__
@@ -214,7 +238,7 @@ $B.get_class = function(obj){
 }
 
 $B.class_name = function(obj){
-    return $B.get_class(obj).$infos.__name__
+    return $B.get_class(obj).__name__
 }
 
 $B.to_list = function(obj, expected){
@@ -804,36 +828,7 @@ $B.is_member = function(item, container){
         $B.class_name(item) + " in " + $B.class_name(container))
 }
 
-$B.$call = function(callable){
-    if(callable === undefined){
-        throw Error("callable undef")
-    }
-    if(callable.__class__ === $B.method){
-        return callable
-    }
-    else if(callable.$is_func || typeof callable == "function"){
-        return callable
-    }else if(callable.$factory){
-        return callable.$factory
-    }else if(callable.$is_class){
-        // Use metaclass __call__, cache result in callable.$factory
-        return callable.$factory = $B.$instance_creator(callable)
-    }else if(callable.__class__ === $B.JSObject){
-        if(typeof(callable.js) == "function"){
-            return callable.js
-        }else{
-            throw _b_.TypeError.$factory("'" + $B.class_name(callable) +
-                "' object is not callable")
-        }
-    }
-    try{
-        return $B.$getattr(callable, "__call__")
-    }catch(err){
-        console.log("cannot call", callable)
-        throw _b_.$TypeError.$factory("'" + $B.class_name(callable) +
-            "' object is not callable")
-    }
-}
+
 
 // Default standard output and error
 // Can be reset by sys.stdout or sys.stderr

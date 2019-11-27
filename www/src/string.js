@@ -9,10 +9,7 @@ var unicode_tables = $B.unicode_tables
 var str = {
     __class__: _b_.type,
     __dir__: object.__dir__,
-    $infos: {
-        __module__: "builtins",
-        __name__: "str"
-    },
+    __name__: "str",
     $is_class: true,
     $native: true
 }
@@ -1998,9 +1995,13 @@ str.$factory = function(arg, encoding, errors){
         return arg.toString()
     }
     var klass = arg.__class__ || $B.get_class(arg)
-    if(klass.str){
-        return klass.str([arg])
+    while(klass){
+        if(klass.str){
+            return klass.str([arg])
+        }
+        klass = klass.__parent__
     }
+    return object.str([arg])
 }
 
 str.__new__ = function(cls){

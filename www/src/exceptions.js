@@ -299,10 +299,7 @@ var BaseException = _b_.BaseException =  {
     __bases__ : [_b_.object],
     __mro__: [_b_.object],
     args: [],
-    $infos:{
-        __name__: "BaseException",
-        __module__: "builtins"
-    },
+    __name__: "BaseException",
     $is_class: true
 }
 
@@ -440,12 +437,7 @@ BaseException.$factory = function (){
     return err
 }
 
-BaseException.$factory.$infos = {
-    __name__: "BaseException",
-    __qualname__: "BaseException"
-}
-
-$B.set_func_names(BaseException)
+BaseException.$factory.__name__ = "BaseException"
 
 _b_.$BaseException = BaseException
 
@@ -536,13 +528,12 @@ function make_exc(names, parent){
         $exc = $exc.replace("//placeholder//", code)
         // class dictionary
         _str[pos++] = "_b_." + name + ' = {__class__:_b_.type, ' +
-            '__parent__: _b_.' + parent.$infos.__name__ +
+            '__parent__: _b_.' + parent.__name__ +
             ", $is_class: true," +
-            "$infos: {__name__:'" + name + "'}}"
+            "__name__:'" + name + "'}"
         _str[pos++] = "_b_." + name + ".$factory = " + $exc
-        _str[pos++] = "_b_." + name + '.$factory.$infos = {__name__: "' +
-            name + '", __qualname__: "' + name + '"}'
-        _str[pos++] = "$B.set_func_names(_b_." + name + ", 'builtins')"
+        _str[pos++] = "_b_." + name + '.$factory.__name__ = "' +
+            name + '"'
     }
     try{
         eval(_str.join(";"))

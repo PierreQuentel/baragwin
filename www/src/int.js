@@ -18,18 +18,8 @@ function int_value(obj){
 var int = {
     __class__: _b_.type,
     __dir__: _b_.object.__dir__,
-    $infos: {
-        __module__: "builtins",
-        __name__: "int"
-    },
+    __name__: "int",
     $is_class: true,
-    $native: true,
-    $descriptors: {
-        "numerator": true,
-        "denominator": true,
-        "imag": true,
-        "real": true
-    }
 }
 
 int.from_bytes = function() {
@@ -734,25 +724,6 @@ int.$factory = function(value, base){
             "object or a number, not '" + $B.class_name(value) + "'")
     }
     return num_value
-
-    /*
-    var $trunc = $B.$getattr(value, "__trunc__", _b_.None)
-    if($trunc !== _b_.None){
-        var res = $trunc(),
-            int_func = $int
-        if(int_func === _b_.None){
-            throw _b_.TypeError.$factory("__trunc__ returned non-Integral (type "+
-                $B.class_name(res) + ")")
-        }
-        var res = int_func()
-        if(_b_.isinstance(res, int)){return int_value(res)}
-        throw _b_.TypeError.$factory("__trunc__ returned non-Integral (type "+
-                $B.class_name(res) + ")")
-    }
-    throw _b_.TypeError.$factory(
-        "int() argument must be a string, a bytes-like " +
-        "object or a number, not '" + $B.class_name(value) + "'")
-    */
 }
 
 $B.set_func_names(int, "builtins")

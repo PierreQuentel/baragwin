@@ -1040,7 +1040,7 @@ var $CallCtx = $B.parser.$CallCtx = function(context){
                 }
             }
         }
-        return this.func.to_js() + "([" + positional.join(", ") + "], {" +
+        return '$B.call(' + this.func.to_js() + ")([" + positional.join(", ") + "], {" +
             keywords.join(", ") + "})"
     }
 }

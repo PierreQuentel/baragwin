@@ -147,19 +147,6 @@ $B.lambda_magic = Math.random().toString(36).substr(2, 8)
 
 // Set __name__ attribute of klass methods
 $B.set_func_names = function(klass, module){
-    if(klass.$infos){
-        var name = klass.$infos.__name__
-        klass.$infos.__module__ = module
-        klass.$infos.__qualname__ = name
-    }else{
-        var name = klass.__name__
-        console.log("bizarre", klass)
-        klass.$infos = {
-            __name__: name,
-            __module__: module,
-            __qualname__: name
-        }
-    }
     klass.__module__ = module
     for(var attr in klass){
         if(typeof klass[attr] == 'function'){
@@ -168,9 +155,6 @@ $B.set_func_names = function(klass, module){
                 __module__: module,
                 __qualname__ : name + '.' + attr,
                 __name__: attr
-            }
-            if(klass[attr].$type == "classmethod"){
-                klass[attr].__class__ = $B.method
             }
         }
     }

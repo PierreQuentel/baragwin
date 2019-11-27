@@ -208,17 +208,26 @@ function chr(i) {
     return String.fromCodePoint(i)
 }
 
+var date_param2method = {
+    year: "FullYear",
+    month: "Month",
+    day: "Day",
+    hour: "Hours",
+    minute: "Minutes",
+    second: "Seconds"
+},
+date_params = Object.keys(date_param2method)
+
 var Date = function(pos, kw){
     var X = {},
-        params = ["year", "month", "day", "hour", "minute", "second"],
-        $ = $B.args("Date", pos, kw, params,
+        $ = $B.args("Date", pos, kw, date_params,
             {year:X, month: X, day: X, hour: X, minute: X, second: X}),
         t = []
-    params.forEach(function(param, rank){
+    date_params.forEach(function(param, rank){
         if($[param] === X){
-            params.slice(rank + 1).forEach(function(rest){
+            date_params.slice(rank + 1).forEach(function(rest){
                 if($[rest] !== X){
-                    throw _b_.ValueError.$factory(params[rank] +
+                    throw _b_.ValueError.$factory(date_params[rank] +
                         " not set but " + rest + " set")
                 }
             })
@@ -233,7 +242,34 @@ var Date = function(pos, kw){
 }
 
 Date.time = function(obj, kw){
-    return obj[0].getTime()
+    var $ = $B.args("time", obj, kw, ["self"])
+    return $.self.getTime()
+};
+
+Date.$getattr = function(self, attr){
+    if(date_params.indexOf(attr) > -1){
+        var method = "get" + date_param2method[attr]
+        return self[method]()
+    }
+    return object.$getattr(self, attr)
+}
+
+Date.getattr = function(obj, kw){
+    var $ = $B.args("getattr", obj, kw, ["self", "attr"])
+    return Date.$getattr(self, attr)
+}
+
+Date.$setattr = function(self, attr, value){
+    if(date_params.indexOf(attr) > -1){
+        var method = "set" + date_param2method[attr]
+        return self[method](value)
+    }
+    return object.$setattr(self, attr, value)
+}
+
+Date.setattr = function(obj, kw){
+    var $ = $B.args("getattr", obj, kw, ["self", "attr", "value"])
+    return Date.$setattr($.self, $.attr, $.value)
 }
 
 function delattr(obj, attr) {
@@ -789,18 +825,17 @@ function attr_error(attr, cname){
     }
 }
 
-function getattr(args){
+function getattr(pos, kw){
     var missing = {}
-    var $ = $B.args("getattr", args3, ["obj", "attr", "_default"],
-            {_default: missing})
-    return $B.$getattr($.obj, $.attr,
-        $._default === missing ? undefined : $._default)
+    var $ = $B.args("getattr", pos, kw, ["obj", "attr"])
+    return $B.$getattr($.obj, $.attr)
 }
 
 $B.$getattr = function(obj, attr){
     // Used internally to avoid having to parse the arguments
-    var test = false // attr == "XMLHttpRequest"
-    var klass = obj.__class__
+    var test = false //attr == "M",
+    var res,
+        klass = obj.__class__
 
     if(test){
         console.log("get attr", attr, "of", obj, typeof obj)
@@ -811,29 +846,36 @@ $B.$getattr = function(obj, attr){
     }
     while(klass){
         if(test){
-            console.log("search", attr, "in class", klass, "getattr", klass.getattr)
+            console.log("search", attr, "in class", klass, "getattr",
+                klass.getattr)
         }
         if(klass.getattr){
             if(klass.$getattr){
                 // shortcut to avoid parsing arguments again
-                return klass.$getattr(obj, attr)
+                res = klass.$getattr(obj, attr)
+            }else{
+                res = klass.getattr([obj, attr])
             }
-            return klass.getattr([obj, attr])
+        }else{
+            res = klass[attr]
         }
-        if(klass[attr]){
-            if(typeof klass[attr] == "function"){
+        if(res){
+            if(test){
+                console.log("klass[attr]", res, typeof res)
+            }
+            if(typeof res == "function"){
                 return function(pos, kw){
                     var pos1 = pos.slice()
                     pos1.splice(0, 0, obj)
-                    return klass[attr](pos1, kw)
+                    return res(pos1, kw)
                 }
             }else{
-                return klass[attr]
+                return res
             }
         }
         klass = klass.__parent__
     }
-    return object.getattr([obj, attr])
+    return object.$getattr(obj, attr)
 }
 
 //globals() (built in function)
@@ -1100,12 +1142,27 @@ function $not(obj){return !$B.$bool(obj)}
 
 object = {
     getattr: function(pos, kw){
-        var $ = $B.args("getattr", pos, kw, ["self", "attr"]),
-            res = $.self[$.attr]
+        var $ = $B.args("getattr", pos, kw, ["self", "attr"])
+        return object.$getattr($.self, $.attr)
+    },
+    $getattr: function(self, attr){
+        var res = self[attr]
         if(res === undefined){
-            throw _b_.AttributeError.$factory($.attr)
+            throw _b_.AttributeError.$factory(attr)
         }
         return res
+    },
+    setattr: function(pos, kw){
+        var $ = $B.args("setattr", pos, kw, ["self", "attr", "value"])
+        return object.$setattr($.self, $.attr, $.value)
+    },
+    $setattr: function(self, attr, value){
+        self[attr] = value
+        return _b_.None
+    },
+    str: function(pos, kw){
+        var $ = $B.args("str", pos, kw, ["self"])
+        return $.self.toString()
     }
 }
 
@@ -1253,15 +1310,22 @@ $B.$setattr = function(obj, attr, value){
     // Used in the code generated by py2js. Avoids having to parse the
     // since we know we will get the 3 values
     var $test = false // attr === "__name__"
-    if(typeof obj == "number" || typeof obj == "string" ||
-            Array.isArray(obj) || obj.__class__ === _b_.dict){
+    if(typeof obj == "number" ||
+            typeof obj == "string" ||
+            obj instanceof Number ||
+            Array.isArray(obj) ||
+            obj.__class__ === _b_.dict){
         throw _b_.TypeError.$factory("cannot set attribute to " +
             $B.class_name(obj))
     }
-    if(obj.__class__.setattr){
-        obj.__class__.setattr([obj, attr, value])
+    var klass = obj.__class__ || $B.get_class(obj)
+    while(klass){
+        if(klass.setattr){
+            return klass.setattr([obj, attr, value])
+        }
+        klass = klass.__parent__
     }
-    return None
+    return object.$setattr(obj, attr, value)
 }
 
 function sorted () {
@@ -1490,7 +1554,7 @@ var False = false
 _b_.__BARAGWIN__ = __BARAGWIN__
 
 $B.builtin_funcs = [
-    "abs", "all", "any", "callable", "chr", 
+    "abs", "all", "any", "callable", "chr",
     "delattr", "dir", "divmod", "eval", "exec", "exit", "format", "getattr",
     "globals", "hasattr", "hex", "input", "isinstance",
     "issubclass", "locals", "max", "min", "next", "oct",
@@ -1507,7 +1571,7 @@ $B.builtin_classes = [
 
 var other_builtins = [
     'False',  'None', 'True', '__import__',
-    'copyright', 'credits', 'license', 
+    'copyright', 'credits', 'license',
     'Date', 'Test'
 ]
 
