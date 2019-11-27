@@ -99,7 +99,7 @@
         _b_.Window = $B.JSObject.$factory(window)
         update(browser, {
             $$alert:function(message){
-                window.alert($B.builtins.$str.$factory(message))
+                window.alert($B.builtins.str.$factory(message))
             },
             confirm: $B.JSObject.$factory(window.confirm),
             $$document:$B.DOMNode.$factory(document),
@@ -152,7 +152,7 @@
                 results = regex.exec(location.search);
             results = results === null ? "" :
                 decodeURIComponent(results[1].replace(/\+/g, " "));
-            return $B.builtins.$str.$factory(results);
+            return $B.builtins.str.$factory(results);
             }
         })
 
@@ -535,9 +535,6 @@
     _b_.__builtins__.__setattr__ = function(attr, value){
         _b_[attr] = value
     }
-
-    $B.method_descriptor.__getattribute__ = $B.Function.__getattribute__
-    $B.wrapper_descriptor.__getattribute__ = $B.Function.__getattribute__
 
     // Set type of methods of builtin classes
     for(var name in _b_){

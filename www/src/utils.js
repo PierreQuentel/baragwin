@@ -186,14 +186,14 @@ $B.get_class = function(obj){
         switch(typeof obj) {
             case "number":
                 if(obj % 1 === 0){ // this is an int
-                   return _b_.$int
+                   return _b_.int
                 }
                 // this is a float
-                return _b_.$float
+                return _b_.float
             case "string":
-                return _b_.$str
+                return _b_.str
             case "boolean":
-                return _b_.$bool
+                return _b_.bool
             case "function":
                 obj.__class__ = $B.Function
                 return $B.Function
@@ -201,11 +201,11 @@ $B.get_class = function(obj){
                 if(obj.$class){return obj.$class} // module object
                 if(Array.isArray(obj)){
                     if(Object.getPrototypeOf(obj) === Array.prototype){
-                        obj.__class__ = _b_.$list
-                        return _b_.$list
+                        obj.__class__ = _b_.list
+                        return _b_.list
                     }
                 }else if(obj.constructor === Number){
-                    return _b_.$float
+                    return _b_.float
                 }
                 break
         }
@@ -556,12 +556,17 @@ $B.getitem = function(obj, item){
         }
         res = obj[item]
     }else{
-        throw _b_.TypeError.$factory("'" + $B.class_name(obj) +
-            "' object is not subscriptable")
+        try{
+            var getitem = $B.$getattr(obj, "getitem")
+        }catch(err){
+            throw _b_.TypeError.$factory("'" + $B.class_name(obj) +
+                "' object is not subscriptable")
+        }
+        return getitem([item])
     }
     if(res === undefined){
         console.log("error", obj, item)
-        throw _b_.$KeyError.$factory(item)
+        throw _b_.KeyError.$factory(item)
     }
     return res
 }

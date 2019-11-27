@@ -81,7 +81,7 @@ $B.$SyntaxError = function(module, msg, src, pos, line_num, root) {
         // this may happen for syntax errors inside a lambda
         line_num = root.line_info
     }
-    var exc = _b_.$SyntaxError.$factory(msg)
+    var exc = _b_.SyntaxError.$factory(msg)
     $B.$syntax_err_line(exc, module, src, pos, line_num)
     throw exc
 }
@@ -93,7 +93,7 @@ $B.$IndentationError = function(module, msg, src, pos, line_num, root) {
         // this may happen for syntax errors inside a lambda
         line_num = root.line_info
     }
-    var exc = _b_.$IndentationError.$factory(msg)
+    var exc = _b_.IndentationError.$factory(msg)
     $B.$syntax_err_line(exc, module, src, pos, line_num)
     throw exc
 }
@@ -383,7 +383,7 @@ var getExceptionTrace = function(exc, includeInternal) {
             console.log("src undef", line_info)
         }
     }
-    if(exc.__class__ === _b_.$SyntaxError){
+    if(exc.__class__ === _b_.SyntaxError){
         info += "\n  File " + exc.args[1] + ", line " + exc.args[2] +
             "\n    " + exc.args[4]
     }

@@ -269,16 +269,18 @@ JSObject.__dir__ = function(self){
     return Object.keys(self.js)
 }
 
-JSObject.$getattr = function(args){
-    var $ = $B.args("getattr", args, ["$self", "$attr"]),
-        self = $.self,
-        attr = $.attr
-    var res = obj.js[attr.substr(1)]
+JSObject.getattr = function(pos, kw){
+    var $ = $B.args("getattr", pos, kw, ["obj", "attr"])
+    return JSObject.$getattr($.obj, $.attr)
+}
+
+JSObject.$getattr = function(obj, attr){
+    var res = obj.js[attr]
     if(res !== undefined){
         if(typeof res == "function"){
-            var f = function(args){
-                var $ = $B.args("$" + res.name, args, [], {}, "$args")
-                return res.apply(obj.js, $.$args)
+            var f = function(pos, kw){
+                var $ = $B.args(res.name, pos, kw, [], {}, "args")
+                return res.apply(obj.js, $.args)
             }
             f.__class__ = $B.JSObject
             f.js = res
@@ -286,16 +288,14 @@ JSObject.$getattr = function(args){
         }else{
             return $B.JSObject.$factory(res)
         }
-    }else if(attr == "$new" && typeof obj.js == "function"){
-        return function(args){
-            var $ = $B.args(obj.js.name, args, [], {}, "$args"),
-                factory = obj.js.bind.apply(obj.js, $.$args),
+    }else if(attr == "new" && typeof obj.js == "function"){
+        return function(pos, kw){
+            var $ = $B.args(obj.js.name, pos, kw, [], {}, "args"),
+                factory = obj.js.bind.apply(obj.js, $.args),
                 res = new factory()
             return $B.JSObject.$factory(res)
         }
     }
-    throw _b_.$AttributeError.$factory("no attribute " + attr + ' for ' +
-        self.js)
 }
 
 JSObject.__getattribute__ = function(self,attr){
@@ -597,9 +597,9 @@ JSObject.$factory = function(obj){
 
     var klass = $B.get_class(obj)
     // we need to do this or nan is returned, when doing json.loads(...)
-    if(klass === _b_.$float){return _b_.$float.$factory(obj)}
+    if(klass === _b_.float){return _b_.$float.$factory(obj)}
     // Javascript array wrapper
-    if(klass === _b_.$list){
+    if(klass === _b_.list){
         return $B.JSArray.$factory(obj) // defined in py_list.js
     }
 

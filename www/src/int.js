@@ -757,7 +757,7 @@ int.$factory = function(value, base){
 
 $B.set_func_names(int, "builtins")
 
-_b_.$int = int
+_b_.int = int
 
 // Boolean type
 $B.$bool = function(obj){ // return true or false

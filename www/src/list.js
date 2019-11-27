@@ -634,72 +634,6 @@ list.$factory = function(){
 
 $B.set_func_names(list, "builtins")
 
-// Wrapper around Javascript arrays
-var JSArray = $B.JSArray = $B.make_class("JSArray",
-    function(array){
-        return {
-            __class__: JSArray,
-            js: array
-        }
-    }
-)
-
-JSArray.__repr__ = JSArray.__str__ = function(){
-    return "<JSArray object>"
-}
-
-// Add list methods to JSArray
-function make_args(args){
-    var res = [args[0].js]
-    for(var i = 1, len = args.length; i < len; i++){
-        res.push(args[i])
-    }
-    return res
-}
-
-for(var attr in list){
-    if($B.JSArray[attr] !== undefined){continue}
-    if(typeof list[attr] == "function"){
-        $B.JSArray[attr] = (function(fname){
-            return function(){
-                return $B.$JS2Py(list[fname].apply(null,
-                    make_args(arguments)))
-            }
-        })(attr)
-    }
-}
-
-$B.set_func_names($B.JSArray, "builtins")
-
-// Tuples
-function $tuple(arg){return arg} // used for parenthesed expressions
-
-var tuple = {
-    __class__: _b_.type,
-    __mro__: [object],
-    $infos: {
-        __module__: "builtins",
-        __name__: "tuple"
-    },
-    $is_class: true,
-    $native: true
-}
-
-var tuple_iterator = $B.make_iterator_class("tuple_iterator")
-tuple.__iter__ = function(self){
-    return tuple_iterator.$factory(self)
-}
-
-// other attributes are defined in py_list.js, once list is defined
-
-
-// type() is implemented in py_utils
-
-tuple.$factory = function(){
-    var obj = list.$factory(...arguments)
-    obj.__class__ = tuple
-    return obj
-}
 
 $B.fast_tuple = function(array){
     array.__class__ = tuple
@@ -707,91 +641,9 @@ $B.fast_tuple = function(array){
     array.__dict__ = _b_.dict.$factory()
     return array
 }
-// add tuple methods
-for(var attr in list){
-    switch(attr) {
-        case "__delitem__":
-        case "__iadd__":
-        case "__imul__":
-        case "__setitem__":
-        case "append":
-        case "extend":
-        case "insert":
-        case "remove":
-        case "reverse":
-            break
-        default:
-            if(tuple[attr] === undefined){
-                if(typeof list[attr] == "function"){
-                    tuple[attr] = (function(x){
-                        return function(){
-                            return list[x].apply(null, arguments)
-                        }
-                    })(attr)
-                }else{
-                    //tuple[attr] = list[attr]
-                }
-            }
-    }
-}
 
-tuple.__eq__ = function(self, other){
-    // compare object "self" to class "list"
-    if(other === undefined){return self === tuple}
-    return list.__eq__(self, other)
-}
 
-function c_mul(a, b){
-    s = ((parseInt(a) * b) & 0xFFFFFFFF).toString(16)
-    return parseInt(s.substr(0, s.length - 1), 16)
-}
+_b_.list = list
 
-tuple.__hash__ = function (self) {
-  // http://nullege.com/codes/show/src%40p%40y%40pypy-HEAD%40pypy%40rlib%40test%40test_objectmodel.py/145/pypy.rlib.objectmodel._hash_float/python
-  var x = 0x3456789
-  for(var i = 0, len = self.length; i < len; i++){
-     var y = _b_.hash(self[i])
-     x = c_mul(1000003, x) ^ y & 0xFFFFFFFF
-  }
-  return x
-}
-
-tuple.__init__ = function(){
-    // Tuple initialization is done in __new__
-    return $N
-}
-
-tuple.__new__ = function(cls, ...args){
-    if(cls === undefined){
-        throw _b_.TypeError.$factory("list.__new__(): not enough arguments")
-    }
-    var self = []
-    self.__class__ = cls
-    self.__baragwin__ = true
-    self.__dict__ = _b_.dict.$factory()
-    var arg = $B.$iter(args[0]),
-        next_func = $B.$call(getattr(arg, "__next__"))
-    while(1){
-        try{
-            var item = next_func()
-            self.push(item)
-        }
-        catch(err){
-            if(err.__class__ === _b_.StopIteration){
-                break
-            }
-            else{throw err}
-        }
-    }
-    return self
-}
-// set method names
-$B.set_func_names(tuple, "builtins")
-
-_b_.$list = list
-_b_.tuple = tuple
-
-// set object.__bases__ to an empty tuple
-_b_.object.__bases__ = tuple.$factory()
 
 })(__BARAGWIN__)

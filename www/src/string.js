@@ -1223,6 +1223,19 @@ str.format_map = function(self) {
       "function format_map not implemented yet")
 }
 
+str.getattr = function(pos, kw){
+    var $ = $B.args("getattr", pos, kw, ["self", "attr"])
+    return str.$getattr($.self, $.attr)
+}
+
+str.$getattr = function(self, attr){
+    var res = self[attr]
+    if(res === undefined){
+        throw _b_.AttributeError.$factory(attr)
+    }
+    return res
+}
+
 str.index = function(self){
     // Like find(), but raise ValueError when the substring is not found.
     var res = str.find.apply(null, arguments)

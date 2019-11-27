@@ -809,32 +809,31 @@ DOMNode.getattr = function(pos, kw){
     return object.__getattribute__(self, attr)
 }
 
-DOMNode.__getitem__ = function(args){
-    var $ = $B.args("__getitem__", args, ["$self", "$key"]),
-        self = $.$self,
-        key = $.$key
-
-    if(self.nodeType == 9){ // Document
+DOMNode.getitem = function(pos, kw){
+    var $ = $B.args("getitem", pos, kw, ["self", "key"]),
+        self = $.self,
+        key = $.key
+    if(self.elt.nodeType == 9){ // Document
         if(typeof key == "string"){
-            var res = self.getElementById(key)
+            var res = self.elt.getElementById(key)
             if(res){return DOMNode.$factory(res)}
-            throw _b_.$KeyError.$factory(key)
+            throw _b_.KeyError.$factory(key)
         }else{
             try{
-                var elts = self.getElementsByTagName(key.$infos.__name__),
+                var elts = self.elt.getElementsByTagName(key.$infos.__name__),
                     res = []
                     for(var i = 0; i < elts.length; i++){
                         res.push(DOMNode.$factory(elts[i]))
                     }
                     return res
             }catch(err){
-                throw _b_.$KeyError.$factory(_b_.$str.$factory(key))
+                throw _b_.KeyError.$factory(_b_.$str.$factory(key))
             }
         }
     }else{
         if((typeof key == "number" || typeof key == "boolean") &&
             typeof self.item == "function"){
-                var key_to_int = _b_.$int.$factory(key)
+                var key_to_int = _b_.int.$factory(key)
                 if(key_to_int < 0){key_to_int += self.length}
                 var res = DOMNode.$factory(self.item(key_to_int))
                 if(res === undefined){throw _b_.$KeyError.$factory(key)}
@@ -844,7 +843,7 @@ DOMNode.__getitem__ = function(args){
                  typeof self.attributes.getNamedItem == "function"){
              var attr = self.attributes.getNamedItem(key)
              if(!!attr){return attr.value}
-             throw _b_.$KeyError.$factory(key)
+             throw _b_.KeyError.$factory(key)
         }
     }
 }
@@ -932,13 +931,13 @@ DOMNode.__radd__ = function(self, other){ // add to a string
 }
 
 
-DOMNode.$setattr = function(args){
+DOMNode.setattr = function(pos, kw){
     // Sets the *property* attr of the underlying element (not its
     // *attribute*)
-    var $ = $B.args("$__setattr__", args, ["$self", "$attr", "$value"]),
-        self = $.$self,
-        attr = $.$attr,
-        value = $.$value
+    var $ = $B.args("setattr", pos, kw, ["self", "attr", "value"]),
+        self = $.self,
+        attr = $.attr,
+        value = $.value
     if(attr.substr(0,2) == "on"){ // event
         if(!$B.$bool(value)){ // remove all callbacks attached to event
             DOMNode.unbind(self, attr.substr(2))
@@ -952,8 +951,8 @@ DOMNode.$setattr = function(args){
             case "top":
             case "width":
             case "height":
-                if(_b_.isinstance(value, _b_.int) && self.nodeType == 1){
-                    self.style[attr] = value + "px"
+                if(_b_.isinstance(value, _b_.int) && self.elt.nodeType == 1){
+                    self.elt.style[attr] = value + "px"
                     return _b_.None
                 }else{
                     throw _b_.ValueError.$factory(attr + " value should be" +
@@ -982,7 +981,7 @@ DOMNode.$setattr = function(args){
 
         // Warns if attr is a descriptor of the element's prototype
         // and it is not writable
-        var proto = Object.getPrototypeOf(self),
+        var proto = Object.getPrototypeOf(self.elt),
             nb = 0
         while(!!proto && proto !== Object.prototype && nb++ < 10){
             var descriptors = Object.getOwnPropertyDescriptors(proto)
@@ -1004,12 +1003,12 @@ DOMNode.$setattr = function(args){
         }
 
         // Warns if attribute is a property of style
-        if(self.style && self.style[attr] !== undefined){
+        if(self.elt.style && self.elt.style[attr] !== undefined){
             warn("Warning: '" + attr + "' is a property of element.style")
         }
 
         // Set the property
-        self[attr] = value
+        self.elt[attr] = value
 
         return _b_.None
     }
@@ -1049,16 +1048,16 @@ DOMNode.abs_top = {
     }
 }
 
-DOMNode.bind = function(args){
+DOMNode.bind = function(pos, kw){
     // bind functions to the event (event = "click", "mouseover" etc.)
-    var $ = $B.args("$bind", args, ["$self", "$event", "$func", "$options"],
-                {$options: _b_.$None}),
-            self = $.$self,
-            event = $.$event,
-            func = $.$func,
-            options = $.$options
+    var $ = $B.args("bind", pos, kw, ["self", "event", "func", "options"],
+                {options: _b_.None}),
+            self = $.self,
+            event = $.event,
+            func = $.func,
+            options = $.options
     if(self.__class__ === $B.JSObject){
-        self = self.js
+        self.elt = self.js
     }
     var callback = (function(f){
         return function(ev){
@@ -1082,11 +1081,11 @@ DOMNode.bind = function(args){
     callback.$attrs = func.$attrs || {}
     callback.$func = func
     if(typeof options == "boolean"){
-        self.addEventListener(event, callback, options)
+        self.elt.addEventListener(event, callback, options)
     }else if(options.__class__ === _b_.dict){
-        self.addEventListener(event, callback, options)
-    }else if(options === _b_.$None){
-        self.addEventListener(event, callback, false)
+        self.elt.addEventListener(event, callback, options)
+    }else if(options === _b_.None){
+        self.elt.addEventListener(event, callback, false)
     }
     self.events = self.events || {}
     self.events[event] = self.events[event] || []

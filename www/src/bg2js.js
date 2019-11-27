@@ -3297,9 +3297,18 @@ var $OpCtx = $B.parser.$OpCtx = function(context,op){
         this.js_processed = true
         var comps = {'==': 'eq','!=': 'ne','>=': 'ge','<=': 'le',
             '<': 'lt','>': 'gt'},
-            left = this.tree[0].to_js()
-            args = left + ', ' + this.tree[1].to_js()
+            left = this.tree[0].to_js(),
+            right = this.tree[1].to_js(),
+            args = left + ', ' + right
         switch(this.op){
+            case 'and':
+                return left + ' && ' + right
+            case 'is':
+                return left + ' === ' + right
+            case 'is_not':
+                return left + ' !== ' + right
+            case 'or':
+                return left + ' || ' + right
             case '==':
             case '>=':
             case '>':
@@ -3318,35 +3327,6 @@ var $OpCtx = $B.parser.$OpCtx = function(context,op){
                 return '$B.operations.mul(' + args + ')'
             case 'in':
                 return '$B.is_member(' + args + ')'
-        }
-    }
-
-
-    this.simple_js = function(){
-
-        function sjs(elt){
-            if(elt.type == 'op'){return elt.simple_js()}
-            else if(elt.type == 'expr' && elt.tree[0].type == 'list_or_tuple'
-                    && elt.tree[0].real == 'tuple'
-                    && elt.tree[0].tree.length == 1
-                    && elt.tree[0].tree[0].type == 'expr'){
-                return '(' + elt.tree[0].tree[0].tree[0].simple_js() + ')'
-            }else{return elt.tree[0].to_js()}
-        }
-        if(op == '+'){
-            return '$B.add(' + sjs(this.tree[0]) + ',' +
-                sjs(this.tree[1]) + ')'
-        }else if(op == '-'){
-            return '$B.sub(' + sjs(this.tree[0]) + ',' +
-                sjs(this.tree[1]) + ')'
-        }else if(op == '*'){
-            return '$B.mul(' + sjs(this.tree[0]) + ',' +
-                sjs(this.tree[1]) + ')'
-        }else if(op == '/'){
-            return '$B.div(' + sjs(this.tree[0]) + ',' +
-                sjs(this.tree[1]) + ')'
-        }else{
-            return sjs(this.tree[0]) + op + sjs(this.tree[1])
         }
     }
 }
@@ -3660,7 +3640,7 @@ var $StringCtx = $B.parser.$StringCtx = function(context,value){
                             expr1 = '$B.builtins.repr(' + expr1 + ')'
                             break
                         case "s":
-                            expr1 = '$B.builtins.$str.$factory(' + expr1 + ')'
+                            expr1 = '$B.builtins.str.$factory(' + expr1 + ')'
                             break
                     }
 
@@ -3673,12 +3653,12 @@ var $StringCtx = $B.parser.$StringCtx = function(context,value){
                         }else{
                             fmt = "'" + fmt + "'"
                         }
-                        var res1 = "$B.builtins.$str.format('{0:' + " +
+                        var res1 = "$B.builtins.str.format('{0:' + " +
                             fmt + " + '}', " + expr1 + ")"
                         elts.push(res1)
                     }else{
                         if(parsed_fstring[i].conversion === null){
-                            expr1 = '$B.builtins.$str.$factory(' + expr1 + ')'
+                            expr1 = '$B.builtins.str.$factory(' + expr1 + ')'
                         }
                         elts.push(expr1)
                     }
@@ -3732,7 +3712,7 @@ var $StringCtx = $B.parser.$StringCtx = function(context,value){
     }
 }
 
-function $StructCtx(context){
+function StructCtx(context){
     this.type = "struct"
     var node = context.parent
     this.parent = context.parent
@@ -3757,13 +3737,13 @@ function $StructCtx(context){
             }
             create_obj_node.add($NodeJS(line))
         }, this)
-        node.add($NodeJS('var $ = $B.args("' + this.id.value + '", args, [' +
-            params.join(", ") + "])"))
+        node.add($NodeJS('var $ = $B.args("' + this.id.value +
+            '", pos, kw, [' + params.join(", ") + "])"))
         node.add(create_obj_node)
     }
 
     this.to_js = function(){
-        return this.id.to_js() + " = function(args)"
+        return this.id.to_js() + " = function(pos, kw)"
     }
 
 }
@@ -5204,7 +5184,7 @@ var $transition = function(context, token, value){
                 }else if(context.parent.type == "slice"){
                     return $transition(context.parent, token, value)
                 }else if(context.parent.type == "node"){
-                    return new $StructCtx(context)
+                    return new StructCtx(context)
                 }
                 break
             case '=':
