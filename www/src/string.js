@@ -1981,13 +1981,7 @@ str.$factory = function(arg, encoding, errors){
     }
     switch(typeof arg) {
         case "string":
-            if(arg.indexOf("'") == -1){
-                return "'" + arg + "'"
-            }else if(arg.indexOf('"') == -1){
-                return '"' + arg + '"'
-            }else{
-                return "'" + arg.replace(new RegExpr("'", "g"), "\\'") + "'"
-            }
+            return arg
         case "number":
             return arg.toString()
     }

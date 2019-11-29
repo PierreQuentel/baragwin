@@ -157,7 +157,7 @@
         })
 
         // creation of an HTML element
-        modules['browser.html'] = (function($B){
+        _b_.Html = (function($B){
 
             var _b_ = $B.builtins
             var TagSum = $B.TagSum
@@ -166,20 +166,17 @@
                 // return the dictionary for the class associated with tagName
                 var dict = {
                     __class__: _b_.type,
-                    $infos:{
-                        __name__: tagName,
-                        __module__: "browser.html"
-                    }
+                    __name__: tagName
                 }
 
-                dict.__init__ = function(args){
-                    var $ns = $B.args('__init__', args, ['$self'], {},
-                            '$args', '$kw'),
-                        self = $ns['$self'],
-                        args = $ns['$args']
+                dict.__init__ = function(pos, kw){
+                    var $ = $B.args('__init__', pos, kw, ['self'], {},
+                            'args', 'kw'),
+                        self = $.self,
+                        args = $.args
                     if(args.length == 1){
                         var first = args[0]
-                        if(_b_.isinstance(first,[_b_.str, _b_.int, _b_.float])){
+                        if(_b_.isinstance(first, [_b_.str, _b_.int, _b_.float])){
                             // set "first" as HTML content (not text)
                             self.elt.innerHTML = _b_.str.$factory(first)
                         }else if(first.__class__ === TagSum){
@@ -210,7 +207,7 @@
                     }
 
                     // attributes
-                    var items = $ns['kw']
+                    var items = $.kw
                     for(var key in items){
                         // keyword arguments
                         var value = items[key]
@@ -226,9 +223,6 @@
                             if(value !== false){
                                 // option.selected = false sets it to true :-)
                                 try{
-                                    // Call attribute mapper (cf. issue#1187)
-                                    arg = $B.imported["browser.html"].
-                                        attribute_mapper(key)
                                     self.elt.setAttribute(key, value)
                                 }catch(err){
                                     throw _b_.ValueError.$factory(
@@ -239,7 +233,7 @@
                     }
                 }
 
-                dict.__mro__ = [$B.DOMNode, $B.builtins.object]
+                dict.__parent__ = $B.DOMNode
 
                 dict.__new__ = function(cls){
                     // __new__ must be defined explicitely : it returns an instance of
@@ -263,23 +257,17 @@
             }
 
             function makeFactory(klass){
-                var factory = function(){
-                    if(klass.$elt_wrap !== undefined) {
-                        var elt = klass.$elt_wrap  // keep track of the to wrap element
-                        klass.$elt_wrap = undefined  // nullify for later calls
-                        var res = $B.DOMNode.$factory(elt, true)  // generate the wrapped DOMNode
-                        res._wrapped = true  // marked as wrapped
+                var factory = function(pos, kw){
+                    if(klass.__name__ == 'SVG'){
+                        var res = $B.DOMNode.$factory(document.createElementNS("http://www.w3.org/2000/svg", "svg"), true)
                     }else{
-                        if(klass.$infos.__name__ == 'SVG'){
-                            var res = $B.DOMNode.$factory(document.createElementNS("http://www.w3.org/2000/svg", "svg"), true)
-                        }else{
-                            var res = $B.DOMNode.$factory(document.createElement(klass.$infos.__name__), true)
-                        }
-                        res._wrapped = false  // not wrapped
+                        var res = $B.DOMNode.$factory(document.createElement(klass.__name__), true)
                     }
                     res.__class__ = klass
                     // apply __init__
-                    klass.__init__([res].concat(Array.prototype.slice.call(arguments)))
+                    var pos1 = pos.slice()
+                    pos1.splice(0, 0, res)
+                    klass.__init__(pos1, kw)
                     return res
                 }
                 return factory
@@ -322,9 +310,7 @@
                     throw _b_.TypeError.$factory("html.maketag expects a string as argument")
                 }
                 var klass = dicts[tag] = makeTagDict(tag)
-                klass.$factory = makeFactory(klass)
-                obj.tags.set(tag, klass)
-                return klass
+                return makeFactory(klass)
             }
 
             tags.forEach(function(tag){
@@ -338,6 +324,7 @@
             obj.attribute_mapper = function(attr){
                 return attr.replace(/_/g, '-')
             }
+            console.log("DIV" + obj.DIV)
 
             return obj
         })(__BARAGWIN__)

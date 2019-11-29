@@ -840,7 +840,7 @@ function getattr(pos, kw){
 
 $B.$getattr = function(obj, attr){
     // Used internally to avoid having to parse the arguments
-    var test = false // attr == "attrs"
+    var test = false //attr == "bind"
     var res,
         klass = obj.__class__
 
@@ -965,7 +965,7 @@ function isinstance(obj, cls){
     check_nb_args('isinstance', 2, arguments)
 
     if(obj === null){return cls === None}
-    if(cls.constructor === Array){
+    if(Array.isArray(cls)){
         for(var i = 0; i < cls.length; i++){
             if(isinstance(obj, cls[i])){return true}
         }
@@ -993,17 +993,17 @@ function isinstance(obj, cls){
 
     if(klass == undefined){
         if(typeof obj == 'string'){
-            if(cls == _b_.$str){return true}
+            if(cls == _b_.str){return true}
             else if($B.builtin_classes.indexOf(cls) > -1){
                 return false
             }
         }else if(obj.contructor === Number && Number.isFinite(obj)){
-            if(cls == _b_.$float){return true}
+            if(cls == _b_.float){return true}
             else if($B.builtin_classes.indexOf(cls) > -1){
                 return false
             }
         }else if(typeof obj == 'number' && Number.isFinite(obj)){
-            if(Number.isFinite(obj) && cls == _b_.$int){return true}
+            if(Number.isFinite(obj) && cls == _b_.int){return true}
             else if($B.builtin_classes.indexOf(cls) > -1){
                 return false
             }
@@ -1014,22 +1014,12 @@ function isinstance(obj, cls){
     if(klass === undefined){return false}
 
     // Return true if one of the parents of obj class is cls
-    // If one of the parents is the class used to inherit from str, obj is an
-    // instance of str ; same for list
-
-    function check(kl, cls){
-        if(kl === cls){return true}
-        else if(cls === _b_.$str && kl === $B.StringSubclass){return true}
-        else if(cls === _b_.int && kl === $B.IntSubclass){return true}
+    while(klass){
+        if(klass === cls){
+            return true
+        }
+        klass = klass.__parent__
     }
-    if(check(klass, cls)){return true}
-    var mro = klass.__mro__
-    for(var i = 0; i < mro.length; i++){
-       if(check(mro[i], cls)){
-           return true
-       }
-    }
-
     return false
 }
 

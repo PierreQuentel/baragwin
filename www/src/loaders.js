@@ -350,7 +350,8 @@ var loop = $B.loop = function(){
                 }
             }
             if($B.debug > 1){
-                console.log("handle error", err.__class__, err.args)
+                console.log("handle error", err.__class__, err.args, 
+                    err.frames)
             }
             $B.handle_error(err)
         }

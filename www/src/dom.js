@@ -529,10 +529,8 @@ $B.set_func_names(Options, "<dom>")
 var DOMNode = {
     __class__ : _b_.type,
     __mro__: [object],
-    $infos: {
-        __module__: "browser",
-        __name__: "DOMNode"
-    }
+    __module__: "browser",
+    __name__: "DOMNode"
 }
 
 DOMNode.$factory = function(elt, fromtag){
@@ -862,7 +860,10 @@ DOMNode.__iter__ = function(self){
     return $B.$iter(items)
 }
 
-DOMNode.__le__ = function(self, other){
+DOMNode.le = function(pos, kw){
+    var $ = $B.args("le", pos, kw, ["self", "other"]),
+        self = $.self,
+        other = $.other
     // for document, append child to document.body
     var elt = self.elt
     if(self.elt.nodeType == 9){elt = self.elt.body}
@@ -953,7 +954,7 @@ DOMNode.setattr = function(pos, kw){
                 break
         }
         if(DOMNode["set_" + attr] !== undefined) {
-          return DOMNode["set_" + attr]([self, value])
+          return DOMNode["set_" + attr](self, value)
         }
 
         function warn(msg){
@@ -1054,7 +1055,7 @@ DOMNode.bind = function(pos, kw){
     var callback = (function(f){
         return function(ev){
             try{
-                return f($DOMEvent(ev))
+                return f([$DOMEvent(ev)])
             }catch(err){
                 if(err.__class__ !== undefined){
                     var trace = $B.getExceptionTrace(err)
@@ -1373,10 +1374,9 @@ DOMNode.set_style = function(self, style){ // style is a dict
         throw _b_.TypeError.$factory("style must be dict, not " +
             $B.class_name(style))
     }
-    var items = _b_.list.$factory(_b_.dict.items(style))
-    for(var i = 0; i < items.length; i++){
-        var key = items[i][0],
-            value = items[i][1]
+    var key,
+        value
+    for(var [key, value] of style.entries()){
         if(key.toLowerCase() == "float"){
             self.elt.style.cssFloat = value
             self.elt.style.styleFloat = value

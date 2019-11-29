@@ -113,7 +113,7 @@ $B.compare = {
         }else if(x.__class__ && x.__class__.ge !== undefined){
             return x.__class__.ge([x, y])
         }else{
-            throw _b_.$TypeError.$factory("cannot compare types " +
+            throw _b_.TypeError.$factory("cannot compare types " +
                 $B.class_name(x) + " and " + $B.class_name(y))
         }
     },
@@ -125,6 +125,33 @@ $B.compare = {
             return x > y
         }else if(x.__class__ && x.__class__.gt !== undefined){
             return x.__class__.gt([x, y])
+        }else{
+            throw _b_.$TypeError.$factory("cannot compare types " +
+                $B.class_name(x) + " and " + $B.class_name(y))
+        }
+    },
+    le: function(x, y){
+        if(typeof x.valueOf() == "number" &&
+                typeof y.valueOf() == "number"){
+            return x.valueOf() <= y.valueOf()
+        }else if(typeof x == "string" && typeof y == "string"){
+            return x <= y
+        }else if(x.__class__ && x.__class__.le !== undefined){
+            return x.__class__.le([x, y])
+        }else{
+            console.log(x, y)
+            throw _b_.TypeError.$factory("cannot compare types " +
+                $B.class_name(x) + " and " + $B.class_name(y))
+        }
+    },
+    lt: function(x, y){
+        if(typeof x.valueOf() == "number" &&
+                typeof y.valueOf() == "number"){
+            return x.valueOf() < y.valueOf()
+        }else if(typeof x == "string" && typeof y == "string"){
+            return x < y
+        }else if(x.__class__ && x.__class__.lt !== undefined){
+            return x.__class__.lt([x, y])
         }else{
             throw _b_.$TypeError.$factory("cannot compare types " +
                 $B.class_name(x) + " and " + $B.class_name(y))
@@ -145,6 +172,28 @@ $B.operations = {
             return x.__class__.add([x, y])
         }else{
             throw _b_.TypeError.$factory("+ not supported between types " +
+                $B.class_name(x) + " and " + $B.class_name(y))
+        }
+    },
+    div: function(x, y){
+        if(typeof x.valueOf() == "number" &&
+                typeof y.valueOf() == "number"){
+            return x.valueOf() / y.valueOf()
+        }else if(x.__class__ && x.__class__.div){
+            return x.__class__.div([x, y])
+        }else{
+            throw _b_.TypeError.$factory("/ not supported between types " +
+                $B.class_name(x) + " and " + $B.class_name(y))
+        }
+    },
+    floordiv: function(x, y){
+        if(typeof x.valueOf() == "number" &&
+                typeof y.valueOf() == "number"){
+            return Math.floor(x.valueOf() / y.valueOf())
+        }else if(x.__class__ && x.__class__.floordiv){
+            return x.__class__.floordiv([x, y])
+        }else{
+            throw _b_.TypeError.$factory("// not supported between types " +
                 $B.class_name(x) + " and " + $B.class_name(y))
         }
     },
@@ -352,6 +401,7 @@ $B.test_iter = function(candidate){
         throw _b_.$TypeError.$factory($B.class_name(candidate) +
             " object is not iterable")
     }
+    return candidate
 }
 
 $B.$list_comp = function(items){
@@ -485,7 +535,7 @@ $B.$global_search = function(name){
     // search name in all namespaces above current stack frame
     var ns = {}
 
-    for(var i = 0; i< $B.frames_stack.length; i++){
+    for(var i = 0; i < $B.frames_stack.length; i++){
         var frame = $B.frames_stack[i]
         if(frame.hasOwnProperty(name)){
             return frame[name]

@@ -2232,13 +2232,15 @@ var $ForExpr = $B.parser.$ForExpr = function(context){
             it_js = iterable.to_js(),
             it_name = "iter" + $loop_num
 
+        /*
         new_nodes.push($NodeJS("var " + it_name + " = " + it_js))
         var test_node = $NodeJS("$B.test_iter(" + it_name + ")")
         test_node.line_num = node.line_num
         new_nodes.push(test_node)
+        */
 
-        var for_node = $NodeJS("for(const x" + $loop_num + " of " + it_js +
-            ")")
+        var for_node = $NodeJS("for(const x" + $loop_num + " of $B.test_iter(" +
+            it_js + "))")
 
         for_node.context.loop_num = num // used for "else" clauses
         for_node.context.type = 'for' // used in $add_line_num
@@ -2733,7 +2735,6 @@ var $IdCtx = $B.parser.$IdCtx = function(context, value){
                 }else if(scope.id == "__builtins__"){
                     return "_b_." + value
                 }else{
-                    console.log("id to js", this.scope, scope)
                     return "locals_" + scope.id + "." + value
                 }
             }
@@ -3310,19 +3311,21 @@ var $OpCtx = $B.parser.$OpCtx = function(context,op){
             case '==':
             case '>=':
             case '>':
+            case '<':
+            case '<=':
                 return '$B.compare.' + comps[this.op] + '(' + args + ')'
             case '!=':
                 return '! $B.compare.eq(' + args + ')'
-            case '<':
-                return '! $B.compare.gt(' + args + ')'
-            case '<=':
-                return '! $B.compare.ge(' + args + ')'
             case '+':
                 return '$B.operations.add(' + args + ')'
             case '-':
                 return '$B.operations.sub(' + args + ')'
             case '*':
                 return '$B.operations.mul(' + args + ')'
+            case '/':
+                return '$B.operations.div(' + args + ')'
+            case '//':
+                return '$B.operations.floordiv(' + args + ')'
             case 'in':
                 return '$B.is_member(' + args + ')'
             case 'unary_neg':
@@ -6333,7 +6336,7 @@ for(var i = 0; i < s_escaped.length; i++){
 var kwdict = [
     "class", "return", "break", "for", "lambda", "try", "finally",
     "raise", "def", "from", "while", "del", "global",
-    "as", "elif", "else", "if", "assert", "import",
+    "as", "elif", "else", "if", "assert",
     "except", "raise", "in", "pass", "continue", "__debugger__",
     "async", "await",
     "when", "on", "module", "yield"
