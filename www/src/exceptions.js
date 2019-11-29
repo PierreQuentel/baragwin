@@ -326,7 +326,7 @@ BaseException.__new__ = function(cls){
     return err
 }
 
-var getExceptionTrace = function(exc, includeInternal) {
+var getExceptionTrace = $B.getExceptionTrace = function(exc, includeInternal) {
     if(exc.__class__ === undefined){
         if($B.debug > 1){console.log("no class", exc)}
         return exc + ''
@@ -368,7 +368,7 @@ var getExceptionTrace = function(exc, includeInternal) {
         if(module.charAt(0) == "$"){module = "<module>"}
         info += "\n  module " + module + " line " + line_info[0]
         if(frame.parent){
-            info += ', in ' + frame.name.substr(1)
+            info += ', in ' + frame.name
         }
 
         if(src !== undefined){

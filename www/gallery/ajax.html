@@ -49,11 +49,13 @@ def fake_qs()
     return f"?foo={time}"
 
 def show(req)
-    if req.status == 200
+    if not "status" in Info.attrs(req)
+        Document["result"].innerText = "no status"
+    elif req.status == 200
         Document["result"].innerText = req.responseText
     else
         Document["result"].innerText = f"{req.status} file not found"
-    
+
 def get(url, timeout=5, oncomplete=None, data=None)
     req = Window.XMLHttpRequest.new()
     req.open("GET", url)

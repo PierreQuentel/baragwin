@@ -1893,10 +1893,8 @@ var $DelCtx = $B.parser.$DelCtx = function(context){
                     return res.join(';')
                 case 'sub':
                     // Delete an item in a list : "del a[x]"
-                    expr.func = 'delitem'
-                    js = expr.to_js()
-                    expr.func = 'getitem'
-                    return js
+                    return '$B.delitem(' + expr.value.to_js() + ', ' +
+                        $to_js(expr.tree) + ')'
                 case 'op':
                       $_SyntaxError(this, ["can't delete operator"])
                 case 'call':
@@ -3063,9 +3061,9 @@ var $ListOrTupleCtx = $B.parser.$ListOrTupleCtx = function(context,real){
             case 'list':
                 var packed = this.packed_indices()
                 if(packed.length > 0){
-                    return '$B.$list(' + this.unpack(packed) + ')'
+                    return this.unpack(packed)
                 }
-                return '$B.$list([' + $to_js(this.tree) + '])'
+                return '[' + $to_js(this.tree) + ']'
             case 'list_comp':
             case 'gen_expr':
             case 'dict_or_set_comp':
@@ -3148,12 +3146,12 @@ var $ListOrTupleCtx = $B.parser.$ListOrTupleCtx = function(context,real){
             case 'tuple':
                 var packed = this.packed_indices()
                 if(packed.length > 0){
-                    return '$B.fast_tuple(' + this.unpack(packed) + ')'
+                    return this.unpack(packed)
                 }
                 if(this.tree.length == 1 && this.has_comma === undefined){
                     return this.tree[0].to_js()
                 }
-                return '$B.fast_tuple([' + $to_js(this.tree) + '])'
+                return '[' + $to_js(this.tree) + ']'
         }
     }
 }
@@ -3327,6 +3325,12 @@ var $OpCtx = $B.parser.$OpCtx = function(context,op){
                 return '$B.operations.mul(' + args + ')'
             case 'in':
                 return '$B.is_member(' + args + ')'
+            case 'unary_neg':
+                return '-' + right
+            case 'unary_pos':
+                return right
+            default:
+                console.log("unhandled", this.op)
         }
     }
 }

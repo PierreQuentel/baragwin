@@ -33,10 +33,16 @@ var list = {
 }
 
 list.add = function(pos, kw){
-    var $ = $B.args("add", pos, kw, ["self", "other"]),
-        res = $.self.slice().concat($.other)
-    res.__class__ = list
-    return res
+    var $ = $B.args("add", pos, kw, ["self", "other"])
+    return list.$add($.self, $.other)
+}
+
+list.$add = function(self, other){
+    if(! Array.isArray(other)){
+        throw _b_.TypeError.$factory("cannot add list and " +
+            $B.class_name(other))
+    }
+    return self.slice().concat(other)
 }
 
 list.contains = function(pos, kw){
@@ -105,12 +111,35 @@ list.__delitem__ = function(self, arg){
         _b_.str.$factory(arg.__class__))
 }
 
-list.eq = function(pos, kw){
-    var $ = $B.args("eq", pos, kw, ["self", "other"]),
-        self = $.self,
-        other = $.other
+list.del = function(pos, kw){
+    var $ = $B.args("del", obj, kw, ["self", "item"])
+    return list.$del($.self, $.item)
+}
 
-    if(other.__class__ !== list){
+list.$del = function(self, item){
+    if(! typeof item == "number"){
+        throw _b_.ValueError.$factory("list index should be int, not " +
+            $B.class_name(item))
+    }
+    if(item < 0){
+        item += self.length
+    }
+    if(self[item] === undefined){
+        console.log("no item at index", self, item)
+        throw _b_.IndexError.$factory(item)
+    }
+    self.splice(item, 1)
+    return _b_.None
+}
+
+list.eq = function(pos, kw){
+    var $ = $B.args("eq", pos, kw, ["self", "other"])
+    return list.$eq($.self, $.other)
+}
+
+list.$eq = function(self, other){
+
+    if(! Array.isArray(other)){
         throw _b_.TypeError.$factory("cannot compare list and " +
             $B.get_class(other))
     }
@@ -633,15 +662,6 @@ list.$factory = function(){
 }
 
 $B.set_func_names(list, "builtins")
-
-
-$B.fast_tuple = function(array){
-    array.__class__ = tuple
-    array.__baragwin__ = true
-    array.__dict__ = _b_.dict.$factory()
-    return array
-}
-
 
 _b_.list = list
 

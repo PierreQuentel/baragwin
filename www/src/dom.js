@@ -734,26 +734,18 @@ DOMNode.getattr = function(pos, kw){
 
     res = DOMNode[attr]
     if(res !== undefined){
-        if(typeof res == "function"){
-            return function(pos, kw){
-                var pos1 = pos.slice()
-                pos1.splice(0, 0, self)
-                return res(pos1, kw)
-            }
-        }
-        return res
-    }
-
-    if(res !== undefined){
         if(res === null){return _b_.None}
         if(typeof res === "function"){
             // If elt[attr] is a function, it is converted in another function
             // that produces a Python error message in case of failure.
             var func = (function(f, elt){
-                return function(){
-                    var args = [], pos = 0
-                    for(var i = 0; i < arguments.length; i++){
-                        var arg = arguments[i]
+                return function(pos, kw){
+                    var $ = $B.args(attr, pos, kw, [], {}, "args"),
+                        args = $.args
+                    args.splice(0, 0, self)
+                    var pos = 0
+                    for(var i = 0; i < args.length; i++){
+                        var arg = args[i]
                         if(typeof arg == "function"){
                             // Conversion of function arguments into functions
                             // that handle exceptions. The converted function
@@ -783,7 +775,7 @@ DOMNode.getattr = function(pos, kw){
                         else if(_b_.isinstance(arg, JSObject)){
                             args[pos++] = arg.js
                         }else if(_b_.isinstance(arg, DOMNode)){
-                            args[pos++] = arg.elt
+                            args[pos++] = arg
                         }else if(arg === _b_.None){
                             args[pos++] = null
                         }else if(arg.__class__ == _b_.dict){
@@ -792,7 +784,7 @@ DOMNode.getattr = function(pos, kw){
                             args[pos++] = arg
                         }
                     }
-                    var result = f.apply(elt, args)
+                    var result = f.apply(elt, [args])
                     return $B.$JS2Py(result)
                 }
             })(res, self.elt)
@@ -806,7 +798,7 @@ DOMNode.getattr = function(pos, kw){
 
         return $B.$JS2Py(res)
     }
-    return object.__getattribute__(self, attr)
+    return object.$getattr(self, attr)
 }
 
 DOMNode.getitem = function(pos, kw){
@@ -1065,11 +1057,12 @@ DOMNode.bind = function(pos, kw){
                 return f($DOMEvent(ev))
             }catch(err){
                 if(err.__class__ !== undefined){
-                    var msg = $B.$getattr(err, "info") +
-                        "\n" + $B.class_name(err)
-                    if(err.args){msg += ": " + err.args[0]}
-                    try{$B.$getattr($B.stderr, "write")(msg)}
-                    catch(err){console.log(msg)}
+                    var trace = $B.getExceptionTrace(err)
+                    trace += "\n" + $B.class_name(err)
+                    if(err.args){trace += ": " + err.args[0]}
+
+                    try{$B.$getattr($B.stderr, "write")(trace)}
+                    catch(err){console.log(trace)}
                 }else{
                     try{$B.$getattr($B.stderr, "write")(err)}
                     catch(err1){console.log(err)}

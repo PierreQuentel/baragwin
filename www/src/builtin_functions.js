@@ -34,10 +34,6 @@ function check_no_kw(name, x, y){
         }
     }
     return true
-    /*
-    if(x.$nat || (y !== undefined && y.$nat)){
-        throw _b_.TypeError.$factory(name + "() takes no keyword arguments")}
-    */
 }
 
 var NoneType = {
@@ -251,7 +247,18 @@ Date.$getattr = function(self, attr){
         var method = "get" + date_param2method[attr]
         return self[method]()
     }
-    return object.$getattr(self, attr)
+    var res = Date[attr]
+    if(res === undefined){
+        throw _b_.AttributeError.$factory(attr)
+    }else if(typeof res === "function"){
+        return function(pos, kw){
+            var pos1 = pos.slice()
+            pos1.splice(0, 0, self)
+            return res(pos1, kw)
+        }
+    }else{
+        return res
+    }
 }
 
 Date.getattr = function(obj, kw){
@@ -833,7 +840,7 @@ function getattr(pos, kw){
 
 $B.$getattr = function(obj, attr){
     // Used internally to avoid having to parse the arguments
-    var test = false //attr == "M",
+    var test = false // attr == "attrs"
     var res,
         klass = obj.__class__
 
@@ -856,21 +863,28 @@ $B.$getattr = function(obj, attr){
             }else{
                 res = klass.getattr([obj, attr])
             }
+            if(test){
+                console.log("return klass getattr", res)
+            }
+            return res
         }else{
             res = klass[attr]
-        }
-        if(res){
-            if(test){
-                console.log("klass[attr]", res, typeof res)
-            }
-            if(typeof res == "function"){
-                return function(pos, kw){
-                    var pos1 = pos.slice()
-                    pos1.splice(0, 0, obj)
-                    return res(pos1, kw)
+            if(res){
+                if(test){
+                    console.log(res, res + "", typeof res)
                 }
-            }else{
-                return res
+                if(typeof res == "function"){
+                    var method = function(pos, kw){
+                        var pos1 = pos.slice()
+                        pos1.splice(0, 0, obj)
+                        return res(pos1, kw)
+                    }
+                    method.func = res
+                    method.__class__ = $B.method
+                    return method
+                }else{
+                    return res
+                }
             }
         }
         klass = klass.__parent__
@@ -927,6 +941,18 @@ function __import__(mod_name, globals, locals, fromlist, level) {
         {globals:None, locals:None, fromlist:_b_.tuple.$factory(), level:0},
         null, null)
     return $B.$__import__($.name, $.globals, $.locals, $.fromlist)
+}
+
+Info = {
+    attrs: function(pos, kw){
+        var $ = $B.args("attrs", pos, kw, ["obj"])
+        try{
+            return $B.$getattr($.obj, "attrs")([], {})
+        }catch(err){
+            console.log(err)
+            return Object.keys($.obj)
+        }
+    }
 }
 
 // not a direct alias of prompt: input has no default value
@@ -1572,7 +1598,7 @@ $B.builtin_classes = [
 var other_builtins = [
     'False',  'None', 'True', '__import__',
     'copyright', 'credits', 'license',
-    'Date', 'Test'
+    'Date', 'Info', 'Test'
 ]
 
 var builtin_names = $B.builtin_funcs.

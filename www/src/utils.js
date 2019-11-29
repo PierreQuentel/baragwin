@@ -23,7 +23,7 @@ $B.args = function(fname, positionals, keywords, required, defaults,
     var has_kw_args = false,
         filled = 0,
         extra_kw,
-        $ = {name: fname}
+        $ = {}
 
     if(required === undefined){
         required = []
@@ -95,6 +95,8 @@ $B.compare = {
             return x.valueOf() == y.valueOf()
         }else if(typeof x == "string" && typeof y == "string"){
             return x == y
+        }else if(Array.isArray(x)){
+            return _b_.list.$eq(x, y)
         }else if(x.__class__ && x.__class__.eq !== undefined){
             return x.__class__.eq([x, y])
         }else{
@@ -108,8 +110,8 @@ $B.compare = {
             return x.valueOf() >= y.valueOf()
         }else if(typeof x == "string" && typeof y == "string"){
             return x >= y
-        }else if(x.__class__ && x.__class__.$ge !== undefined){
-            return x.__class__.$ge([x, y])
+        }else if(x.__class__ && x.__class__.ge !== undefined){
+            return x.__class__.ge([x, y])
         }else{
             throw _b_.$TypeError.$factory("cannot compare types " +
                 $B.class_name(x) + " and " + $B.class_name(y))
@@ -121,8 +123,8 @@ $B.compare = {
             return x.valueOf() > y.valueOf()
         }else if(typeof x == "string" && typeof y == "string"){
             return x > y
-        }else if(x.__class__ && x.__class__.$gt !== undefined){
-            return x.__class__.$gt([x, y])
+        }else if(x.__class__ && x.__class__.gt !== undefined){
+            return x.__class__.gt([x, y])
         }else{
             throw _b_.$TypeError.$factory("cannot compare types " +
                 $B.class_name(x) + " and " + $B.class_name(y))
@@ -137,6 +139,8 @@ $B.operations = {
             return x.valueOf() + y.valueOf()
         }else if(typeof x == "string" && typeof y == "string"){
             return x + y
+        }else if(Array.isArray(x)){
+            return _b_.list.$add(x, y)
         }else if(x.__class__ && x.__class__.add){
             return x.__class__.add([x, y])
         }else{
@@ -152,8 +156,8 @@ $B.operations = {
             }else{
                 return x.valueOf() * y.valueOf()
             }
-        }else if(x.__class__ && x.__class__.$mul !== undefined){
-            return x.__class__.$mul([x, y])
+        }else if(x.__class__ && x.__class__.mul !== undefined){
+            return x.__class__.mul([x, y])
         }else{
             throw _b_.$TypeError.$factory("* not supported between types " +
                 $B.class_name(x) + " and " + $B.class_name(y))
@@ -164,8 +168,8 @@ $B.operations = {
         if(typeof x.valueOf() == "number" &&
                 typeof y.valueOf() == "number"){
             return x.valueOf() - y.valueOf()
-        }else if(x.__class__ && x.__class__.$sub !== undefined){
-            return x.__class__.$sub([x, y])
+        }else if(x.__class__ && x.__class__.sub !== undefined){
+            return x.__class__.sub([x, y])
         }else{
             throw _b_.$TypeError.$factory("- not supported between types " +
                 $B.class_name(x) + " and " + $B.class_name(y))
@@ -224,11 +228,8 @@ $B.get_class = function(obj){
             case "object":
                 if(obj.$class){return obj.$class} // module object
                 if(Array.isArray(obj)){
-                    if(Object.getPrototypeOf(obj) === Array.prototype){
-                        obj.__class__ = _b_.list
-                        return _b_.list
-                    }
-                }else if(obj.constructor === Number){
+                    return _b_.list
+                }else if(obj instanceof Number){
                     return _b_.float
                 }
                 break
@@ -239,6 +240,90 @@ $B.get_class = function(obj){
 
 $B.class_name = function(obj){
     return $B.get_class(obj).__name__
+}
+
+$B.delitem = function(obj, item){
+    if(Array.isArray(obj)){
+        return _b_.list.$del(obj, item)
+    }
+    throw _b_.TypeError.$factory($B.class_name(obj) +
+        "does not support del")
+}
+
+$B.getitem = function(obj, item){
+    var res
+    if(obj instanceof Node){
+        return $B.DOMNode.__getitem__([obj, item])
+    }else if(obj instanceof Map){
+        res = obj.get(item)
+    }else if(typeof obj == "string"){
+        if(typeof obj != "number"){
+            throw _b_.TypeError.$factory("list indice must be int, not " +
+                $B.get_class(obj))
+        }
+        res = obj.charAt(item)
+    }else if(Array.isArray(obj)){
+        if(typeof item != "number"){
+            throw _b_.$TypeError.$factory("list indice must be int, not " +
+                $B.get_class(obj))
+        }
+        res = obj[item]
+    }else{
+        try{
+            var getitem = $B.$getattr(obj, "getitem")
+        }catch(err){
+            throw _b_.TypeError.$factory("'" + $B.class_name(obj) +
+                "' object is not subscriptable")
+        }
+        return getitem([item])
+    }
+    if(res === undefined){
+        console.log("error", obj, item)
+        throw _b_.KeyError.$factory(item)
+    }
+    return res
+}
+
+$B.is_member = function(item, container){
+    // used for "item in container"
+    if(typeof container == "string"){
+        if(typeof item != "string"){
+            throw _b_.TypeError.$factory("cannot test " +
+                $B.class_name(item) + " in string")
+        }
+        return container.indexOf(item) >  -1
+    }else if(Array.isArray(container)){
+        return _b_.list.contains([container, item])
+    }else if(container.__class__ && container.__class__.contains){
+        return container.__class__.contains([container, item])
+    }
+    throw _b_.TypeError.$factory("cannot test membership of " +
+        $B.class_name(item) + " in " + $B.class_name(container))
+}
+
+
+$B.setitem = function(obj, item, value){
+    if(obj instanceof Node){
+        return $B.DOMNode.__setitem__([obj, item])
+    }else if(obj instanceof Map){
+        obj.set(item, value)
+    }else if(Array.isArray(obj)){
+        if(typeof item != "number"){
+            throw _b_.$TypeError.$factory("list indice must be int, not " +
+                $B.get_class(obj))
+        }
+        obj[item] = value
+    }else{
+        throw _b_.TypeError.$factory("'" + $B.class_name(obj) +
+            "' object is not subscriptable")
+    }
+}
+
+$B.method = {
+    str: function(obj, kw){
+        var $ = $B.args("str", obj, kw, ["self"])
+        console.log("method str", $)
+    }
 }
 
 $B.to_list = function(obj, expected){
@@ -555,62 +640,6 @@ $B.list_slice_step = function(obj, start, stop, step){
     return res
 }
 
-// get item
-function index_error(obj){
-    var type = typeof obj == "string" ? "string" : "list"
-    throw _b_.IndexError.$factory(type + " index out of range")
-}
-
-$B.getitem = function(obj, item){
-    var res
-    if(obj instanceof Node){
-        return $B.DOMNode.__getitem__([obj, item])
-    }else if(obj instanceof Map){
-        res = obj.get(item)
-    }else if(typeof obj == "string"){
-        if(typeof obj != "number"){
-            throw _b_.TypeError.$factory("list indice must be int, not " +
-                $B.get_class(obj))
-        }
-        res = obj.charAt(item)
-    }else if(Array.isArray(obj)){
-        if(typeof item != "number"){
-            throw _b_.$TypeError.$factory("list indice must be int, not " +
-                $B.get_class(obj))
-        }
-        res = obj[item]
-    }else{
-        try{
-            var getitem = $B.$getattr(obj, "getitem")
-        }catch(err){
-            throw _b_.TypeError.$factory("'" + $B.class_name(obj) +
-                "' object is not subscriptable")
-        }
-        return getitem([item])
-    }
-    if(res === undefined){
-        console.log("error", obj, item)
-        throw _b_.KeyError.$factory(item)
-    }
-    return res
-}
-
-$B.setitem = function(obj, item, value){
-    if(obj instanceof Node){
-        return $B.DOMNode.__setitem__([obj, item])
-    }else if(obj instanceof Map){
-        obj.set(item, value)
-    }else if(Array.isArray(obj)){
-        if(typeof item != "number"){
-            throw _b_.$TypeError.$factory("list indice must be int, not " +
-                $B.get_class(obj))
-        }
-        obj[item] = value
-    }else{
-        throw _b_.TypeError.$factory("'" + $B.class_name(obj) +
-            "' object is not subscriptable")
-    }
-}
 
 // Set list key or slice
 $B.set_list_key = function(obj, key, value){
@@ -811,21 +840,6 @@ $B.$is = function(a, b){
         return a.valueOf() == b.valueOf()
     }
     return a === b
-}
-
-$B.is_member = function(item, container){
-    // used for "item in container"
-    if(typeof container == "string"){
-        if(typeof item != "string"){
-            throw _b_.TypeError.$factory("cannot test " +
-                $B.class_name(item) + " in string")
-        }
-        return container.indexOf(item) >  -1
-    }else if(container.__class__ && container.__class__.contains){
-        return container.__class__.contains([container, item])
-    }
-    throw _b_.TypeError.$factory("cannot test membership of " +
-        $B.class_name(item) + " in " + $B.class_name(container))
 }
 
 

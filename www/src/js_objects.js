@@ -255,6 +255,13 @@ var JSObject = {
     }
 }
 
+JSObject.attrs = function(pos, kw){
+    var $ = $B.args("attrs", pos, kw, ["self"]),
+        attrs = []
+    for(var key in $.self.js){attrs.push(key)}
+    return attrs
+}
+
 JSObject.__bool__ = function(self){
     return (new Boolean(self.js)).valueOf()
 }
@@ -275,169 +282,42 @@ JSObject.getattr = function(pos, kw){
 }
 
 JSObject.$getattr = function(obj, attr){
+    var test = false //attr == "attrs"
     var res = obj.js[attr]
+    if(test){
+        console.log("attr", attr, "of", obj, res, JSObject[attr])
+    }
     if(res !== undefined){
         if(typeof res == "function"){
             var f = function(pos, kw){
                 var $ = $B.args(res.name, pos, kw, [], {}, "args")
                 return res.apply(obj.js, $.args)
             }
-            f.__class__ = $B.JSObject
-            f.js = res
-            return f
+            var result = JSObject.$factory(f)
+            result.js_func = res
+            return result
         }else{
-            return $B.JSObject.$factory(res)
+            return JSObject.$factory(res)
         }
     }else if(attr == "new" && typeof obj.js == "function"){
-        return function(pos, kw){
-            var $ = $B.args(obj.js.name, pos, kw, [], {}, "args"),
-                factory = obj.js.bind.apply(obj.js, $.args),
-                res = new factory()
-            return $B.JSObject.$factory(res)
+        // constructor
+        var constr_wrapper = function(){
+            var res = new (obj.js_func.bind(obj.js_func, arguments))
+            return JSObject.$factory(res)
         }
-    }
-}
-
-JSObject.__getattribute__ = function(self,attr){
-    var $test = false //attr == "data"
-    if($test){console.log("get attr", attr, "of", self)}
-    if(attr.substr(0,2) == '$$'){attr = attr.substr(2)}
-    if(self.js === null){return object.__getattribute__(None, attr)}
-    if(attr == "__class__"){return JSObject}
-    if(attr == "__call__"){
-        if(typeof self.js == "function"){
-            return function(){
-              // apply Javascript function to arguments converted from
-              // Python objects to JS or DOM objects
-              var args = []
-              for(var i = 0; i < arguments.length; i++){
-                  args.push($B.pyobj2jsobj(arguments[i]))
-              }
-              var res = self.js.apply(null, args)
-              if(res === undefined){return None} // JSObject would throw an exception
-              // transform JS / DOM result in Python object
-              return JSObject.$factory(res)
-            }
-        }else{
-            throw _b_.AttributeError.$factory("object is not callable")
-        }
-    }
-    if(self.__class__ === JSObject && attr == "bind" &&
-            self.js[attr] === undefined &&
-            self.js['addEventListener'] !== undefined){
-        // For JS objects, "bind" is aliased to addEventListener
-        attr = 'addEventListener'
-    }
-
-    if(attr == "data" && self.js instanceof MessageEvent){
-        return $B.structuredclone2pyobj(self.js.data)
-    }
-    var js_attr = self.js[attr]
-    if(self.js_func && self.js_func[attr] !== undefined){
-        js_attr = self.js_func[attr]
-    }
-
-    if(js_attr !== undefined){
-        if($test){console.log("jsattr", js_attr)}
-        if(typeof js_attr == 'function'){
-            // If the attribute of a JSObject is a function F, it is converted to a function G
-            // where the arguments passed to the Python function G are converted to Javascript
-            // objects usable by the underlying function F
-            var res = function(){
-                var args = []
-                for(var i = 0, len = arguments.length; i < len; i++){
-                    var arg = arguments[i]
-                    if(arg !== undefined && arg !== null &&
-                            arg.$nat !== undefined){
-                        var kw = arg.kw
-                        if(Array.isArray(kw)){
-                            kw = $B.extend(js_attr.name, ...kw)
-                        }
-                        if(Object.keys(kw).length > 0){
-                            //
-                            // Passing keyword arguments to a Javascript function
-                            // raises a TypeError : since we don't know the
-                            // signature of the function, the result of _Baragwin
-                            // code like foo(y=1, x=2) applied to a JS function
-                            // defined by function foo(x, y) can't be determined.
-                            //
-                            throw _b_.TypeError.$factory(
-                                "A Javascript function can't take " +
-                                    "keyword arguments")
-                        }
-                    }else{
-                        args.push(pyobj2jsobj(arg))
-                    }
-                }
-                // IE workaround
-                if(attr === 'replace' && self.js === location) {
-                    location.replace(args[0])
-                    return
-                }
-                // normally, we provide self.js as `this` to simulate js method call
-                var new_this = self.js
-                if(self.js_func){
-                    // if self is a wrapped function, unwrap it back
-                    new_this = self.js_func;
-                }
-                // but if we get explicit `this` (e.g. through apply call) we should pass it on
-                if(this !== null && this !== undefined && this !== _window){
-                    new_this = this
-                }
-                var result = js_attr.apply(new_this, args)
-                return jsobj2pyobj(result)
-            }
-            res.__repr__ = function(){return '<function ' + attr + '>'}
-            res.__str__ = function(){return '<function ' + attr + '>'}
-            // this is very important for class-emulating functions
-            res.prototype = js_attr.prototype
-            return {__class__: JSObject, js: res, js_func: js_attr}
-        }else{
-            if($test){console.log("use JS2Py", $B.$JS2Py(js_attr))}
-            return $B.$JS2Py(js_attr)
-        }
-    }else if(self.js === _window && attr === '$$location'){
-        // special lookup because of Firefox bug
-        // https://bugzilla.mozilla.org/show_bug.cgi?id=814622
-        return $Location()
-    }
-
-    var res = self.__class__[attr]
-    if(res === undefined){
-        // search in classes hierarchy, following method resolution order
-        var mro = self.__class__.__mro__
-        for(var i = 0, len = mro.length; i < len; i++){
-            var v = mro[i][attr]
-            if(v !== undefined){
-                res = v
-                break
+        var result = JSObject.$factory(constr_wrapper)
+        result.js_func = obj.js_func
+        result.is_constructor = true
+        return result
+    }else if(JSObject[attr] !== undefined){
+        if(typeof JSObject[attr] == "function"){
+            return function(pos, kw){
+                var pos1 = pos.slice()
+                pos1.splice(0, 0, obj)
+                return JSObject[attr].call(null, pos1, kw)
             }
         }
-    }
-    if(res !== undefined){
-        if($test){console.log("found in klass", res + "")}
-        if(typeof res === 'function'){
-            // res is the function in one of parent classes
-            // return a function that takes self as first argument
-            return function(){
-                var args = [self]
-                for(var i = 0, len = arguments.length; i < len; i++){
-                    var arg = arguments[i]
-                    if(arg && (arg.__class__ === JSObject ||
-                            arg.__class__ === JSConstructor)){
-                        args.push(arg.js)
-                    }else{
-                        args.push(arg)
-                    }
-                }
-                return res.apply(self,args)
-            }
-        }
-        return $B.$JS2Py(res)
-    }else{
-        // XXX search __getattr__
-        throw _b_.AttributeError.$factory("no attribute " + attr + ' for ' +
-            self.js)
+        return JSObject[attr]
     }
 }
 
@@ -516,9 +396,16 @@ JSObject.__len__ = function(self){
     }
 }
 
-JSObject.__repr__ = function(self){
-    if(self.js instanceof Date){return self.js.toString()}
-    var proto = Object.getPrototypeOf(self.js)
+JSObject.str = function(pos, kw){
+    var $ = $B.args("str", pos, kw, ["self"])
+    if(typeof $.self.js == "function" && $.self.js_func){
+        if($.self.is_constructor){
+            return "<JS constructor " + $.self.js_func.name + ">"
+        }else{
+            return "<JS function " + $.self.js_func.name + ">"
+        }
+    }
+    var proto = Object.getPrototypeOf($.self.js)
     if(proto){
         var name = proto.constructor.name
         if(name === undefined){ // IE
@@ -527,7 +414,7 @@ JSObject.__repr__ = function(self){
         }
         return "<" + name + " object>"
     }
-    return "<JSObject wraps " + self.js + ">"
+    return $.self.js.toString()
 }
 
 JSObject.__setattr__ = function(self, attr, value){
