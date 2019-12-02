@@ -929,7 +929,6 @@ var set_loop_context = $B.parser.set_loop_context = function(context, kw){
                     break_flag = true
                     break
                 case 'def':
-                case 'class':
                     // "break" must not be inside a def or class, even if they
                     // are enclosed in a loop
                     $_SyntaxError(context, kw + ' outside of a loop')
@@ -998,13 +997,10 @@ var $CallCtx = $B.parser.$CallCtx = function(context){
         this.func.parent = this
     }
     this.parent = context
-    if(context.type != 'class'){
-        context.tree.pop()
-        context.tree[context.tree.length] = this
-    }else{
-        // class parameters
-        context.args = this
-    }
+
+    context.tree.pop()
+    context.tree[context.tree.length] = this
+
     this.expect = 'id'
     this.tree = []
     this.start = $pos
@@ -1042,171 +1038,6 @@ var $CallCtx = $B.parser.$CallCtx = function(context){
         }
         return '$B.call(' + this.func.to_js() + ")([" + positional.join(", ") + "], {" +
             keywords.join(", ") + "})"
-    }
-}
-
-var $ClassCtx = $B.parser.$ClassCtx = function(context){
-    // Class for keyword "class"
-    this.type = 'class'
-    this.parent = context
-    this.tree = []
-    context.tree[context.tree.length] = this
-    this.expect = 'id'
-
-    var scope = this.scope = $get_scope(this)
-    this.parent.node.parent_block = scope
-    this.parent.node.bound = {} // will store the names bound in the function
-
-    // stores names bound in the class scope
-    this.parent.node.binding = {}
-    this.toString = function(){
-        return '(class) ' + this.name + ' ' + this.tree + ' args ' + this.args
-    }
-
-    this.set_name = function(name){
-        this.random = $B.UUID()
-        this.name = name
-        this.id = context.node.module + '_' + name + '_' + this.random
-        this.binding = {}
-        this.parent.node.id = this.id
-
-        var parent_block = scope
-        while(parent_block.context &&
-                parent_block.context.tree[0].type == 'class'){
-            parent_block = parent_block.parent
-        }
-        while(parent_block.context &&
-               'def' != parent_block.context.tree[0].type){
-            parent_block = parent_block.parent
-        }
-        this.parent.node.parent_block = parent_block
-
-        // bind name
-        $bind(name, this.scope, this)
-
-        // if function is defined inside another function, add the name
-        // to local names
-        if(scope.is_function){
-            if(scope.context.tree[0].locals.indexOf(name) == -1){
-                scope.context.tree[0].locals.push(name)
-            }
-        }
-    }
-
-    this.transform = function(node, rank){
-
-        // doc string
-        this.doc_string = $get_docstring(node)
-
-        var indent = '\n' + ' '.repeat(node.indent + 12),
-            instance_decl = new $Node(),
-            local_ns = 'locals_' + this.id.replace(/\./g, '_'),
-            js = 'var ' + local_ns + ' = {}, ' +
-                 indent + 'locals = ' + local_ns + ', ' +
-                 indent + 'local_name = "' + local_ns + '",'
-        new $NodeJSCtx(instance_decl, js)
-        node.insert(0, instance_decl)
-
-        // Get id of global scope
-        var global_scope = this.scope
-        while(global_scope.parent_block.id !== '__builtins__'){
-            global_scope = global_scope.parent_block
-        }
-        var global_ns = 'locals_' + global_scope.id.replace(/\./g, '_')
-
-        var js = ' '.repeat(node.indent + 4) +
-                 'top_frame = [local_name, locals,' + '"' +
-                 global_scope.id + '", ' + global_ns + ']' +
-                 indent + '$B.frames_stack.push(top_frame);'
-
-        node.insert(1, $NodeJS(js))
-
-        // exit frame
-        node.add($NodeJS('$B.leave_frame()'))
-        // return local namespace at the end of class definition
-        var ret_obj = new $Node()
-        new $NodeJSCtx(ret_obj, 'return ' + local_ns + ';')
-        node.insert(node.children.length, ret_obj)
-
-        // close function and run it
-        var run_func = new $Node()
-        new $NodeJSCtx(run_func, ')();')
-        node.parent.insert(rank + 1, run_func)
-
-        var module_name = 'locals_' +
-            $get_module(this).module.replace(/\./g, '_') + '.__name__'
-
-        rank++
-        node.parent.insert(rank + 1,
-            $NodeJS(this.name + '_' + this.random + ".__module__ = " +
-                module_name))
-
-        // class constructor
-        var scope = $get_scope(this)
-        var name_ref = ';locals_' + scope.id.replace(/\./g, '_')
-        name_ref += '["' + this.name + '"]'
-
-        var js = [name_ref + ' = $B.$class_constructor("' + this.name],
-            pos = 1
-        js[pos++] = '", $' + this.name + '_' + this.random
-        if(this.args !== undefined){ // class def has arguments
-            var arg_tree = this.args.tree,
-                args = [],
-                kw = []
-
-            arg_tree.forEach(function(_tmp){
-                if(_tmp.tree[0].type == 'kwarg'){kw.push(_tmp.tree[0])}
-                else{args.push(_tmp.to_js())}
-            })
-            js[pos++] = ',tuple.$factory([' + args.join(',') + ']),['
-            // add the names - needed to raise exception if a value is undefined
-            var _re = new RegExp('"', 'g'),
-                _r = [],
-                rpos = 0
-            args.forEach(function(arg){
-                _r[rpos++] = '"' + arg.replace(_re, '\\"') + '"'
-            })
-            js[pos++] = _r.join(',') + ']'
-
-            _r = []
-            rpos = 0
-            kw.forEach(function(_tmp){
-                _r[rpos++] = '["' + _tmp.tree[0].value + '",' +
-                  _tmp.tree[1].to_js() + ']'
-            })
-            js[pos++] = ',[' + _r.join(',') + ']'
-
-        }else{ // form "class foo:"
-            js[pos++] = ',tuple.$factory([]),[],[]'
-        }
-        js[pos++] = ')'
-        var cl_cons = new $Node()
-        new $NodeJSCtx(cl_cons, js.join(''))
-        rank++
-        node.parent.insert(rank + 1, cl_cons)
-
-        // add doc string
-        rank++
-        var ds_node = new $Node()
-        js = name_ref + '.__doc__ = ' + (this.doc_string || 'None') + ';'
-        new $NodeJSCtx(ds_node, js)
-        node.parent.insert(rank + 1, ds_node)
-
-        // if class is defined at module level, add to module namespace
-        if(scope.ntype == 'module'){
-            var w_decl = new $Node()
-            new $NodeJSCtx(w_decl, 'locals["' + this.name + '"] = ' +
-                this.name)
-        }
-        // end by None for interactive interpreter
-        node.parent.insert(rank + 2, $NodeJS("None;"))
-
-        this.transformed = true
-
-    }
-    this.to_js = function(){
-        this.js_processed = true
-        return 'var $' + this.name + '_' + this.random + ' = (function()'
     }
 }
 
@@ -1534,10 +1365,6 @@ var $DefCtx = $B.parser.$DefCtx = function(context){
     // A().f()    # must print 9, not 7
 
     var parent_block = scope
-    while(parent_block.context &&
-            parent_block.context.tree[0].type == 'class'){
-        parent_block = parent_block.parent
-    }
     while(parent_block.context &&
           'def' != parent_block.context.tree[0].type){
         parent_block = parent_block.parent
@@ -3187,7 +3014,6 @@ var $NodeCtx = $B.parser.$NodeCtx = function(node){
             _break_flag = false
         switch(ntype){
             case 'def':
-            case 'class':
                 scope = tree_node.parent
                 _break_flag = true
         }
@@ -4193,10 +4019,9 @@ var $get_scope = $B.parser.$get_scope = function(context, flag){
 
         switch (ntype) {
             case 'def':
-            case 'class':
                 var scope = tree_node.parent
                 scope.ntype = ntype
-                scope.is_function = ntype != 'class'
+                scope.is_function = true
                 return scope
         }
         tree_node = tree_node.parent
@@ -4599,22 +4424,6 @@ var $transition = function(context, token, value){
                         }
                         return $transition(context.parent, token, value)
                     }
-            }
-            $_SyntaxError(context, 'token ' + token + ' after ' + context)
-
-        case 'class':
-            switch(token) {
-                case 'id':
-                    if(context.expect == 'id'){
-                         context.set_name(value)
-                         context.expect = '(:'
-                         return context
-                    }
-                    break
-                case '(':
-                    return new $CallCtx(context)
-                case ':':
-                    return $BodyCtx(context)
             }
             $_SyntaxError(context, 'token ' + token + ' after ' + context)
 
@@ -5868,8 +5677,6 @@ var $transition = function(context, token, value){
                     return new $AsyncCtx(context)
                 case 'await':
                     return new $AbstractExprCtx(new $AwaitCtx(context), true)
-                case 'class':
-                    return new $ClassCtx(context)
                 case 'continue':
                     return new $ContinueCtx(context)
                 case 'break':
