@@ -45,6 +45,13 @@ Test.equal(f(3), 2)
 Test.equal(f(y=2, x=8), 6)
 Test.raise(TypeError, f, 2, x=6)
 
+def g(x)
+  return x
+Test.equal(g(2), 2)
+
+def g(x)
+  return 2 * x
+Test.equal(g(2), 4)
 print("done")
 `
 </script>

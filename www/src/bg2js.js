@@ -470,7 +470,7 @@ var $AssertCtx = $B.parser.$AssertCtx = function(context){
         var new_node = new $Node()
         var js = 'throw _b_.$AssertionError.$factory("AssertionError")'
         if(message !== null){
-            js = 'throw _b_.$AssertionError.$factory(str.$factory(' +
+            js = 'throw _b_.$AssertionError.$factory($B.$str(' +
                 message.to_js() + '))'
         }
         new $NodeJSCtx(new_node, js)
@@ -1587,7 +1587,7 @@ var $DefCtx = $B.parser.$DefCtx = function(context){
         this.name = name
         this.id = this.scope.id + '_' + name
         this.id = this.id.replace(/\./g, '_') // for modules inside packages
-        this.id += '_' + $B.UUID()
+        //this.id += '_' + $B.UUID()
         this.parent.node.id = this.id
         this.parent.node.module = this.module
 
@@ -1725,10 +1725,10 @@ var $DefCtx = $B.parser.$DefCtx = function(context){
         this.env = []
 
         // Code in the worst case, uses $B.args in py_utils.js
-        var js = 'var locals = $B.args("' + this.name +
-            '", pos, kw, ' + '[' + slot_list.join(', ') + '], {' +
-            defs1.join(', ') + '}, ' + this.other_args + ', ' +
-            this.other_kw + ');'
+        var js = 'var locals = locals_' + this.id + ' = $B.args("' +
+            this.name + '", pos, kw, ' + '[' + slot_list.join(', ') + '], {' +
+            defs1.join(', ') + '}, ' + this.other_args + ', ' + 
+            this.other_kw + ')'
 
         nodes.push($NodeJS(js))
 
@@ -3641,13 +3641,13 @@ var $StringCtx = $B.parser.$StringCtx = function(context,value){
                     }
                     switch(parsed_fstring[i].conversion){
                         case "a":
-                            expr1 = '$B.builtins.ascii(' + expr1 + ')'
+                            expr1 = '_b_.ascii(' + expr1 + ')'
                             break
                         case "r":
-                            expr1 = '$B.builtins.repr(' + expr1 + ')'
+                            expr1 = '_b_.repr(' + expr1 + ')'
                             break
                         case "s":
-                            expr1 = '$B.builtins.str.$factory(' + expr1 + ')'
+                            expr1 = '_b_.str.$(' + expr1 + ')'
                             break
                     }
 
@@ -3660,12 +3660,12 @@ var $StringCtx = $B.parser.$StringCtx = function(context,value){
                         }else{
                             fmt = "'" + fmt + "'"
                         }
-                        var res1 = "$B.builtins.str.format('{0:' + " +
+                        var res1 = "_b_.str.format('{0:' + " +
                             fmt + " + '}', " + expr1 + ")"
                         elts.push(res1)
                     }else{
                         if(parsed_fstring[i].conversion === null){
-                            expr1 = '$B.builtins.str.$factory(' + expr1 + ')'
+                            expr1 = '_b_.str.$(' + expr1 + ')'
                         }
                         elts.push(expr1)
                     }
@@ -6334,7 +6334,7 @@ for(var i = 0; i < s_escaped.length; i++){
 }
 
 var kwdict = [
-    "class", "return", "break", "for", "lambda", "try", "finally",
+    "return", "break", "for", "lambda", "try", "finally",
     "raise", "def", "from", "while", "del", "global",
     "as", "elif", "else", "if", "assert",
     "except", "raise", "in", "pass", "continue", "__debugger__",
