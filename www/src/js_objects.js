@@ -62,7 +62,7 @@ $B.structuredclone2pyobj = function(obj){
     }else{
         console.log(obj, Array.isArray(obj),
             obj.__class__, _b_.list, obj.__class__ === _b_.list)
-        throw _b_.TypeError.$factory(_b_.str.$factory(obj) +
+        throw _b_.TypeError.$factory(_b_.str.$(obj) +
             " does not support the structured clone algorithm")
     }
 
@@ -149,9 +149,11 @@ var jsobj2pyobj = $B.jsobj2pyobj = function(jsobj) {
     }
 
     if(typeof jsobj === 'number'){
-       if(jsobj.toString().indexOf('.') == -1){return _b_.int.$factory(jsobj)}
+       if(jsobj.toString().indexOf('.') == -1){
+           return _b_.int.$(jsobj)
+       }
        // for now, lets assume a float
-       return _b_.$float.$factory(jsobj)
+       return new Number(jsobj)
     }
 
     if(jsobj.$nat === 'kw') {
@@ -168,10 +170,6 @@ var pyobj2jsobj = $B.pyobj2jsobj = function(pyobj){
     if(pyobj === $B.Undefined){return undefined}
 
     var klass = $B.get_class(pyobj)
-    if(klass === undefined){
-        // not a Python object , consider arg as Javascript object instead
-        return pyobj;
-    }
     if(klass === JSObject || klass === JSConstructor){
         // Instances of JSObject and JSConstructor are transformed into the
         // underlying Javascript object
@@ -181,8 +179,7 @@ var pyobj2jsobj = $B.pyobj2jsobj = function(pyobj){
         if(pyobj.js_func !== undefined){return pyobj.js_func}
         return pyobj.js
 
-    }else if(klass === $B.DOMNode ||
-            klass.__mro__.indexOf($B.DOMNode) > -1){
+    }else if(_b_.isinstance(klass, $B.DOMNode)){
 
         // instances of DOMNode or its subclasses are transformed into the
         // underlying DOM element
@@ -197,7 +194,7 @@ var pyobj2jsobj = $B.pyobj2jsobj = function(pyobj){
         })
         return res
 
-    }else if(klass === _b_.dict || _b_.issubclass(klass, _b_.dict)){
+    }else if(klass === _b_.dict){
 
         // Python dictionaries are transformed into a Javascript object
         // whose attributes are the dictionary keys
@@ -212,12 +209,12 @@ var pyobj2jsobj = $B.pyobj2jsobj = function(pyobj){
         })
         return jsobj
 
-    }else if(klass === _b_.$float){
+    }else if(klass === _b_.float){
 
         // Python floats are converted to the underlying value
         return pyobj.valueOf()
 
-    }else if(klass === $B.Function || klass === $B.method){
+    }else if(typeof pyobj === "function"){
         // Transform arguments
         return function(){
             try{
@@ -226,7 +223,7 @@ var pyobj2jsobj = $B.pyobj2jsobj = function(pyobj){
                     if(arguments[i] === undefined){args.push(_b_.None)}
                     else{args.push(jsobj2pyobj(arguments[i]))}
                 }
-                return pyobj2jsobj(pyobj.apply(this, args))
+                return pyobj2jsobj(pyobj.apply(this, [args]))
             }catch(err){
                 console.log(err)
                 console.log(_b_.getattr(err,'info'))
@@ -282,16 +279,32 @@ JSObject.getattr = function(pos, kw){
 }
 
 JSObject.$getattr = function(obj, attr){
-    var test = false //attr == "attrs"
+    var test = false //"x"
     var res = obj.js[attr]
     if(test){
         console.log("attr", attr, "of", obj, res, JSObject[attr])
     }
     if(res !== undefined){
         if(typeof res == "function"){
+            // obj.js[attr] is a Javascript function. It is transformed into
+            // a function that take the parameters (pos, kw) and returns
+            // res applied to the arguments in pos, kw transformed into the
+            // matching JS objects
+            // If one of the arguments passed is a function, it is a bg
+            // function
             var f = function(pos, kw){
-                var $ = $B.args(res.name, pos, kw, [], {}, "args")
-                return res.apply(obj.js, $.args)
+                var $ = $B.args(res.name, pos, kw, [], {}, "args"),
+                    args = []
+                $.args.forEach(function(arg){
+                    args.push(pyobj2jsobj(arg))
+                })
+                if(attr == "ssetInterval"){
+                    console.log(attr, args)
+                    console.log(res)
+                    console.log(args[0], args[1])
+                    return setInterval($.args[0], $.args[1])
+                }
+                return res.apply(obj.js, args)
             }
             var result = JSObject.$factory(f)
             result.js_func = res
@@ -388,12 +401,23 @@ JSObject.__le__ = function(self, other){
     }
     return _b_.NotImplemented
 }
+
 JSObject.__len__ = function(self){
     if(typeof self.js.length == 'number'){return self.js.length}
     try{return getattr(self.js, '__len__')()}
     catch(err){
         throw _b_.AttributeError.$factory(self.js + ' has no attribute __len__')
     }
+}
+
+JSObject.setattr = function(pos, kw){
+    var $ = $B.args("setattr", pos, kw, ["self", "key", "value"])
+    return JSObject.$setattr($.self, $.key, $.value)
+}
+
+JSObject.$setattr = function(self, key, value){
+    self.js[key] = value
+    return _b_.None
 }
 
 JSObject.str = function(pos, kw){
@@ -480,18 +504,16 @@ JSObject.$factory = function(obj){
     // so that when called, the arguments are transformed into JS values
     if(typeof obj == 'function'){
         return {__class__: JSObject, js: obj, js_func: obj}
+    }else if(obj instanceof Node){
+        return $B.DOMNode.$factory(obj)
     }
 
     var klass = $B.get_class(obj)
-    // we need to do this or nan is returned, when doing json.loads(...)
-    if(klass === _b_.float){return _b_.$float.$factory(obj)}
-    // Javascript array wrapper
-    if(klass === _b_.list){
-        return $B.JSArray.$factory(obj) // defined in py_list.js
-    }
 
     // If obj is a Python object, return it unchanged
-    if(klass !== undefined){return obj}
+    if(klass !== undefined){
+        return obj
+    }
     return {
         __class__: JSObject,
         js: obj
