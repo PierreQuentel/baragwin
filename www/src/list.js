@@ -294,7 +294,7 @@ list.str = function(pos, args){
         if(self[i] === self){
             res.push('[...]')
         }else{
-            res.push(_b_.str.$factory(self[i]))
+            res.push(_b_.str.$(self[i]))
         }
     }
 

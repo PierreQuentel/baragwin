@@ -6,13 +6,38 @@ eval(bltns)
 // build tables from data in unicode_data.js
 var unicode_tables = $B.unicode_tables
 
-var str = {
-    __class__: _b_.type,
-    __dir__: object.__dir__,
-    __name__: "str",
-    $is_class: true,
-    $native: true
+function str(pos, kw){
+    var $ = $B.args("str", pos, kw, ["arg"], {arg: null}),
+        arg = $.arg
+    return _b_.str.$(arg)
 }
+
+str.$ = function(arg){
+    if(arg === null){return ""}
+    if(arg === undefined){
+        throw _b_.TypeError.$factory("str() argument is undefined")
+    }
+    switch(typeof arg) {
+        case "string":
+            return arg
+        case "number":
+            return arg.toString()
+    }
+    if(arg instanceof Number){
+        return arg.toString()
+    }
+    var klass = arg.__class__ || $B.get_class(arg)
+    while(klass){
+        if(klass.str){
+            return klass.str([arg])
+        }
+        klass = klass.__parent__
+    }
+    return object.str([arg])
+}
+
+str.__class__ = _b_.type
+str.__name__ = "str"
 
 function normalize_start_end($){
     if($.start === null || $.start === _b_.None){$.start = 0}
@@ -69,24 +94,6 @@ str.__contains__ = function(self, item){
     return false
 }
 
-str.__delitem__ = function(){
-    throw _b_.TypeError.$factory("'str' object doesn't support item deletion")
-}
-
-// __dir__must be assigned explicitely because attribute resolution for
-// builtin classes doesn't use __mro__
-str.__dir__ = object.__dir__
-
-str.__eq__ = function(self,other){
-    if(other === undefined){ // compare object "self" to class "str"
-        return self === str
-    }
-    if(_b_.isinstance(other, _b_.str)){
-       return other.valueOf() == self.valueOf()
-    }
-    return _b_.NotImplemented
-}
-
 function preformat(self, fmt){
     if(fmt.empty){return _b_.str.$factory(self)}
     if(fmt.type && fmt.type != "s"){
@@ -106,73 +113,6 @@ str.__format__ = function(self, format_spec) {
     fmt.align = fmt.align || "<"
     return $B.format_width(preformat(self, fmt), fmt)
 }
-
-str.__getitem__ = function(self,arg){
-    if(isinstance(arg, _b_.int)){
-        var pos = arg
-        if(arg < 0) {pos += self.length}
-        if(pos >= 0 && pos < self.length){return self.charAt(pos)}
-        throw _b_.IndexError.$factory("string index out of range")
-    }
-    if(isinstance(arg, slice)) {
-        var s = _b_.slice.$conv_for_seq(arg, self.length),
-            start = s.start,
-            stop = s.stop,
-            step = s.step
-        var res = "",
-            i = null
-        if(step > 0){
-            if(stop <= start){return ""}
-            for(var i = start; i < stop; i += step){res += self.charAt(i)}
-        }else{
-            if(stop >= start){return ''}
-            for(var i = start; i > stop; i += step){res += self.charAt(i)}
-        }
-        return res
-    }
-    if(isinstance(arg, _b_.bool)){return self.__getitem__(_b_.int.$factory(arg))}
-    throw _b_.TypeError.$factory("string indices must be integers")
-}
-
-var prefix = 2,
-    suffix = 3,
-    mask = (2 ** 32 - 1)
-function fnv(p){
-    if(p.length == 0){
-        return 0
-    }
-
-    var x = prefix
-    x = (x ^ (p.charCodeAt(0) << 7)) & mask
-    for(var i = 0, len = p.length; i < len; i++){
-        x = ((1000003 * x) ^ p.charCodeAt(i)) & mask
-    }
-    x = (x ^ p.length) & mask
-    x = (x ^ suffix) & mask
-
-    if(x == -1){
-        x = -2
-    }
-    return x
-}
-
-str.__hash__ = function(self) {
-    return fnv(self)
-}
-
-str.__init__ = function(self, arg){
-    self.valueOf = function(){return arg}
-    self.toString = function(){return arg}
-    return _b_.None
-}
-
-var str_iterator = $B.make_iterator_class("str_iterator")
-str.__iter__ = function(self){
-    var items = self.split("") // list of all characters in string
-    return str_iterator.$factory(items)
-}
-
-str.__len__ = function(self){return self.length}
 
 // Start of section for legacy formatting (with %)
 
@@ -752,8 +692,6 @@ str.__mod__ = function(args) {
     return ret
 }
 
-str.__mro__ = [object]
-
 str.__mul__ = function(){
     var $ = $B.args("__mul__", 2, {self: null, other: null},
         ["self", "other"], arguments, {}, null, null)
@@ -764,8 +702,6 @@ str.__mul__ = function(){
     for(var i = 0; i< $.other; i++){$res += $.self.valueOf()}
     return $res
 }
-
-str.__ne__ = function(self,other){return other !== self.valueOf()}
 
 str.__repr__ = function(self){
     var res = self
@@ -790,10 +726,6 @@ str.__repr__ = function(self){
     return res
 }
 
-str.__setitem__ = function(self, attr, value){
-    throw _b_.TypeError.$factory(
-        "'str' object does not support item assignment")
-}
 var combining = []
 for(var cp = 0x300; cp <= 0x36F; cp++){
     combining.push(String.fromCharCode(cp))
@@ -803,21 +735,6 @@ var combining_re = new RegExp("(" + combining.join("|") + ")")
 str.__str__ = function(self){
     return self.replace(combining_re, "\u200B$1")
 }
-str.toString = function(){return "string!"}
-
-// generate comparison methods
-var $comp_func = function(self,other){
-    if(typeof other !== "string"){return _b_.NotImplemented}
-    return self > other
-}
-$comp_func += "" // source code
-var $comps = {">": "gt", ">=": "ge", "<": "lt", "<=": "le"}
-for(var $op in $comps){
-    eval("str.__" + $comps[$op] + '__ = ' + $comp_func.replace(/>/gm,$op))
-}
-
-// add "reflected" methods
-$B.make_rmethods(str)
 
 // unsupported operations
 var $notimplemented = function(self, other){
@@ -1974,75 +1891,7 @@ str.zfill = function(self, width){
     }
 }
 
-str.$factory = function(arg, encoding, errors){
-    if(arguments.length == 0){return ""}
-    if(arg === undefined){
-        throw _b_.TypeError.$factory("str() argument is undefined")
-    }
-    switch(typeof arg) {
-        case "string":
-            return arg
-        case "number":
-            return arg.toString()
-    }
-    if(arg instanceof Number){
-        return arg.toString()
-    }
-    var klass = arg.__class__ || $B.get_class(arg)
-    while(klass){
-        if(klass.str){
-            return klass.str([arg])
-        }
-        klass = klass.__parent__
-    }
-    return object.str([arg])
-}
-
-str.__new__ = function(cls){
-    if(cls === undefined){
-        throw _b_.TypeError.$factory("str.__new__(): not enough arguments")
-    }
-    return {__class__: cls}
-}
-
 $B.set_func_names(str, "builtins")
-
-// dictionary and factory for subclasses of string
-var StringSubclass = $B.StringSubclass = {
-    __class__: _b_.type,
-    __mro__: [object],
-    $infos: {
-        __module__: "builtins",
-        __name__: "str"
-    },
-    $is_class: true
-}
-
-// the methods in subclass apply the methods in str to the
-// result of instance.valueOf(), which is a Javascript string
-for(var $attr in str){
-    if(typeof str[$attr] == "function"){
-        StringSubclass[$attr] = (function(attr){
-            return function(){
-                var args = [],
-                    pos = 0
-                if(arguments.length > 0){
-                    var args = [arguments[0].valueOf()],
-                        pos = 1
-                    for(var i = 1, len = arguments.length; i < len; i++){
-                        args[pos++] = arguments[i]
-                    }
-                }
-                return str[attr].apply(null, args)
-            }
-        })($attr)
-    }
-}
-StringSubclass.__new__ = function(cls){
-    return {__class__: cls}
-}
-
-$B.set_func_names(StringSubclass, "builtins")
 
 _b_.str = str
 

@@ -300,9 +300,9 @@ dict.str = function(pos, kw){
     for(const [key, value] of self){
         if((!value.$jsobj && value === self) ||
                 (self.$jsobj && value === self.$jsobj)){
-            res.push(_b_.$repr(key) + ": {...}")
+            res.push(_b_.repr(key) + ": {...}")
         }else{
-            res.push(_b_.$repr(key) + ": " + _b_.$repr(value))
+            res.push(_b_.repr(key) + ": " + _b_.repr(value))
         }
     }
     return "{" + res.join(", ") + "}"

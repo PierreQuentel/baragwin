@@ -176,9 +176,9 @@ range.__reversed__ = function(self){
 }
 
 range.__repr__ = range.__str__ = function(self){
-    var res = "range(" + _b_.str.$factory(self.start) + ", " +
-        _b_.str.$factory(self.stop)
-    if(self.step != 1){res += ", " + _b_.str.$factory(self.step)}
+    var res = "range(" + _b_.str.$(self.start) + ", " +
+        _b_.str.$(self.stop)
+    if(self.step != 1){res += ", " + _b_.str.$(self.step)}
     return res + ")"
 }
 
@@ -230,7 +230,7 @@ range.index = function(self, other){
                 nb++
             }catch(err){
                 if(_b_.isinstance(err, _b_.StopIteration)){
-                    throw _b_.ValueError.$factory(_b_.str.$factory(other) +
+                    throw _b_.ValueError.$factory(_b_.str.$(other) +
                         " not in range")
                 }
                 throw err
@@ -246,10 +246,10 @@ range.index = function(self, other){
                 ($B.ge(self.start, self.stop) && $B.ge(self.start, other)
                 && $B.gt(other, self.stop))){
             return fl
-        }else{throw _b_.ValueError.$factory(_b_.str.$factory(other) +
+        }else{throw _b_.ValueError.$factory(_b_.str.$(other) +
             ' not in range')}
     }else{
-        throw _b_.ValueError.$factory(_b_.str.$factory(other) +
+        throw _b_.ValueError.$factory(_b_.str.$(other) +
             " not in range")
     }
 }
@@ -322,8 +322,8 @@ slice.__eq__ = function(self, other){
 }
 
 slice.__repr__ = slice.__str__ = function(self){
-    return "slice(" + _b_.str.$factory(self.start) + ", " +
-        _b_.str.$factory(self.stop) + ", " + _b_.str.$factory(self.step) + ")"
+    return "slice(" + _b_.str.$(self.start) + ", " +
+        _b_.str.$(self.stop) + ", " + _b_.str.$(self.step) + ")"
 }
 
 slice.__setattr__ = function(self, attr, value){

@@ -368,7 +368,8 @@ var getExceptionTrace = $B.getExceptionTrace = function(exc, includeInternal) {
         if(module.charAt(0) == "$"){module = "<module>"}
         info += "\n  module " + module + " line " + line_info[0]
         if(frame.parent){
-            info += ', in ' + frame.name
+            console.log("in frame", frame)
+            info += ', in ' + frame.$name
         }
 
         if(src !== undefined){

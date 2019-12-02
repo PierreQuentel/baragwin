@@ -290,7 +290,7 @@ type.__class__ = type
 
 type.__format__ = function(klass, fmt_spec){
     // For classes, format spec is ignored, return str(klass)
-    return _b_.str.$factory(klass)
+    return _b_.str.$(klass)
 }
 
 type.__getattribute__ = function(klass, attr){
@@ -915,7 +915,7 @@ method.__getattribute__ = function(self, attr){
 
 method.__repr__ = method.__str__ = function(self){
     return "<bound method " + self.$infos.__qualname__ +
-       " of " + _b_.str.$factory(self.$infos.__self__) + ">"
+       " of " + _b_.str.$(self.$infos.__self__) + ">"
 }
 
 method.__setattr__ = function(self, key, value){

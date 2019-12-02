@@ -149,7 +149,7 @@ int.__float__ = function(self){
 }
 
 function preformat(self, fmt){
-    if(fmt.empty){return _b_.str.$factory(self)}
+    if(fmt.empty){return _b_.str.$(self)}
     if(fmt.type && 'bcdoxXn'.indexOf(fmt.type) == -1){
         throw _b_.ValueError.$factory("Unknown format code '" + fmt.type +
             "' for object of type 'int'")
@@ -609,22 +609,21 @@ var $valid_digits = function(base) {
     return digits
 }
 
-int.$factory = function(value, base){
+int.$factory = function(pos, kw){
+    var $ = $B.args("int", pos, kw, ["value", "base"],
+            {value: null, base: 10}),
+        value = $.value,
+        base = $.base
+    return int.$(value, base)
+}
+
+int.$ = function(value, base){
     // int() with no argument returns 0
-    if(value === undefined){return 0}
+    if(value === null){return 0}
+    if(base === undefined){base = 10}
 
     // int() of an integer returns the integer if base is undefined
-    if(typeof value == "number" &&
-        (base === undefined || base == 10)){return parseInt(value)}
-
-    if(_b_.isinstance(value, _b_.complex)){
-        throw _b_.TypeError.$factory("can't convert complex to int")
-    }
-
-    var $ns = $B.args("int", 2, {x:null, base:null}, ["x", "base"], arguments,
-        {"base": 10}, null, null),
-        value = $ns["x"],
-        base = $ns["base"]
+    if(typeof value == "number" && base == 10){return parseInt(value)}
 
     if(_b_.isinstance(value, _b_.float) && base == 10){
         if(value < $B.min_int || value > $B.max_int){
@@ -668,7 +667,7 @@ int.$factory = function(value, base){
     base = $B.$GetInt(base)
     function invalid(value, base){
         throw _b_.ValueError.$factory("invalid literal for int() with base " +
-            base + ": '" + _b_.str.$factory(value) + "'")
+            base + ": '" + _b_.str.$(value) + "'")
     }
 
     if(_b_.isinstance(value, _b_.str)){value = value.valueOf()}

@@ -424,13 +424,13 @@ long_int.__add__ = function(self, other){
         return _b_.float.$factory(parseInt(self.value) + other.value)
     }
     if(typeof other == "number"){
-        other = long_int.$factory(_b_.str.$factory(other))
+        other = long_int.$factory(_b_.str.$(other))
     }else if(other.__class__ !== long_int){
         if(isinstance(other, _b_.bool)){
             other = long_int.$factory(other ? 1 : 0)
         }else if(isinstance(other, int)){
             // int subclass
-            other = long_int.$factory(_b_.str.$factory(_b_.$int.__index__(other)))
+            other = long_int.$factory(_b_.str.$(_b_.$int.__index__(other)))
         }
     }
 
@@ -478,7 +478,7 @@ long_int.__add__ = function(self, other){
 
 long_int.__and__ = function(self, other){
     if(typeof other == "number"){
-        other = long_int.$factory(_b_.str.$factory(other))
+        other = long_int.$factory(_b_.str.$(other))
     }
     // Bitwise "and" : build the binary representation of self and other
     var v1 = long_int.__index__(self),
@@ -498,7 +498,7 @@ long_int.__and__ = function(self, other){
 
 long_int.__divmod__ = function(self, other){
     if(typeof other == "number"){
-        other = long_int.$factory(_b_.str.$factory(other))
+        other = long_int.$factory(_b_.str.$(other))
     }
 
     var dm = divmod_pos(self.value, other.value)
@@ -516,7 +516,7 @@ long_int.__divmod__ = function(self, other){
 
 long_int.__eq__ = function(self, other){
     if(typeof other == "number"){
-        other = long_int.$factory(_b_.str.$factory(other))
+        other = long_int.$factory(_b_.str.$(other))
     }
     return self.value == other.value && self.pos == other.pos
 }
@@ -542,7 +542,7 @@ long_int.__floordiv__ = function(self, other){
 
 long_int.__ge__ = function(self, other){
     if(typeof other == "number"){
-        other = long_int.$factory(_b_.str.$factory(other))
+        other = long_int.$factory(_b_.str.$(other))
     }
     if(self.pos != other.pos){return ! other.pos}
     if(self.value.length > other.value.length){return self.pos}
@@ -595,7 +595,7 @@ long_int.__invert__ = function(self){
 
 long_int.__le__ = function(self, other){
     if(typeof other == "number"){
-        other = long_int.$factory(_b_.str.$factory(other))
+        other = long_int.$factory(_b_.str.$(other))
     }
     if(self.pos !== other.pos){return ! self.pos}
     if(self.value.length > other.value.length){return ! self.pos}
@@ -675,7 +675,7 @@ long_int.__mul__ = function(self, other){
     if(other.__class__ !== long_int && isinstance(other, int)){
         // int subclass
         var value = int.__index__(other)
-        other_value = _b_.str.$factory(value)
+        other_value = _b_.str.$(value)
         other_pos = value > 0
     }
     var res = mul_pos(self.value, other_value)
@@ -706,10 +706,10 @@ long_int.__pos__ = function(self){return self}
 
 long_int.__pow__ = function(self, power, z){
     if(typeof power == "number"){
-        power = long_int.$factory(_b_.str.$factory(power))
+        power = long_int.$factory(_b_.str.$(power))
     }else if(isinstance(power, int)){
         // int subclass
-        power = long_int.$factory(_b_.str.$factory(_b_.$int.__index__(power)))
+        power = long_int.$factory(_b_.str.$(_b_.$int.__index__(power)))
     }else if(! isinstance(power, long_int)){
         var msg = "power must be a LongDict, not '"
         throw TypeError.$factory(msg + $B.class_name(power) + "'")
@@ -758,7 +758,7 @@ long_int.__sub__ = function(self, other){
         return _b_.float.$factory(parseInt(self.value) - other.value)
     }
     if(typeof other == "number"){
-        other = long_int.$factory(_b_.str.$factory(other))
+        other = long_int.$factory(_b_.str.$(other))
     }
     var res
     if(self.pos && other.pos){
