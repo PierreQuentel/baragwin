@@ -580,7 +580,7 @@ DOMNode.__add__ = function(self, other){
     }else if(_b_.isinstance(other,[_b_.str, _b_.int, _b_.float, _b_.list,
                                 _b_.dict, _b_.set, _b_.tuple])){
         res.children[pos++] = DOMNode.$factory(
-            document.createTextNode(_b_.str.$factory(other)))
+            document.createTextNode(_b_.str.$(other)))
     }else if(_b_.isinstance(other, DOMNode)){
         res.children[pos++] = other
     }else{
@@ -614,7 +614,7 @@ DOMNode.__del__ = function(self){
     // if element has a parent, calling __del__ removes object
     // from the parent's children
     if(!self.elt.parentNode){
-        throw _b_.ValueError.$factory("can't delete " + _b_.str.$factory(self.elt))
+        throw _b_.ValueError.$factory("can't delete " + _b_.str.$(self.elt))
     }
     self.elt.parentNode.removeChild(self.elt)
 }
@@ -651,7 +651,14 @@ DOMNode.getattr = function(pos, kw){
     var $ = $B.args("getattr", pos, kw, ["self", "attr"]),
         self = $.self,
         attr = $.attr
+    return DOMNode.$getattr(self, attr)
+}
 
+DOMNode.$getattr = function(self, attr){
+    var test = false //attr == "x"
+    if(test){
+        console.log("attr", attr, "of", self)
+    }
     switch(attr) {
         case "attrs":
             return Attributes.$factory(self.elt)
@@ -661,6 +668,8 @@ DOMNode.getattr = function(pos, kw){
         case "parent":
         case "query":
         case "text":
+        case "x":
+        case "y":
             return DOMNode[attr](self)
 
         case "height":
@@ -680,7 +689,7 @@ DOMNode.getattr = function(pos, kw){
                 return parseInt(self.elt.style[attr])
             }else{
                 throw _b_.AttributeError.$factory("style." + attr +
-                    " is not set for " + _b_.str.$factory(self))
+                    " is not set for " + _b_.str.$(self))
             }
         case "clear":
         case "closest":
@@ -722,8 +731,6 @@ DOMNode.getattr = function(pos, kw){
         }
     }
 
-    // Looking for property. If the attribute is in the forbidden
-    // arena ... look for the aliased version
     var res = self.elt[attr]
 
     if(res !== undefined){
@@ -817,7 +824,7 @@ DOMNode.getitem = function(pos, kw){
                     }
                     return res
             }catch(err){
-                throw _b_.KeyError.$factory(_b_.$str.$factory(key))
+                throw _b_.KeyError.$factory(_b_.str.$(key))
             }
         }
     }else{
@@ -1021,26 +1028,6 @@ DOMNode.__setitem__ = function(self, key, value){
     }
 }
 
-DOMNode.abs_left = {
-    __get__: function(self){
-        return $getPosition(self.elt).left
-    },
-    __set__: function(){
-        throw _b_.AttributeError.$factory("'DOMNode' objectattribute " +
-            "'abs_left' is read-only")
-    }
-}
-
-DOMNode.abs_top = {
-    __get__: function(self){
-        return $getPosition(self.elt).top
-    },
-    __set__: function(){
-        throw _b_.AttributeError.$factory("'DOMNode' objectattribute " +
-            "'abs_top' is read-only")
-    }
-}
-
 DOMNode.bind = function(pos, kw){
     // bind functions to the event (event = "click", "mouseover" etc.)
     var $ = $B.args("bind", pos, kw, ["self", "event", "func", "options"],
@@ -1055,7 +1042,7 @@ DOMNode.bind = function(pos, kw){
     var callback = (function(f){
         return function(ev){
             try{
-                return f([$DOMEvent(ev)])
+                return f([$B.JSObject.$factory(ev)])
             }catch(err){
                 if(err.__class__ !== undefined){
                     var trace = $B.getExceptionTrace(err)
@@ -1363,10 +1350,10 @@ DOMNode.set_class_name = function(self, arg){
 }
 
 DOMNode.set_html = function(args){
-    var $ = $B.args("$set_html", args, ["$self", "$value"])
-    var elt = $.$self
+    var $ = $B.args("set_html", args, ["self", "value"])
+    var elt = $.self
     if(elt.nodeType == 9){elt = elt.body}
-    elt.innerHTML = _b_.$str.$factory($.$value)
+    elt.innerHTML = _b_.str.$($.value)
 }
 
 DOMNode.set_style = function(self, style){ // style is a dict
@@ -1396,11 +1383,43 @@ DOMNode.set_style = function(self, style){ // style is a dict
 DOMNode.set_text = function(self,value){
     var elt = self.elt
     if(elt.nodeType == 9){elt = elt.body}
-    elt.innerText = _b_.str.$factory(value)
-    elt.textContent = _b_.str.$factory(value)
+    elt.innerText = _b_.str.$(value)
+    elt.textContent = _b_.str.$(value)
 }
 
-DOMNode.set_value = function(self, value){self.elt.value = _b_.str.$factory(value)}
+DOMNode.set_value = function(self, value){
+    self.elt.value = _b_.str.$(value)
+}
+
+DOMNode.set_x = function(self, value){
+    // Set coordinate x relatively to left border
+    var p = self.elt.style.position
+    if(p === "absolute"){
+        self.elt.style.left = value + "px"
+    }else{
+        var p = self.elt.parentElement
+        if(p === null){
+            self.elt.style.left = value + "px"
+        }else{
+            self.elt.style.left = (value - $getPosition(p).left) + "px"
+        }
+    }
+}
+
+DOMNode.set_y = function(self, value){
+    // Set coordinate y relatively to top corner
+    var p = self.elt.style.position
+    if(p === "absolute"){
+        self.elt.style.top = value + "px"
+    }else{
+        var p = self.elt.parentElement
+        if(p === null){
+            self.elt.style.top = value + "px"
+        }else{
+            self.elt.style.top = (value - $getPosition(p).top) + "px"
+        }
+    }
+}
 
 DOMNode.submit = function(self){ // for FORM
     return function(){self.elt.submit()}
@@ -1495,6 +1514,14 @@ DOMNode.unbind = function(self, event){
             throw _b_.KeyError.$factory('missing callback for event ' + event)
         }
     }
+}
+
+DOMNode.x = function(self){
+    return $getPosition(self.elt).left
+}
+
+DOMNode.y = function(self){
+    return $getPosition(self.elt).top
 }
 
 $B.set_func_names(DOMNode, "browser")
@@ -1660,4 +1687,11 @@ win.get_postMessage = function(msg,targetOrigin){
 $B.DOMNode = DOMNode
 
 $B.win = win
+
+_b_.Document = $B.DOMNode.$factory(document)
+_b_.Window = {
+    __class__: $B.JSObject,
+    js: window
+}
+
 })(__BARAGWIN__)
