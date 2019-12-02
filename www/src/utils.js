@@ -23,7 +23,7 @@ $B.args = function(fname, positionals, keywords, required, defaults,
     var has_kw_args = false,
         filled = 0,
         extra_kw,
-        $ = {}
+        $ = {$name: fname}
 
     if(required === undefined){
         required = []
@@ -39,6 +39,9 @@ $B.args = function(fname, positionals, keywords, required, defaults,
     }
 
     var i = 0
+    if(positionals === undefined){
+        console.log("no positionals for", fname)
+    }
     for(const positional of positionals){
         if(required[i] !== undefined){
             $[required[i]] = positional
@@ -211,7 +214,6 @@ $B.operations = {
             throw _b_.$TypeError.$factory("* not supported between types " +
                 $B.class_name(x) + " and " + $B.class_name(y))
         }
-
     },
     sub: function(x, y){
         if(typeof x.valueOf() == "number" &&
@@ -275,8 +277,9 @@ $B.get_class = function(obj){
                 obj.__class__ = $B.Function
                 return $B.Function
             case "object":
-                if(obj.$class){return obj.$class} // module object
-                if(Array.isArray(obj)){
+                if(obj instanceof Node){
+                    return $B.DOMNode
+                }else if(Array.isArray(obj)){
                     return _b_.list
                 }else if(obj instanceof Number){
                     return _b_.float
@@ -368,12 +371,47 @@ $B.setitem = function(obj, item, value){
     }
 }
 
+$B.make_class = function(name, factory){
+    // Builds a basic class object
+
+    var A = {
+        __class__: _b_.type,
+        __parent__: _b_.object,
+        __name__: name
+    }
+
+    A.$factory = factory
+
+    return A
+}
+
 $B.method = {
     str: function(obj, kw){
         var $ = $B.args("str", obj, kw, ["self"])
         console.log("method str", $)
     }
 }
+
+var module = $B.module = {
+    __class__ : _b_.type,
+    __mro__: [_b_.object],
+    $infos: {
+        __module__: "builtins",
+        __name__: "module"
+    },
+    $is_class: true
+}
+
+module.$factory = function(name, doc, $package){
+    return {
+        //__class__: module,
+        $class: module,
+        __name__: name,
+        __doc__: doc || _b_.None,
+        __package__: $package || _b_.None
+    }
+}
+
 
 $B.to_list = function(obj, expected){
     // If obj is iterable, return the list made by iteration on it
