@@ -240,7 +240,7 @@ var Date = function(pos, kw){
 Date.time = function(obj, kw){
     var $ = $B.args("time", obj, kw, ["self"])
     return $.self.getTime()
-};
+}
 
 Date.$getattr = function(self, attr){
     if(date_params.indexOf(attr) > -1){
@@ -840,9 +840,9 @@ function getattr(pos, kw){
 
 $B.$getattr = function(obj, attr){
     // Used internally to avoid having to parse the arguments
-    var test = false //attr == "bind"
+    var test = false //attr == "XMLHttpRequest"
     var res,
-        klass = obj.__class__
+        klass = obj.__class__ || $B.get_class(obj)
 
     if(test){
         console.log("get attr", attr, "of", obj, typeof obj)
@@ -971,8 +971,7 @@ function isinstance(obj, cls){
         }
         return false
     }
-    if(!cls.__class__ ||
-            !(cls.$factory !== undefined || cls.$is_class !== undefined)){
+    if(cls.__class__ !== _b_.type){
         throw _b_.TypeError.$factory("isinstance() arg 2 must be a type " +
             "or tuple of types")
     }
@@ -1239,7 +1238,7 @@ function $print(pos, kw){
         file = kw.file === undefined ? $B.stdout : kw.file,
         items = []
     args.forEach(function(arg){
-        items.push(_b_.str.$factory(arg))
+        items.push(_b_.str.$(arg))
     })
     // Special handling of \a and \b
     var res = items.join(sep) + end
@@ -1256,7 +1255,7 @@ function repr(obj){
     check_nb_args('repr', 1, arguments)
 
     var klass = obj.__class__ || $B.get_class(obj)
-    return $B.$call($B.$getattr(klass, "__repr__"))(obj)
+    return $B.call($B.$getattr(klass, "__repr__"))(obj)
 }
 
 
@@ -1409,6 +1408,13 @@ var Test = {
     }
 }
 
+var type = {
+    __parent__: object
+}
+
+$B.Function = {
+    __class__: type
+}
 
 function $url_open(){
     // first argument is file : can be a string, or an instance of a DOM File object
