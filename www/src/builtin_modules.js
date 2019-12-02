@@ -95,11 +95,9 @@
         browser.self.js.send = self.postMessage
     } else {
         browser.is_webworker = false
-        _b_.Document = $B.DOMNode.$factory(document)
-        _b_.Window = $B.JSObject.$factory(window)
         update(browser, {
             $$alert:function(message){
-                window.alert($B.builtins.str.$factory(message))
+                window.alert(_b_.str.$(message))
             },
             confirm: $B.JSObject.$factory(window.confirm),
             $$document:$B.DOMNode.$factory(document),
@@ -152,7 +150,7 @@
                 results = regex.exec(location.search);
             results = results === null ? "" :
                 decodeURIComponent(results[1].replace(/\+/g, " "));
-            return $B.builtins.str.$factory(results);
+            return _b_.str.$(results);
             }
         })
 
@@ -178,7 +176,7 @@
                         var first = args[0]
                         if(_b_.isinstance(first, [_b_.str, _b_.int, _b_.float])){
                             // set "first" as HTML content (not text)
-                            self.elt.innerHTML = _b_.str.$factory(first)
+                            self.elt.innerHTML = _b_.str.$(first)
                         }else if(first.__class__ === TagSum){
                             for(var i = 0, len = first.children.length; i < len; i++){
                                 self.elt.appendChild(first.children[i].elt)
@@ -324,7 +322,6 @@
             obj.attribute_mapper = function(attr){
                 return attr.replace(/_/g, '-')
             }
-            console.log("DIV" + obj.DIV)
 
             return obj
         })(__BARAGWIN__)
@@ -507,7 +504,9 @@
     }
 
     for(var attr in modules){load(attr, modules[attr])}
-    if(!($B.isWebWorker || $B.isNode)){modules['browser'].html = modules['browser.html']}
+    if(!($B.isWebWorker || $B.isNode)){
+        modules['browser'].html = modules['browser.html']
+    }
 
     var _b_ = $B.builtins
 
@@ -526,21 +525,7 @@
     // Set type of methods of builtin classes
     for(var name in _b_){
         if(_b_[name].__class__ === _b_.type){
-            $B.builtin_classes.push(_b_[name]) // defined in baragwin_builtins.js
-            for(var key in _b_[name]){
-                var value = _b_[name][key]
-                if(value === undefined){continue}
-                else if(value.__class__){continue}
-                else if(typeof value != "function"){continue}
-                else if(key == "__new__"){
-                    value.__class__ = $B.builtin_function
-                }else if(key.startsWith("__")){
-                    value.__class__ = $B.wrapper_descriptor
-                }else{
-                    value.__class__ = $B.method_descriptor
-                }
-                value.__objclass__ = _b_[name]
-            }
+            $B.builtin_classes.push(_b_[name]) // defined in builtins.js
         }
     }
     // Attributes of __BARAGWIN__ are Python lists
