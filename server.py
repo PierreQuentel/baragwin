@@ -197,7 +197,7 @@ parser.add_argument('--port', help="The port to be used by the local server")
 
 args = parser.parse_args()
 
-port = int(args.port) if args.port else 8000
+port = int(args.port) if args.port else 8001
 
 
 os.chdir(os.path.join(os.getcwd(), 'www'))
