@@ -385,21 +385,15 @@ function divmod(x,y) {
        $B.$getattr(klass, '__mod__')(x, y)])
 }
 
-var enumerate = $B.make_class("enumerate",
-    function(){
-        var $ns = $B.args("enumerate", 2, {iterable: null, start: null},
-            ['iterable', 'start'], arguments, {start: 0}, null, null),
-            _iter = iter($ns["iterable"]),
-            start = $ns["start"]
-        return {
-            __class__: enumerate,
-            __name__: 'enumerate iterator',
-            counter: start - 1,
-            iter: _iter,
-            start: start
-        }
+var enumerate = function*(pos, kw){
+    var $ = $B.args("enumerate", pos, kw, ["iterable"]),
+        iterable = $.iterable,
+        i = 0
+    for(const item of $B.test_iter(iterable)){
+        yield [i, item]
+        i++
     }
-)
+}
 
 enumerate.__iter__ = function(self){
     self.counter = self.start - 1
@@ -840,15 +834,19 @@ function getattr(pos, kw){
 
 $B.$getattr = function(obj, attr){
     // Used internally to avoid having to parse the arguments
-    var test = false //attr == "XMLHttpRequest"
+    var test = false // attr == "split"
+    if(obj===undefined){
+        console.log("obj undef, attr", attr)
+    }
     var res,
         klass = obj.__class__ || $B.get_class(obj)
 
     if(test){
-        console.log("get attr", attr, "of", obj, typeof obj)
+        console.log("get attr", attr, "of", obj, typeof obj, "klass", klass)
     }
 
     if(typeof obj == "number" || obj instanceof Number){
+        console.log("attr", attr, "of", obj)
         throw _b_.TypeError.$factory("numbers have no attribute")
     }
     while(klass){
@@ -1385,7 +1383,8 @@ var Test = {
     equal: function(pos, kw){
         var $ = $B.args("equal", pos, kw, ["x", "y"])
         if(! $B.compare.eq($.x, $.y)){
-            throw _b_.AssertionError.$factory("not equal")
+            throw _b_.AssertionError.$factory(_b_.str.$($.x) + 
+                " not equal to " +_b_.str.$($.y))
         }
     },
     raise: function(pos, kw){

@@ -254,62 +254,79 @@ range.index = function(self, other){
     }
 }
 
-range.$factory = function(){
-    var $ = $B.args("range", 3, {start: null, stop: null, step: null},
-        ["start", "stop", "step"],
-        arguments, {start: null, stop: null, step: null}, null, null),
+range.$factory = function(pos, kw){
+    var $ = $B.args("range", pos, kw, ["start", "stop", "step"],
+            {start: null, stop: null, step: null}),
         start = $.start,
         stop = $.stop,
         step = $.step,
-        safe
+        safe,
+        value,
+        counter = 0
     if(stop === null && step === null){
         if(start == null){
             throw _b_.TypeError.$factory("range expected 1 arguments, got 0")
         }
-        stop = $B.PyNumber_Index(start)
+        stop = start
+        value = 0
+        step = 1
         safe = typeof stop === "number"
-        return{__class__: range,
-            start: 0,
-            stop: stop,
-            step: 1,
-            $is_range: true,
-            $safe: safe
+    }else{
+        if(step === null){step = 1}
+        start = $B.PyNumber_Index(start)
+        stop = $B.PyNumber_Index(stop)
+        step = $B.PyNumber_Index(step)
+        if(step == 0){
+            throw _b_.ValueError.$factory("range arg 3 must not be zero")
         }
+        safe = (typeof start == "number" && typeof stop == "number" &&
+            typeof step == "number")
+        value = start
     }
-    if(step === null){step = 1}
-    start = $B.PyNumber_Index(start)
-    stop = $B.PyNumber_Index(stop)
-    step = $B.PyNumber_Index(step)
-    if(step == 0){
-        throw _b_.ValueError.$factory("range arg 3 must not be zero")
-    }
-    safe = (typeof start == "number" && typeof stop == "number" &&
-        typeof step == "number")
-    return {__class__: range,
-        start: start,
-        stop: stop,
-        step: step,
-        $is_range: true,
-        $safe: safe
+    return {
+        *[Symbol.iterator](){
+            while(value < stop){
+                yield value
+                value += step
+                counter++
+            }
+        }
     }
 }
 
 $B.set_func_names(range, "builtins")
 
-// slice
-var slice = {
-    __class__: _b_.type,
-    __mro__: [_b_.object],
-    $infos: {
-        __module__: "builtins",
-        __name__: "slice"
-    },
-    $is_class: true,
-    $native: true,
-    $descriptors: {
-        start: true,
-        step: true,
-        stop: true
+var slice = function(pos, kw){
+    var $ = $B.args("slice", pos, kw, ["start", "stop", "step"],
+            {stop: _b_.None, step: _b_.None})
+    return slice.$($.start, $.stop, $.step === _b_.None ? undefined : $.step)
+}
+slice.__class__ = _b_.type
+slice.__name__ = "slice"
+
+slice.$ = function*(start, stop, step){
+    if(stop === _b_.None && step === undefined){
+        start = 0
+        stop = start
+        step = 1
+    }else{
+        start = start === _b_.None ? 0 : start
+        step = step === undefined ? 1 : step
+    }
+    var value = start
+
+    if(step > 0 && stop >= start){
+        while(value < stop){
+            yield value
+            value += step
+        }
+    }else if(step < 0 && stop <= start){
+        while(value > stop){
+            yield value
+            value += step
+        }
+    }else{
+        throw _b_.ValueError.$factory("wrong values for slice")
     }
 }
 
@@ -411,31 +428,6 @@ slice.indices = function(self, length){
     return _b_.tuple.$factory([_start, _stop, _step])
 }
 
-slice.$factory = function(){
-    var $ = $B.args("slice", 3, {start: null, stop: null, step: null},
-        ["start", "stop", "step"], arguments,{stop: null, step: null},
-        null, null),
-        start, stop, step
-
-    if($.stop === null && $.step === null){
-        start = _b_.None
-        stop = $.start
-        step = _b_.None
-    }else{
-        start = $.start
-        stop = $.stop
-        step = $.step === null ? _b_.None : $.step
-    }
-
-    var res = {
-        __class__ : slice,
-        start: start,
-        stop: stop,
-        step: step
-    }
-    conv_slice(res) // to check types
-    return res
-}
 
 $B.set_func_names(slice, "builtins")
 

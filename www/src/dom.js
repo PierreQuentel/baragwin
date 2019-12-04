@@ -571,23 +571,28 @@ DOMNode.$factory = function(elt, fromtag){
 }
 
 
-DOMNode.__add__ = function(self, other){
+DOMNode.add = function(pos, kw){
+    var $ = $B.args("add", pos, kw, ["self", "other"]),
+            self = $.self,
+            other = $.other
     // adding another element to self returns an instance of TagSum
-    var res = TagSum.$factory()
-    res.children = [self], pos = 1
+    var res = TagSum()
+    res.children = [self]
     if(_b_.isinstance(other, TagSum)){
         res.children = res.children.concat(other.children)
     }else if(_b_.isinstance(other,[_b_.str, _b_.int, _b_.float, _b_.list,
-                                _b_.dict, _b_.set, _b_.tuple])){
-        res.children[pos++] = DOMNode.$factory(
-            document.createTextNode(_b_.str.$(other)))
+                                _b_.dict])){
+        res.children.push(DOMNode.$factory(
+            document.createTextNode(_b_.str.$(other))))
     }else if(_b_.isinstance(other, DOMNode)){
-        res.children[pos++] = other
+        res.children.push(other)
     }else{
         // If other is iterable, add all items
-        try{res.children = res.children.concat(_b_.list.$factory(other))}
-        catch(err){throw _b_.TypeError.$factory("can't add '" +
-            $B.class_name(other) + "' object to DOMNode instance")
+        try{
+            res.children = res.children.concat(_b_.list.$factory(other))
+        }catch(err){
+            throw _b_.TypeError.$factory("can't add '" +
+                $B.class_name(other) + "' object to DOMNode instance")
         }
     }
     return res
@@ -655,7 +660,7 @@ DOMNode.getattr = function(pos, kw){
 }
 
 DOMNode.$getattr = function(self, attr){
-    var test = false //attr == "x"
+    var test = false //attr == "children"
     if(test){
         console.log("attr", attr, "of", self)
     }
@@ -693,7 +698,13 @@ DOMNode.$getattr = function(self, attr){
             }
         case "clear":
         case "closest":
-            return function(){return DOMNode[attr](self, arguments[0])}
+            return function(pos, kw){
+                var pos1 = pos.slice()
+                pos1.splice(0, 0, self)
+                return DOMNode[attr](pos1, kw)
+            }
+        case "children":
+            return DOMNode[attr]([self])
         case "headers":
           if(self.elt.nodeType == 9){
               // HTTP headers
@@ -734,6 +745,9 @@ DOMNode.$getattr = function(self, attr){
     var res = self.elt[attr]
 
     if(res !== undefined){
+        if(test){
+            console.log(attr, "direct attr", res)
+        }
         return res
     }
 
@@ -873,7 +887,9 @@ DOMNode.le = function(pos, kw){
         other = $.other
     // for document, append child to document.body
     var elt = self.elt
-    if(self.elt.nodeType == 9){elt = self.elt.body}
+    if(self.elt.nodeType == 9){
+        elt = self.elt.body
+    }
     if(_b_.isinstance(other, TagSum)){
         for(var i = 0; i < other.children.length; i++){
             elt.appendChild(other.children[i].elt)
@@ -887,11 +903,12 @@ DOMNode.le = function(pos, kw){
     }else{
         try{
             // If other is an iterable, add the items
-            var items = _b_.list.$factory(other)
-            items.forEach(function(item){
-                DOMNode.__le__(self, item)
-            })
+            $B.test_iter(other)
+            for(const item of other){
+                DOMNode.le([self, item])
+            }
         }catch(err){
+            console.log("err", other, err)
             throw _b_.TypeError.$factory("can't add '" +
                 $B.class_name(other) + "' object to DOMNode instance")
         }
@@ -1074,10 +1091,11 @@ DOMNode.bind = function(pos, kw){
     return self
 }
 
-DOMNode.children = function(self){
+DOMNode.children = function(pos, kw){
+    var $ = $B.args("children", pos, kw, ["self"]),
+        self = $.self
     var res = [],
         elt = self.elt
-    console.log(elt, elt.childNodes)
     if(elt.nodeType == 9){elt = elt.body}
     elt.childNodes.forEach(function(child){
         res.push(DOMNode.$factory(child))
@@ -1116,7 +1134,10 @@ DOMNode.clone = function(self){
     return res
 }
 
-DOMNode.closest = function(self, tagName){
+DOMNode.closest = function(pos, kw){
+    var $ = $B.args("closest", pos, kw, ["self", "tagName"]),
+        self = $.self,
+        tagName = $.tagName
     // Returns the first parent of self with specified tagName
     // Raises KeyError if not found
     var res = self.elt,
@@ -1606,12 +1627,11 @@ DOMNode.query = function(self){
 }
 
 // class used for tag sums
-var TagSum = {
-    __class__ : _b_.type,
-    __mro__: [object],
-    $infos: {
-        __module__: "<pydom>",
-        __name__: "TagSum"
+TagSum = function(){
+    return {
+        __class__: TagSum,
+        children: [],
+        toString: function(){return "(TagSum)"}
     }
 }
 
@@ -1619,14 +1639,16 @@ TagSum.appendChild = function(self, child){
     self.children.push(child)
 }
 
-TagSum.__add__ = function(self, other){
+TagSum.$add = function(self, other){
     if($B.get_class(other) === TagSum){
         self.children = self.children.concat(other.children)
     }else if(_b_.isinstance(other, [_b_.str, _b_.int, _b_.float,
-                               _b_.dict, _b_.set, _b_.list])){
+                               _b_.dict, _b_.list])){
         self.children = self.children.concat(
             DOMNode.$factory(document.createTextNode(other)))
-    }else{self.children.push(other)}
+    }else{
+        self.children.push(other)
+    }
     return self
 }
 
@@ -1658,13 +1680,8 @@ TagSum.clone = function(self){
     return res
 }
 
-TagSum.$factory = function(){
-    return {
-        __class__: TagSum,
-        children: [],
-        toString: function(){return "(TagSum)"}
-    }
-}
+
+TagSum.__class__ = _b_.type
 
 $B.set_func_names(TagSum, "<dom>")
 

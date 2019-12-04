@@ -683,7 +683,9 @@ function to_digits(s){
 }
 
 // constructor for built-in class 'float'
-float.$factory = function (value){
+float.$factory = function(pos, kw){
+    var $ = $B.args("float", pos, kw, ["value"]),
+        value = $.value
     switch(value) {
         case undefined:
             return $FloatClass(0.0)
@@ -698,14 +700,11 @@ float.$factory = function (value){
             return new Number(0)
     }
 
-    if(typeof value == "number"){return new Number(value)}
-    if(isinstance(value, float)){return value}
-    if(isinstance(value, bytes)){
-      var s = getattr(value, "decode")("latin-1")
-      return float.$factory(getattr(value, "decode")("latin-1"))
-    }
-
-    if(typeof value == "string"){
+    if(typeof value == "number"){
+        return new Number(value)
+    }else if(value instanceof Number){
+        return value
+    }else if(typeof value == "string"){
        value = value.trim()   // remove leading and trailing whitespace
        switch(value.toLowerCase()) {
            case "+inf":
@@ -724,11 +723,9 @@ float.$factory = function (value){
            case "":
                throw _b_.ValueError.$factory("count not convert string to float")
            default:
-               value = value.charAt(0) + value.substr(1).replace(/_/g, "") // PEP 515
-               value = to_digits(value) // convert arabic-indic digits to latin
-               if (isFinite(value)) return $FloatClass(eval(value))
-               else {
-                   _b_.str.encode(value, "latin-1") // raises UnicodeEncodeError if not valid
+               if(isFinite(value)){
+                   return new Number(eval(value))
+               }else{
                    throw _b_.ValueError.$factory(
                        "Could not convert to float(): '" +
                        _b_.str.$(value) + "'")

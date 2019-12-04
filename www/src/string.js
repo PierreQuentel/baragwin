@@ -80,6 +80,16 @@ str.__add__ = function(self,other){
     return self + other
 }
 
+str.$add = function(self, other){
+    if(_b_.isinstance(other, $B.DOMNode)){
+        var ts = $B.TagSum()
+        $B.TagSum.$add(ts, self)
+        $B.TagSum.$add(ts, other)
+        return ts
+    }
+    return self + other
+}
+
 str.__contains__ = function(self, item){
     if(!(typeof item == "string")){
         throw _b_.TypeError.$factory("'in <string>' requires " +
@@ -1137,18 +1147,7 @@ str.format_map = function(self) {
       "function format_map not implemented yet")
 }
 
-str.getattr = function(pos, kw){
-    var $ = $B.args("getattr", pos, kw, ["self", "attr"])
-    return str.$getattr($.self, $.attr)
-}
 
-str.$getattr = function(self, attr){
-    var res = self[attr]
-    if(res === undefined){
-        throw _b_.AttributeError.$factory(attr)
-    }
-    return res
-}
 
 str.index = function(self){
     // Like find(), but raise ValueError when the substring is not found.
@@ -1672,10 +1671,9 @@ str.rstrip = function(self, x){
     return ""
 }
 
-str.split = function(){
-    var $ = $B.args("split", 3, {self: null, sep: null, maxsplit: null},
-        ["self", "sep", "maxsplit"], arguments,
-        {sep: _b_.None, maxsplit: -1}, null, null),
+str.split = function(pos, kw){
+    var $ = $B.args("split", pos, kw, ["self", "sep", "maxsplit"],
+            {sep: _b_.None, maxsplit: -1}),
         sep = $.sep,
         maxsplit = $.maxsplit,
         self = $.self,

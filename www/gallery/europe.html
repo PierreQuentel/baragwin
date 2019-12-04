@@ -47,14 +47,7 @@
 countries = Document.select("AREA")
 
 def mouse_over(ev)
-    print(ev, ev.target.x)
     ev.target.style.cursor = "pointer"
-
-def drag_start(ev)
-    ev.dataTransfer.setData("text/plain", ev.target.id)
-    ev.dataTransfer.effectAllowed = 'move'
-    ev.target.mouse = [ev.x, ev.y]
-    #ev.target.initial = [ev.target.x, ev.target.y]
 
 def drag_over(ev)
     ev.dataTransfer.dropEffect = 'move'
@@ -83,7 +76,12 @@ for area in Document.select("AREA")
     ctag.style = {'position': 'absolute', 'left': left, 'top': top,
         'width': 80, 'height': 16}
     ctag.initial = [left, top]
-    ctag.bind('dragstart', drag_start)
+
+    when dragstart on ctag as ev
+      ev.dataTransfer.setData("text/plain", ev.target.id)
+      ev.dataTransfer.effectAllowed = 'move'
+      ev.target.mouse = [ev.x, ev.y]
+
     ctag.bind('mouseover', mouse_over)
     Document <= ctag
     # drag and drop event handlers

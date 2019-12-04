@@ -64,7 +64,7 @@ $B.args = function(fname, positionals, keywords, required, defaults,
         }else{
             console.log("required", required, "$", $)
             throw _b_.TypeError.$factory("unexpected keyword argument for " +
-                fname + ": " + key.substr(1))
+                fname + ": " + key)
         }
     }
 
@@ -139,12 +139,15 @@ $B.compare = {
             return x.valueOf() <= y.valueOf()
         }else if(typeof x == "string" && typeof y == "string"){
             return x <= y
-        }else if(x.__class__ && x.__class__.le !== undefined){
-            return x.__class__.le([x, y])
         }else{
-            console.log(x, y)
-            throw _b_.TypeError.$factory("cannot compare types " +
-                $B.class_name(x) + " and " + $B.class_name(y))
+            try{
+                var le = $B.$getattr(x, "le")
+                return le([y])
+            }catch(err){
+                console.log("err", err, err.__class__, err.args)
+                throw _b_.TypeError.$factory("cannot compare types " +
+                    $B.class_name(x) + " and " + $B.class_name(y))
+            }
         }
     },
     lt: function(x, y){
@@ -167,15 +170,22 @@ $B.operations = {
         if(typeof x.valueOf() == "number" &&
                 typeof y.valueOf() == "number"){
             return x.valueOf() + y.valueOf()
-        }else if(typeof x == "string" && typeof y == "string"){
-            return x + y
+        }else if(typeof x == "string"){
+            if(typeof y == "string"){
+                return x + y
+            }else{
+                return _b_.str.$add(x, y)
+            }
         }else if(Array.isArray(x)){
             return _b_.list.$add(x, y)
-        }else if(x.__class__ && x.__class__.add){
-            return x.__class__.add([x, y])
         }else{
-            throw _b_.TypeError.$factory("+ not supported between types " +
-                $B.class_name(x) + " and " + $B.class_name(y))
+            try{
+                var add = $B.$getattr(x, "add")
+                return add([y])
+            }catch(err){
+                throw _b_.TypeError.$factory("+ not supported between types " +
+                    $B.class_name(x) + " and " + $B.class_name(y))
+            }
         }
     },
     div: function(x, y){
@@ -344,10 +354,15 @@ $B.is_member = function(item, container){
                 $B.class_name(item) + " in string")
         }
         return container.indexOf(item) >  -1
-    }else if(Array.isArray(container)){
-        return _b_.list.contains([container, item])
     }else if(container.__class__ && container.__class__.contains){
         return container.__class__.contains([container, item])
+    }else if(container[Symbol.iterator]){
+        for(const x of container){
+            if($B.compare.eq(x, item)){
+                return true
+            }
+        }
+        return false
     }
     throw _b_.TypeError.$factory("cannot test membership of " +
         $B.class_name(item) + " in " + $B.class_name(container))
@@ -436,7 +451,8 @@ $B.to_list = function(obj, expected){
 
 $B.test_iter = function(candidate){
     if(candidate[Symbol.iterator] === undefined){
-        throw _b_.$TypeError.$factory($B.class_name(candidate) +
+        console.log("not iterator", candidate)
+        throw _b_.TypeError.$factory($B.class_name(candidate) +
             " object is not iterable")
     }
     return candidate
@@ -498,15 +514,15 @@ $B.$dict_comp = function(module_name, parent_scope, items, line_num){
 $B.$gen_expr = function(module_name, parent_scope, items, line_num){
     // Called for generator expressions
     var $ix = $B.UUID(),
-        py = "def __ge" + $ix + "():\n", // use a special name (cf $global_search)
+        py = "def __ge" + $ix + "()\n", // use a special name (cf $global_search)
         indent = 1
     for(var i = 1, len = items.length; i < len; i++){
         var item = items[i].replace(/\s+$/, "").replace(/\n/g, "")
-        py += " ".repeat(indent) + item + ":\n"
+        py += " ".repeat(indent) + item + "\n"
         indent += 4
     }
     py += " ".repeat(indent)
-    py += "yield (" + items[0] + ")"
+    py += "yield " + items[0]
 
     var genexpr_name = "__ge" + $ix,
         root = $B.py2js({src: py, is_comp: true}, genexpr_name, genexpr_name,
@@ -515,9 +531,9 @@ $B.$gen_expr = function(module_name, parent_scope, items, line_num){
         lines = js.split("\n")
 
     js = lines.join("\n")
-    js += "\nvar $res = $locals_" + genexpr_name + '["' + genexpr_name +
-        '"]();\n$res.is_gen_expr = true;\nreturn $res\n'
-    js = "(function($locals_" + genexpr_name +"){" + js + "})({})\n"
+    js += "\nvar $res = locals." + genexpr_name +
+        '([], {});\n$res.is_gen_expr = true;\nreturn $res\n'
+    js = "(function(locals_" + genexpr_name +"){" + js + "})({})\n"
 
     //$B.clear_ns(genexpr_name)
     delete $B.$py_src[genexpr_name]

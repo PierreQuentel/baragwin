@@ -20,17 +20,17 @@ function $list(){
     return list.$factory.apply(null, arguments)
 }
 
-var list = {
-    __class__: _b_.type,
-    __mro__: [object],
-    $infos: {
-        __module__: "builtins",
-        __name__: "list"
-    },
-    $is_class: true,
-    $native: true,
-    __dir__: object.__dir__
+function list(pos, kw){
+    var $ = $B.args("list", pos, kw, ["iterable"]),
+        it = $B.test_iter($.iterable),
+        res = []
+    for(const item of it){
+        res.push(item)
+    }
+    return res
 }
+list.__class__ = _b_.type
+list.__name__ = "list"
 
 list.add = function(pos, kw){
     var $ = $B.args("add", pos, kw, ["self", "other"])
@@ -333,9 +333,8 @@ $B.make_rmethods(list)
 
 var _ops = ["add", "sub"]
 
-list.append = function(args){
-    var $ = $B.args("append", args, ["self", "x"])
-    console.log("append", $.x)
+list.append = function(pos, kw){
+    var $ = $B.args("append", pos, kw, ["self", "x"])
     $.self.push($.x)
     return $N
 }
@@ -427,8 +426,8 @@ list.remove = function(args){
     throw _b_.ValueError.$factory(_b_.str.$factory($.x) + " is not in list")
 }
 
-list.reverse = function(args){
-    var $ = $B.args("reverse", args, ["self"]),
+list.reverse = function(pos, kw){
+    var $ = $B.args("reverse", pos, kw, ["self"]),
         _len = $.self.length - 1,
         i = parseInt($.self.length / 2)
     while(i--){
@@ -512,107 +511,56 @@ function $elts_class(self){
     return cl
 }
 
-list.sort = function(args){
-    var $ = $B.args("sort", args, ["self"], {}, null, "kw")
+list.sort = function(pos, kw){
+    var $ = $B.args("sort", pos, kw, ["self", "func"], {func: _b_.None}),
+        self = $.self,
+        func = $.func
 
-    check_not_tuple(self, "sort")
-    var func = $N,
-        reverse = false,
-        kw_args = $.kw,
-        keys = Object.keys(kw_args)
-
-    for(const key of keys){
-        if(key == "key"){func = kw_args[key]}
-        else if(key == "reverse"){reverse = kw_args[key]}
-        else{throw _b_.$TypeError.$factory("'" + key +
-            "' is an invalid keyword argument for this function")}
-    }
     if(self.length == 0){return}
 
     if(func !== $N){
-        func = $B.$call(func) // func can be an object with method __call__
+        func = $B.call(func) // func can be an object with method __call__
     }
 
     self.$cl = $elts_class(self)
     var cmp = null;
-    if(func === $N && self.$cl === _b_.str){
-        if(reverse){
-            cmp = function(b, a){return $B.$AlphabeticalCompare(a, b)}
-        }else{
-            cmp = function(a, b){return $B.$AlphabeticalCompare(a, b)}
+    if(func === _b_.None && self.$cl === _b_.str){
+        cmp = function(a, b){
+            return $B.$AlphabeticalCompare(a, b)
         }
-    }else if(func === $N && self.$cl === _b_.int){
-        if(reverse){
-            cmp = function(b, a){return a - b}
-        }else{
-            cmp = function(a, b){return a - b}
-        }
+    }else if(func === _b_.None && self.$cl === _b_.int){
+        cmp = function(a, b){return a - b}
     }else{
         if(func === $N){
-            if(reverse){
-                cmp = function(b, a) {
-                    res = getattr(a, "__le__")(b)
-                    if(res === _b_.NotImplemented){
-                        throw _b_.TypeError.$factory("unorderable types: " +
-                            $B.class_name(b) + "() <=" +
-                            $B.class_name(a) + "()")
-                    }
-                    if(res){
-                        if(a == b){return 0}
-                        return -1
-                    }
-                    return 1
+            cmp = function(a, b){
+                res = getattr(a, "__le__")(b)
+                if(res === _b_.NotImplemented){
+                    throw _b_.TypeError.$factory("unorderable types: " +
+                        $B.class_name(a) + "() <=" +
+                        $B.class_name(b) + "()")
                 }
-            }else{
-                cmp = function(a, b){
-                    res = getattr(a, "__le__")(b)
-                    if(res === _b_.NotImplemented){
-                        throw _b_.TypeError.$factory("unorderable types: " +
-                            $B.class_name(a) + "() <=" +
-                            $B.class_name(b) + "()")
-                    }
-                    if(res){
-                        if(a == b){return 0}
-                        return -1
-                    }
-                    return 1
+                if(res){
+                    if(a == b){return 0}
+                    return -1
                 }
+                return 1
             }
         }else{
-            if(reverse){
-                cmp = function(b, a) {
-                    var _a = func(a),
-                        _b = func(b)
-                    res = getattr(_a, "__le__")(_b)
-                    if(res === _b_.NotImplemented){
-                        throw _b_.TypeError.$factory("unorderable types: " +
-                            $B.class_name(b) + "() <=" +
-                            $B.class_name(a) + "()")
-                    }
-                    if(res){
-                        if(_a == _b){return 0}
-                        return -1
-                    }
-                    return 1
+            cmp = function(a, b){
+                var _a = func([a]),
+                    _b = func([b])
+                res = $B.compare.lt(_a, _b)
+                if(res === _b_.NotImplemented){
+                    throw _b_.TypeError.$factory("unorderable types: " +
+                        $B.class_name(a) + "() <=" +
+                        $B.class_name(b) + "()")
                 }
-            }else{
-                cmp = function(a, b){
-                    var _a = func(a),
-                        _b = func(b)
-                    res = $B.$getattr(_a, "__lt__")(_b)
-                    if(res === _b_.NotImplemented){
-                        throw _b_.TypeError.$factory("unorderable types: " +
-                            $B.class_name(a) + "() <=" +
-                            $B.class_name(b) + "()")
-                    }
-                    if(res){
-                        if(_a == _b){return 0}
-                        return -1
-                    }
-                    return 1
+                if(res){
+                    if(_a == _b){return 0}
+                    return -1
                 }
+                return 1
             }
-
         }
     }
     $B.$TimSort(self, cmp)

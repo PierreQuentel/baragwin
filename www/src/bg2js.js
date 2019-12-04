@@ -781,27 +781,7 @@ var AttrCtx = function(context){
     this.to_js = function(){
         this.js_processed = true
         var js = this.value.to_js()
-        if(this.func == "setattr" && this.value.type == "id"){
-            var scope = $get_scope(this),
-                parent = scope.parent
-            if(scope.ntype == "def"){
-                if(parent.ntype == "class"){
-                    var params = scope.context.tree[0].positional_list
-                    if(this.value.value == params[0] && parent.context &&
-                            parent.context.tree[0].args === undefined){
-                        // set attr to instance of a class without a parent
-                        this.assign_self = true
-                        return [js + ".__class__ && " + js + ".__dict__ && !" +
-                            js + ".__class__.$has_setattr && ! " + js +
-                            ".$is_class ? " + js +
-                            ".__dict__.$string_dict['" + this.name +
-                            "'] = ", " : $B.$setattr(" + js +
-                            ', "' + this.name + '", ']
-                    }
-                }
-            }
 
-        }
         if(this.func == 'setattr'){
             // For setattr, use $B.$setattr which doesn't use $B.args to parse
             // the arguments
@@ -943,18 +923,7 @@ var BreakCtx = function(context){
     this.toString = function(){return 'break '}
 
     this.to_js = function(){
-        this.js_processed = true
-        var scope = $get_scope(this)
-        var res = ';locals_' + scope.id.replace(/\./g, '_') +
-            '["$no_break' + this.loop_ctx.loop_num + '"] = false'
-
-        if(this.loop_ctx.type != 'asyncfor'){
-            res += ';break'
-        }else{
-            res += ';throw StopIteration.$factory(' +
-                this.loop_ctx.loop_num + ')'
-        }
-        return res
+        return "break;"
     }
 }
 
@@ -1014,6 +983,7 @@ var CallCtx = function(context){
             if(arg.type == "call_arg"){
                 switch(arg.tree[0].type){
                     case "expr":
+                    case "ternary":
                         positional.push(arg.tree[0].to_js())
                         break
                     case "kwarg":
@@ -1325,23 +1295,7 @@ var DefCtx = function(context){
     context.node.binding = {}
 
     var parent_block = scope
-    while(parent_block.context &&
-          'def' != parent_block.context.tree[0].type){
-        parent_block = parent_block.parent
-    }
-
     this.parent.node.parent_block = parent_block
-
-    // this.inside_function : set if the function is defined inside another
-    // function
-    var pb = parent_block
-    while(pb && pb.context){
-        if(pb.context.tree[0].type == 'def'){
-            this.inside_function = true
-            break
-        }
-        pb = pb.parent_block
-    }
 
     this.module = scope.module
     this.root = $get_module(this)
@@ -1370,11 +1324,9 @@ var DefCtx = function(context){
                 $loop_num++
             }
         }
-        //var id_ctx = new IdCtx(this, name)
         this.name = name
         this.id = this.scope.id + '_' + name
         this.id = this.id.replace(/\./g, '_') // for modules inside packages
-        //this.id += '_' + $B.UUID()
         this.parent.node.id = this.id
         this.parent.node.module = this.module
 
@@ -1514,12 +1466,12 @@ var DefCtx = function(context){
         // Code in the worst case, uses $B.args in py_utils.js
         var js = 'var locals = locals_' + this.id + ' = $B.args("' +
             this.name + '", pos, kw, ' + '[' + slot_list.join(', ') + '], {' +
-            defs1.join(', ') + '}, ' + this.other_args + ', ' + 
+            defs1.join(', ') + '}, ' + this.other_args + ', ' +
             this.other_kw + ')'
 
         nodes.push(NodeJS(js))
 
-        nodes.push(NodeJS("locals.parent = locals_" + this.scope.id))
+        //nodes.push(NodeJS("locals.$parent = locals_" + this.scope.id))
 
         var only_positional = false
         nodes = nodes.concat(enter_frame_nodes)
@@ -1980,8 +1932,9 @@ var ForExpr = function(context){
     this.toString = function(){return '(for) ' + this.tree}
 
     this.transform = function(node,rank){
-        var scope = $get_scope(this),
-            target = this.tree[0],
+        var scope = $get_scope(this)
+
+        var target = this.tree[0],
             target_is_1_tuple = target.tree.length == 1 && target.expect == 'id',
             iterable = this.tree[1],
             num = this.loop_num,
@@ -2380,7 +2333,11 @@ var IdCtx = function(context, value){
     this.to_js = function(arg){
         var value = this.value,
             scope = this.scope
+        var test = false //value == "col_num"
         while(scope){
+            if(test){
+                console.log("search", value, "in", scope.id, scope.binding)
+            }
             if(scope.binding.hasOwnProperty(value)){
                 if(scope.id === this.scope.id){
                     return "locals." + value
@@ -2494,7 +2451,7 @@ var LambdaCtx = function(context){
 
         var rand = $B.UUID(),
             func_name = 'lambda_' + $B.lambda_magic + '_' + rand,
-            py = 'def ' + func_name + '(' + args + '):\n'
+            py = 'def ' + func_name + '(' + args + ')\n'
         py += '    return ' + body
 
         var lambda_name = 'lambda' + rand,
@@ -2896,6 +2853,8 @@ var OpCtx = function(context,op){
                 return '$B.operations.floordiv(' + args + ')'
             case 'in':
                 return '$B.is_member(' + args + ')'
+            case 'not_in':
+                return '! $B.is_member(' + args + ')'
             case 'unary_neg':
                 return '-' + right
             case 'unary_pos':
@@ -3093,16 +3052,21 @@ var SliceCtx = function(context){
     // Class for slices inside a subscription : t[1:2]
     this.type = 'slice'
     this.parent = context
+    if(context.type === "list_or_tuple"){
+        // replace context by this
+        context.parent.tree.pop()
+        context.parent.tree.push(this)
+    }
     this.tree = context.tree.length > 0 ? [context.tree.pop()] : []
     context.tree.push(this)
 
     this.to_js = function(){
         for(var i = 0; i < this.tree.length; i++){
             if(this.tree[i].type == "abstract_expr"){
-                this.tree[i].to_js = function(){return "_b_.$None"}
+                this.tree[i].to_js = function(){return "_b_.None"}
             }
         }
-        return "slice.$factory(" + $to_js(this.tree) + ")"
+        return "_b_.slice.$(" + $to_js(this.tree) + ")"
     }
 }
 
@@ -3533,23 +3497,37 @@ var UnaryCtx = function(context,op){
     }
 }
 
-
 function WhenCtx(context){
     this.type = "when"
     this.parent = context
     this.tree = []
     this.expect = "id"
     this.var_name = ""
+    this.node = $get_node(this)
+    this.scope = $get_scope(this)
+
+    this.node.id = "$when" + $B.UUID()
+    this.node.binding = {}
+    this.node.parent_block = this.scope
+    this.locals = []
 
     context.tree = [this]
 
+    this.set_var_name = function(name){
+        this.var_name = name
+        this.node.id = this.scope.id + "_" + name
+        $bind(name, this.node, this)
+    }
+
     this.transform = function(node, rank){
+        node.insert(0, NodeJS('var locals = locals_' + this.node.id +
+            ' = $B.args("<callback>", pos, kw, ["' + this.var_name + '"])'))
         node.parent.insert(rank + 1, NodeJS("])"))
     }
 
     this.to_js = function(){
         var js = "$B.DOMNode.bind([" + this.tree[0].to_js() +
-            ', "' + this.event_name + '", function(' + this.var_name + ")"
+            ', "' + this.event_name + '", function(pos, kw)'
         return js
     }
 }
@@ -3567,42 +3545,6 @@ function YieldCtx(context){
 
     this.to_js = function(){
         return "yield " + this.tree[0].to_js()
-    }
-}
-
-var $add_profile = $B.parser.$add_profile = function(node,rank){
-    if(node.type == 'module'){
-        var i = 0
-        while(i < node.children.length){
-            i += $add_profile(node.children[i], i)
-        }
-    }else{
-        var elt = node.context.tree[0],
-            offset = 1,
-            flag = true,
-            pnode = node
-        while(pnode.parent !== undefined){pnode = pnode.parent}
-        var mod_id = pnode.id
-        // ignore lines added in transform()
-        if(node.line_num === undefined){flag = false}
-        // Don't add line num before try,finally,else,elif
-        // because it would throw a syntax error in Javascript
-        if(elt.type == 'condition' && elt.token == 'elif'){flag = false}
-        else if(elt.type == 'except'){flag = false}
-        else if(elt.type == 'single_kw'){flag = false}
-        if(flag){
-            // add a trailing None for interactive mode
-            var new_node = new $Node()
-            new NodeJSCtx(new_node,
-                ';$B.$profile.count("' + mod_id + '",' + node.line_num + ');')
-            node.parent.insert(rank, new_node)
-            offset = 2
-        }
-        var i = 0
-        while(i < node.children.length){
-            i += $add_profile(node.children[i], i)
-        }
-        return offset
     }
 }
 
@@ -3688,26 +3630,6 @@ var $bind = $B.parser.$bind = function(name, scope, context){
     }
 }
 
-function $parent_match(ctx, obj){
-    // If any of context's parents has the same properties as obj,
-    // return this parent; else return false
-    var flag
-    while(ctx.parent){
-        flag = true
-        for(var attr in obj){
-            if(ctx.parent[attr] != obj[attr]){
-                flag = false
-                break
-            }
-        }
-        if(flag){
-            return ctx.parent
-        }
-        ctx = ctx.parent
-    }
-    return false
-}
-
 var $previous = $B.parser.$previous = function(context){
     var previous = context.node.parent.children[
             context.node.parent.children.length - 2]
@@ -3745,8 +3667,9 @@ var $get_scope = $B.parser.$get_scope = function(context, flag){
 
         switch (ntype) {
             case 'def':
+            case 'when':
                 var scope = tree_node.parent
-                scope.ntype = ntype
+                scope.ntype = 'def'
                 scope.is_function = true
                 return scope
         }
@@ -3755,21 +3678,6 @@ var $get_scope = $B.parser.$get_scope = function(context, flag){
     var scope = tree_node.parent || tree_node // module
     scope.ntype = "module"
     return scope
-}
-
-var $get_line_num = $B.parser.$get_line_num = function(context){
-    var ctx_node = $get_node(context),
-        line_num = ctx_node.line_num
-    if(ctx_node.line_num===undefined){
-        ctx_node = ctx_node.parent
-        while(ctx_node && ctx_node.line_num === undefined){
-            ctx_node = ctx_node.parent
-        }
-        if(ctx_node && ctx_node.line_num){
-            line_num = ctx_node.line_num
-        }
-    }
-    return line_num
 }
 
 var $get_module = $B.parser.$get_module = function(context){
@@ -3818,7 +3726,7 @@ var $to_js = $B.parser.$to_js = function(tree,sep){
 // Python source code
 
 var $transition = function(context, token, value){
-    // console.log("context", context, "token", token, value)
+    //console.log("context", context, "token", token, value)
     switch(context.type){
         case 'abstract_expr':
           var packed = context.packed,
@@ -5105,6 +5013,11 @@ var $transition = function(context, token, value){
                                      }
                                  }
                                  return context.parent
+                            }else if(token == ":"){
+                                // slice, eg [0:4]
+                                // replace list
+                                return new AbstractExprCtx(
+                                    new SliceCtx(context), "slice", false)
                             }
                             break
                         case 'dict_or_set_comp':
@@ -5649,7 +5562,7 @@ var $transition = function(context, token, value){
                         return expr
                     }else if(context.expect == "alias"){
                         context.expect = "eol"
-                        context.var_name = value
+                        context.set_var_name(value)
                         return context
                     }
                     $_SyntaxError(context, 'token ' + token + ", expected id")
@@ -6535,7 +6448,6 @@ $B.py2js = function(src, module, locals_id, parent_scope, line_num){
 
     root.add(catch_node)
 
-    if($B.profile > 0){$add_profile(root, null, module)}
     if($B.debug > 0){
         $add_line_num(root, null, module)
     }
