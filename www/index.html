@@ -52,8 +52,8 @@ print(x, "ok", end="-")
 def f(y, z=3)
     return y + z
 
-assert f(5, z=6, *t, **kw) == 11
-assert f(5) == 8
+Test.equal(f(5, z=6, *t, **kw), 11)
+Test.equal(f(5), 8)
 
 print("Document", Document)
 elts = Document.select("#test")
