@@ -155,176 +155,113 @@
         })
 
         // creation of an HTML element
-        _b_.Html = (function($B){
+        _b_.Html = {}
 
-            var _b_ = $B.builtins
-            var TagSum = $B.TagSum
+        var _b_ = $B.builtins
+        var TagSum = $B.TagSum
 
-            function makeTagDict(tagName){
-                // return the dictionary for the class associated with tagName
-                var dict = {
-                    __class__: _b_.type,
-                    __name__: tagName
+        // All HTML 4, 5.x extracted from
+        // https://w3c.github.io/elements-of-html/
+        // HTML4.01 tags
+        var tags = ['A','ABBR','ACRONYM','ADDRESS','APPLET','AREA','B','BASE',
+                    'BASEFONT','BDO','BIG','BLOCKQUOTE','BODY','BR','BUTTON',
+                    'CAPTION','CENTER','CITE','CODE','COL','COLGROUP','DD',
+                    'DEL','DFN','DIR','DIV','DL','DT','EM','FIELDSET','FONT',
+                    'FORM','FRAME','FRAMESET','H1','H2','H3','H4','H5','H6',
+                    'HEAD','HR','HTML','I','IFRAME','IMG','INPUT','INS',
+                    'ISINDEX','KBD','LABEL','LEGEND','LI','LINK','MAP','MENU',
+                    'META','NOFRAMES','NOSCRIPT','OBJECT','OL','OPTGROUP',
+                    'OPTION','P','PARAM','PRE','Q','S','SAMP','SCRIPT','SELECT',
+                    'SMALL','SPAN','STRIKE','STRONG','STYLE','SUB','SUP', 'SVG',
+                    'TABLE','TBODY','TD','TEXTAREA','TFOOT','TH','THEAD',
+                    'TITLE','TR','TT','U','UL','VAR',
+                    // HTML5 tags
+                    'ARTICLE','ASIDE','AUDIO','BDI','CANVAS','COMMAND','DATA',
+                    'DATALIST','EMBED','FIGCAPTION','FIGURE','FOOTER','HEADER',
+                    'KEYGEN','MAIN','MARK','MATH','METER','NAV','OUTPUT',
+                    'PROGRESS','RB','RP','RT','RTC','RUBY','SECTION','SOURCE',
+                    'TEMPLATE','TIME','TRACK','VIDEO','WBR',
+                    // HTML5.1 tags
+                    'DETAILS','DIALOG','MENUITEM','PICTURE','SUMMARY']
+
+        var svg_tags = ['a', 'altGlyph', 'altGlyphDef', 'altGlyphItem',
+            'animate', 'animateColor', 'animateMotion',
+            'animateTransform', 'circle', 'clipPath', 'color-profile',
+            'cursor', 'defs', 'desc', 'ellipse', 'feBlend',
+            'foreignObject', 'g', 'image', 'line', 'linearGradient',
+            'marker', 'mask', 'path', 'pattern', 'polygon', 'polyline',
+            'radialGradient', 'rect', 'set', 'stop', 'svg', 'text',
+            'tref', 'tspan', 'use']
+
+        function maketag(tagName){
+            return function(pos, kw){
+                var $ = $B.args(tagName, pos, kw, ["first"],
+                        {first: _b_.None}, null, 'kw'),
+                    first = $.first,
+                    kw = $.kw
+                if(tagName == "SVG"){
+                    var elt = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+                }else{
+                    var elt = document.createElement(tagName)
                 }
-
-                dict.__init__ = function(pos, kw){
-                    var $ = $B.args('__init__', pos, kw, ['self'], {},
-                            'args', 'kw'),
-                        self = $.self,
-                        args = $.args
-                    if(args.length == 1){
-                        var first = args[0]
-                        if(_b_.isinstance(first, [_b_.str, _b_.int, _b_.float])){
-                            // set "first" as HTML content (not text)
-                            self.elt.innerHTML = _b_.str.$(first)
-                        }else if(first.__class__ === TagSum){
-                            for(var i = 0, len = first.children.length; i < len; i++){
-                                self.elt.appendChild(first.children[i].elt)
-                            }
+                var self = $B.DOMNode.$factory(elt, true)
+                if(first !== _b_.None){
+                    if(_b_.isinstance(first, [_b_.str, _b_.int, _b_.float])){
+                        // set "first" as HTML content (not text)
+                        elt.innerHTML = _b_.str.$(first)
+                    }else if(first.__class__ === TagSum){
+                        for(const child of first.children){
+                            elt.appendChild(child.elt)
+                        }
+                    }else{
+                        if(_b_.isinstance(first, $B.DOMNode)){
+                            elt.appendChild(first.elt)
                         }else{
-                            if(_b_.isinstance(first, $B.DOMNode)){
-                                self.elt.appendChild(first.elt)
-                            }else{
-                                try{
-                                    // If the argument is an iterable other than
-                                    // str, add the items
-                                    var items = _b_.list.$factory(first)
-                                    items.forEach(function(item){
-                                        $B.DOMNode.__le__(self, item)
-                                    })
-                                }catch(err){
-                                    if($B.debug > 1){
-                                        console.log(err, err.__class__, err.args)
-                                        console.log("first", first)
-                                        console.log(arguments)
-                                    }
-                                    $B.handle_error(err)
+                            try{
+                                // If the argument is an iterable other than
+                                // str, add the items
+                                var items = $B.test_iter(first)
+                                for(const item of items){
+                                    $B.DOMNode.le([self, item])
                                 }
+                            }catch(err){
+                                $B.handle_error(err)
                             }
                         }
                     }
+                }
 
-                    // attributes
-                    var items = $.kw
-                    for(var key in items){
-                        // keyword arguments
-                        var value = items[key]
-                        if(key.toLowerCase().substr(0,2) == "on"){
-                            // Event binding passed as argument "onclick", "onfocus"...
-                            // Better use method bind of DOMNode objects
-                            var js = '$B.DOMNode.bind(self,"' +
-                                key.toLowerCase().substr(2)
-                            eval(js + '",function(){' + value + '})')
-                        }else if(key.toLowerCase() == "style"){
-                            $B.DOMNode.set_style(self, value)
-                        }else{
-                            if(value !== false){
-                                // option.selected = false sets it to true :-)
-                                try{
-                                    self.elt.setAttribute(key, value)
-                                }catch(err){
-                                    throw _b_.ValueError.$factory(
-                                        "can't set attribute " + key)
-                                }
+                // attributes
+                var items = $.kw
+                for(var key in items){
+                    // keyword arguments
+                    var value = items[key]
+                    if(key.toLowerCase() == "style"){
+                        $B.DOMNode.set_style(self, value)
+                    }else{
+                        if(value !== false){
+                            // option.selected = false sets it to true :-)
+                            try{
+                                self.elt.setAttribute(key, value)
+                            }catch(err){
+                                throw _b_.ValueError.$factory(
+                                    "can't set attribute " + key)
                             }
                         }
                     }
                 }
-
-                dict.__parent__ = $B.DOMNode
-
-                dict.__new__ = function(cls){
-                    // __new__ must be defined explicitely : it returns an instance of
-                    // DOMNode for the specified tagName
-                    if(cls.$elt_wrap !== undefined) {
-                        // DOMNode is piggybacking on us to autogenerate a node
-                        var elt = cls.$elt_wrap  // keep track of the to wrap element
-                        cls.$elt_wrap = undefined  // nullify for later calls
-                        var res = $B.DOMNode.$factory(elt, true)  // generate the wrapped DOMNode
-                        res._wrapped = true  // marked as wrapped
-                    }else{
-                        var res = $B.DOMNode.$factory(document.createElement(tagName), true)
-                        res._wrapped = false  // not wrapped
-                    }
-                    res.__class__ = cls
-                    res.__dict__ = _b_.dict.$factory()
-                    return res
-                }
-                $B.set_func_names(dict, "browser.html")
-                return dict
+                return self
             }
+        }
 
-            function makeFactory(klass){
-                var factory = function(pos, kw){
-                    if(klass.__name__ == 'SVG'){
-                        var res = $B.DOMNode.$factory(document.createElementNS("http://www.w3.org/2000/svg", "svg"), true)
-                    }else{
-                        var res = $B.DOMNode.$factory(document.createElement(klass.__name__), true)
-                    }
-                    res.__class__ = klass
-                    // apply __init__
-                    var pos1 = pos.slice()
-                    pos1.splice(0, 0, res)
-                    klass.__init__(pos1, kw)
-                    return res
-                }
-                return factory
-            }
+        for(const tag of tags){
+            _b_.Html[tag] = maketag(tag)
+        }
 
-            // All HTML 4, 5.x extracted from
-            // https://w3c.github.io/elements-of-html/
-            // HTML4.01 tags
-            var tags = ['A','ABBR','ACRONYM','ADDRESS','APPLET','AREA','B','BASE',
-                        'BASEFONT','BDO','BIG','BLOCKQUOTE','BODY','BR','BUTTON',
-                        'CAPTION','CENTER','CITE','CODE','COL','COLGROUP','DD',
-                        'DEL','DFN','DIR','DIV','DL','DT','EM','FIELDSET','FONT',
-                        'FORM','FRAME','FRAMESET','H1','H2','H3','H4','H5','H6',
-                        'HEAD','HR','HTML','I','IFRAME','IMG','INPUT','INS',
-                        'ISINDEX','KBD','LABEL','LEGEND','LI','LINK','MAP','MENU',
-                        'META','NOFRAMES','NOSCRIPT','OBJECT','OL','OPTGROUP',
-                        'OPTION','P','PARAM','PRE','Q','S','SAMP','SCRIPT','SELECT',
-                        'SMALL','SPAN','STRIKE','STRONG','STYLE','SUB','SUP', 'SVG',
-                        'TABLE','TBODY','TD','TEXTAREA','TFOOT','TH','THEAD',
-                        'TITLE','TR','TT','U','UL','VAR',
-                        // HTML5 tags
-                        'ARTICLE','ASIDE','AUDIO','BDI','CANVAS','COMMAND','DATA',
-                        'DATALIST','EMBED','FIGCAPTION','FIGURE','FOOTER','HEADER',
-                        'KEYGEN','MAIN','MARK','MATH','METER','NAV','OUTPUT',
-                        'PROGRESS','RB','RP','RT','RTC','RUBY','SECTION','SOURCE',
-                        'TEMPLATE','TIME','TRACK','VIDEO','WBR',
-                        // HTML5.1 tags
-                        'DETAILS','DIALOG','MENUITEM','PICTURE','SUMMARY']
+        for(const tag of svg_tags){
+            _b_.Html.SVG[tag] = maketag(tag)
+        }
 
-            // Module has an attribute "tags" : a dictionary that maps all tag
-            // names to the matching tag class factory function.
-            var obj = {tags:_b_.dict.$factory()},
-                dicts = {}
-
-            // register tags in DOMNode to autogenerate tags when DOMNode is invoked
-            $B.DOMNode.tags = obj.tags
-
-            function maketag(tag){
-                if(!(typeof tag == 'string')){
-                    throw _b_.TypeError.$factory("html.maketag expects a string as argument")
-                }
-                var klass = dicts[tag] = makeTagDict(tag)
-                return makeFactory(klass)
-            }
-
-            tags.forEach(function(tag){
-                obj[tag] = maketag(tag)
-            })
-
-            // expose function maketag to generate arbitrary tags (issue #624)
-            obj.maketag = maketag
-
-            // expose function to transform parameters (issue #1187)
-            obj.attribute_mapper = function(attr){
-                return attr.replace(/_/g, '-')
-            }
-
-            return obj
-        })(__BARAGWIN__)
     }
 
     modules['browser'] = browser
@@ -510,17 +447,13 @@
 
     var _b_ = $B.builtins
 
-    // Set builtin name __builtins__
-    _b_.__builtins__ = $B.module.$factory('__builtins__',
-        'Python builtins')
+    _b_.Math = $B.JSObject.$factory(Math)
+
 
     for(var attr in _b_){
-        _b_.__builtins__[attr] = _b_[attr]
         $B.builtins_scope.binding[attr] = true
     }
-    _b_.__builtins__.__setattr__ = function(attr, value){
-        _b_[attr] = value
-    }
+
 
     // Set type of methods of builtin classes
     for(var name in _b_){

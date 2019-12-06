@@ -2107,6 +2107,10 @@ var FuncStarArgCtx = function(context,op){
         if(op == '*'){ctx.other_args = '"' + this.name + '"'}
         else{ctx.other_kw = '"' + this.name + '"'}
     }
+
+    this.to_js = function(){
+    }
+
 }
 
 var GlobalCtx = function(context){
@@ -2845,6 +2849,8 @@ var OpCtx = function(context,op){
                 return '$B.operations.add(' + args + ')'
             case '-':
                 return '$B.operations.sub(' + args + ')'
+            case '%':
+                return '$B.operations.mod(' + args + ')'
             case '*':
                 return '$B.operations.mul(' + args + ')'
             case '/':
@@ -3716,9 +3722,8 @@ var $to_js_map = $B.parser.$to_js_map = function(tree_element) {
     throw Error('no to_js() for ' + tree_element)
 }
 
-var $to_js = $B.parser.$to_js = function(tree,sep){
+var $to_js = $B.parser.$to_js = function(tree, sep){
     if(sep === undefined){sep = ','}
-
     return tree.map($to_js_map).join(sep)
 }
 

@@ -660,7 +660,7 @@ DOMNode.getattr = function(pos, kw){
 }
 
 DOMNode.$getattr = function(self, attr){
-    var test = false //attr == "children"
+    var test = false //attr == "eq"
     if(test){
         console.log("attr", attr, "of", self)
     }
@@ -698,6 +698,7 @@ DOMNode.$getattr = function(self, attr){
             }
         case "clear":
         case "closest":
+        case "remove":
             return function(pos, kw){
                 var pos1 = pos.slice()
                 pos1.splice(0, 0, self)
@@ -1293,6 +1294,13 @@ DOMNode.parent = function(self){
         return DOMNode.$factory(self.elt.parentElement)
     }
     return _b_.None
+}
+
+DOMNode.remove = function(pos, kw){
+    var $ = $B.args("remove", pos, kw, ["self", "child"]),
+        self = $.self,
+        child = $.child
+    self.elt.removeChild(child.elt)
 }
 
 DOMNode.reset = function(self){ // for FORM

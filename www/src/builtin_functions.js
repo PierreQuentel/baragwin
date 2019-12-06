@@ -1353,28 +1353,19 @@ function sorted () {
 
 // str() defined in py_string.js
 
-function sum(iterable, start){
-    var $ = $B.args('sum', 2, {iterable: null, start: null},
-        ['iterable', 'start'], arguments, {start: 0}, null, null),
-        iterable = $.iterable,
-        start = $.start
+function sum(pos, kw){
+    var $ = $B.args('sum', pos, kw, ['iterable']),
+        res
 
-    if(_b_.isinstance(start, [_b_.$str, _b_.bytes])){
-        throw _b_.TypeError.$factory("TypeError: sum() can't sum bytes" +
-            " [use b''.join(seq) instead]")
-    }
-
-    var res = start,
-        iterable = iter(iterable)
-    while(1){
-        try{
-            var _item = next(iterable)
-            res = $B.$getattr(res, '__add__')(_item)
-        }catch(err){
-           if(err.__class__ === _b_.StopIteration){
-               break
-           }else{throw err}
+    for(const item of $B.test_iter($.iterable)){
+        if(res === undefined){
+            res = item
+        }else{
+            res = $B.operations.add(res, item)
         }
+    }
+    if(res === undefined){
+        throw _b_.ValueError.$factory("cannot sum empty iterable")
     }
     return res
 }
@@ -1383,7 +1374,7 @@ var Test = {
     equal: function(pos, kw){
         var $ = $B.args("equal", pos, kw, ["x", "y"])
         if(! $B.compare.eq($.x, $.y)){
-            throw _b_.AssertionError.$factory(_b_.str.$($.x) + 
+            throw _b_.AssertionError.$factory(_b_.str.$($.x) +
                 " not equal to " +_b_.str.$($.y))
         }
     },
