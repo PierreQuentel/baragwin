@@ -1,0 +1,101 @@
+<!doctype html>
+<html>
+<script src="src/tokenizer.js"></script>
+<head>
+<meta charset="utf-8">
+</head>
+<body>
+<script>
+var src = String.raw`
+name is input.
+print "ok", "Fred". print 10.
+`
+
+function Sentence(){
+  this.state = null // initial state
+}
+
+var ns = {}
+
+function action(state){
+  console.log(state)
+  if(state.args[1] && state.args[1].type == "name" &&
+      state.args[1].value == "is"){
+    if(state.args[0].type == "name"){
+      ns[state.args[0].value] = state.args.slice(2)
+    }
+  }
+}
+Sentence.prototype.handle = function(token){
+  console.log("token", token + "")
+  if(this.state === null){
+    if(token.type == "newline" || token.type == "eof"){
+      // do nothing
+    }else if(token.type == "name"){
+      if(token.value == "print"){
+        this.state = {
+          instr: "print",
+          expect: ["string", "number"],
+          args: [this.state],
+          action: function(){
+            console.log(this.args.join(", "))
+          }
+        }
+      }else if(token.value == "input"){
+        this.state = {
+          instr: "input",
+          expect: ["string", "eol"],
+          args: [this.state],
+          action: function(){
+            return prompt(this.args.join(" "))
+          }
+        }
+      }else{
+        this.state = {
+          expect: null,
+          args: [this.state, token]
+        }
+      }
+    }else{
+      throw SyntaxError("state is null, token " + token.type + " " +
+        token.value)
+    }
+  }else if(this.state.expect === null){
+    if(token.type == "op" && token.value == "."){
+      var state = this.state.args.shift()
+      action(this.state)
+      this.state = state
+    }else{
+      this.state.args.push(token)
+    }
+  }else if(this.state.expect.indexOf(token.type) > -1){
+    this.state.args.push(token.value)
+    this.state.expect = "eol"
+  }else if(this.state.expect.indexOf("eol") > -1 &&
+      token.type == "op"){
+    if(token.value == "."){
+      var state = this.state.args.shift()
+      this.state.action()
+      this.state = state
+    }else if(token.value == ","){
+      this.state.expect = ["string", "number"]
+    }else{
+      throw SyntaxError(token)
+    }
+  }else{
+    throw SyntaxError(token)
+  }
+}
+
+var state = new Sentence(),
+    token
+
+function process(token){
+  state.handle(token)
+}
+for(const token of tokenize(src)){
+  process(token)
+}
+</script>
+</body>
+</html>
