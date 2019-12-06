@@ -100,11 +100,15 @@ $B.compare = {
             return x == y
         }else if(Array.isArray(x)){
             return _b_.list.$eq(x, y)
-        }else if(x.__class__ && x.__class__.eq !== undefined){
-            return x.__class__.eq([x, y])
         }else{
-            throw _b_.TypeError.$factory("cannot compare types " +
-                $B.class_name(x) + " and " + $B.class_name(y))
+            try{
+                var eq = $B.$getattr(x, "eq")
+                return eq([y])
+            }catch(err){
+                console.log(err, err.__class__, err.args)
+                throw _b_.TypeError.$factory("cannot compare types " +
+                    $B.class_name(x) + " and " + $B.class_name(y))
+            }
         }
     },
     ge: function(x, y){
@@ -208,6 +212,20 @@ $B.operations = {
         }else{
             throw _b_.TypeError.$factory("// not supported between types " +
                 $B.class_name(x) + " and " + $B.class_name(y))
+        }
+    },
+    mod: function(x, y){
+        if(typeof x.valueOf() == "number" &&
+                typeof y.valueOf() == "number"){
+            return x.valueOf() % y.valueOf()
+        }else{
+            try{
+                var mod = $B.$getattr(x, "mod")
+                return mod([y])
+            }catch(err){
+                throw _b_.TypeError.$factory("% not supported between types " +
+                    $B.class_name(x) + " and " + $B.class_name(y))
+            }
         }
     },
     mul: function(x, y){
@@ -326,7 +344,7 @@ $B.getitem = function(obj, item){
         res = obj.charAt(item)
     }else if(Array.isArray(obj)){
         if(typeof item != "number"){
-            throw _b_.$TypeError.$factory("list indice must be int, not " +
+            throw _b_.TypeError.$factory("list indice must be int, not " +
                 $B.get_class(obj))
         }
         res = obj[item]

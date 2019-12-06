@@ -350,9 +350,15 @@ var getExceptionTrace = $B.getExceptionTrace = function(exc, includeInternal) {
         if(exc.module == line_info[1]){
             src = exc.src
         }
-        var globals = frame
-        while(globals.parent){
-            globals = globals.parent
+        var globals = frame,
+            j = i
+        while(globals.$src === undefined){
+            j--
+            if(j < 0){
+                console.log("no globals ?")
+                break
+            }
+            globals = exc.frames[j]
         }
         var src = globals.$src
         if(src === undefined){

@@ -2012,6 +2012,10 @@ var FuncStarArgCtx = function(context,op){
         if(op == '*'){ctx.other_args = '"' + this.name + '"'}
         else{ctx.other_kw = '"' + this.name + '"'}
     }
+
+    this.to_js = function(){
+    }
+
 }
 
 var GlobalCtx = function(context){
@@ -2750,6 +2754,8 @@ var OpCtx = function(context,op){
                 return '$B.operations.add(' + args + ')'
             case '-':
                 return '$B.operations.sub(' + args + ')'
+            case '%':
+                return '$B.operations.mod(' + args + ')'
             case '*':
                 return '$B.operations.mul(' + args + ')'
             case '/':

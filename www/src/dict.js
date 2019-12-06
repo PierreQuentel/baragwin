@@ -342,6 +342,11 @@ dict.get = function(pos, kw){
     return res === undefined ? $.default : res
 }
 
+dict.items = function(pos, kw){
+    var $ = $B.args("items", pos, kw, ["self"])
+    return $.self.entries()
+}
+
 dict.update = function(self){
 
     var $ = $B.args("update", 1, {"self": null}, ["self"], arguments,
@@ -391,6 +396,11 @@ dict.update = function(self){
     $copy_dict(self, kw)
     self.$version++
     return $N
+}
+
+dict.values = function(pos, kw){
+    var $ = $B.args("values", pos, kw, ["self"])
+    return $.self.values()
 }
 
 dict.$factory = function(){
