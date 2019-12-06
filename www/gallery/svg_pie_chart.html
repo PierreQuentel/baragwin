@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+
+<script type="text/javascript" src="/src/builtins.js"></script>
+<script type="text/javascript" src="/src/bg2js.js"></script>
+<script type="text/javascript" src="/src/loaders.js"></script>
+<script type="text/javascript" src="/src/utils.js"></script>
+<script type="text/javascript" src="/src/sort.js"></script>
+<script type="text/javascript" src="/src/builtin_functions.js"></script>
+<script type="text/javascript" src="/src/exceptions.js"></script>
+<script type="text/javascript" src="/src/range_slice.js"></script>
+<script type="text/javascript" src="/src/js_objects.js"></script>
+<script type="text/javascript" src="/src/unicode_data.js"></script>
+<script type="text/javascript" src="/src/string.js"></script>
+<script type="text/javascript" src="/src/int.js"></script>
+<script type="text/javascript" src="/src/long_int.js"></script>
+<script type="text/javascript" src="/src/float.js"></script>
+<script type="text/javascript" src="/src/dict.js"></script>
+<script type="text/javascript" src="/src/list.js"></script>
+<script type="text/javascript" src="/src/dom.js"></script>
+<script type="text/javascript" src="/src/builtin_modules.js"></script>
+
+<script type="text/baragwin">
+ray = 100
+values = [20, 10, 30, 15, 25]
+
+colors = ["C8E0A2", "A6BED1", "E4CC85", "D7D7D7", "90AF97", "698EA8",
+        "BFA166", "A8ADB0", "FF6600"]
+
+panel = Document["panel"]
+legend = None
+
+svg = Html.SVG
+
+title = svg.text("", x=150, y=25,
+    font_size=22, text_anchor="middle",
+    style={"stroke": "black"})
+panel <= title
+
+paths = {}
+
+def pie_chart()
+    global paths, legend
+    # clear SVG document
+    for child in panel.children # iteration on child nodes
+        if child != title
+            panel.remove(child)
+
+    # zone for legend
+    legend = svg.text("", x=350, y=150,
+        font_size=20, text_anchor="middle",
+        style={"stroke": "black"})
+    panel <= legend
+
+    set_title()
+
+    paths = {}
+    data = {}
+    for i, cell in enumerate(cells)
+        data[f'Item {i + 1}'] = float(cell.text)
+    style={"fill-opacity": 1,"stroke": "black","stroke-width": 1}
+    width = 3.8 * ray
+    height = 2.2 * ray
+    x_center = 150
+    y_center = 160
+    x = x_center
+    y = y_center - ray
+    print("hey")
+    total = sum(data.values())
+    items = list(data.items())
+    cumul = 0
+    for i, (key, value) in enumerate(items)
+        angle1 = 2 * Math.PI * cumul
+        cumul += float(value) / total
+        angle = 2 * Math.PI * cumul
+        x_end = x_center + ray * Math.cos((Math.PI / 2) - angle)
+        y_end = y_center - ray * Math.sin((Math.PI / 2) - angle)
+        path = f"M{x_center},{y_center} "
+        path += f"L{int(x)},{int(y)} "
+        if angle - angle1 <= Math.PI
+            path += f"A{ray},{ray} 0 0,1 "
+        else
+            path += f"A{ray},{ray} 0 1,1 "
+        path += f"{int(x_end)},{int(y_end)} z"
+        x, y = x_end, y_end
+        color = colors[i % colors.len()]
+        style["fill"] = "#" + color
+        path = svg.path(d=path, style=style)
+        path.bind("mouseover", lambda ev, key=key: show_legend(key))
+        path.bind("mouseout", lambda ev, legend=legend: hide_legend(legend))
+        panel <= path
+        paths[key] = path
+
+def set_title(*args)
+    title.text = title_input.value
+
+def show_legend(key)
+    legend.text = key
+
+def hide_legend(legend)
+    legend.text = ""
+
+def change(rank,offset)
+    x = int(cells[int(rank)].text)
+    if x + int(offset) >= 0
+        cells[int(rank)].text = x + int(offset)
+        pie_chart()
+
+nb_cols = 2
+nb_lines = 5
+
+t = Html.TABLE()
+tb = Html.TBODY()
+
+title_input = Html.INPUT(value="Pie Chart")
+title_input.bind("change", set_title)
+tb <= Html.TD("Title") + Html.TD(title_input, colspan=3)
+t <= tb
+Document["data"] <= t
+
+t = Html.TABLE()
+tb = Html.BODY()
+cells = []
+
+for i in [:nb_lines]
+    row = Html.TR()
+    row <= Html.TD(f"Item {i + 1}")
+    b_down = Html.BUTTON("<")
+    b_down.bind("click", lambda ev, x=i: change(x, -1))
+    row <= Html.TD(b_down)
+    cell = Html.SPAN(values[i])
+    row <= Html.TD(cell)
+    b_up = Html.BUTTON(">")
+    b_up.bind("click", lambda ev, x=i: change(x, 1))
+    row <= Html.TD(b_up)
+    cells.append(cell)
+    tb <= row
+t <= tb
+Document["data"] <= t
+
+pie_chart()
+</script>
+
+</head>
+<body onLoad="baragwin(2)">
+<h1>SVG pie chart</h1>
+<p>
+
+<table>
+<tr>
+<td id="data"></td>
+<td>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+    width="400" height="300" style="border-style:solid;border-width:1;border-color:#000;">
+  <g id="panel">
+  </g>
+</svg>
+</td>
+</tr>
+</table>
+
+
+</body>
+</html>
