@@ -23,7 +23,6 @@ if ($B.isNode){
 } else {
     _window=self
 }
-$B.parser = {}
 
 /*
 Utility functions
@@ -134,69 +133,9 @@ $op_order.forEach(function(_tmp){
 // Variable used to generate random names used in loops
 var $loop_num = 0
 
-var create_temp_name = $B.parser.create_temp_name = function(prefix) {
+var create_temp_name = function(prefix) {
     var _prefix = prefix || '$temp'
     return _prefix + $loop_num ++;
-}
-
-/*
- * Replaces the node :param:`replace_what` ($Node) with :param:`replace_with`
- * in the ast tree (assumes replace_what is a child of its parent)
- */
-var replace_node = $B.parser.replace_node = function(replace_what, replace_with){
-    var parent = replace_what.parent
-    var pos = get_rank_in_parent(replace_what)
-    parent.children[pos] = replace_with
-    replace_with.parent = parent
-    // Save node bindings
-    replace_with.bindings = replace_what.bindings
-}
-
-/*
- * Returns n such that :param:`node` is the n-th child of its parent node.
- */
-var get_rank_in_parent = $B.parser.get_rank_in_parent = function(node) {
-    return node.parent.children.indexOf(node)
-}
-
-// Adds a new identifier node to :param:`parent` at position :param:`insert_at`.
-// The identifier will be named :param:`name` and it will be assigned the value
-// :param:`val`, which should be a node.
-// Position may also be '-1' in which case the node is added at the end. Other
-// negative positions are not supported.
-// Returns the newly created $Node.
-//
-// Example:
-//
-// If one wants to add, e.g., the python statement
-//
-//    a = 10
-//
-// to a node, one could use the method as follows
-//
-//    add_identnode(node, -1, 'a', new $JSCode('10'))
-//
-//
-var add_identnode = $B.parser.add_identnode = function(parent, insert_at, name, val) {
-    var new_node = new $Node()
-    new_node.parent = parent
-    new_node.locals = parent.locals
-    new_node.module = parent.module
-    var new_ctx = new NodeCtx(new_node)
-
-    var expr_ctx = new ExprCtx(new_ctx, 'id', true)
-    var idctx = new IdCtx(expr_ctx, name)
-    var assign = new AssignCtx(expr_ctx)
-
-    if (insert_at === -1)
-        parent.add(new_node)
-    else
-        parent.insert(insert_at, new_node)
-
-    assign.tree[1] = val
-
-
-    return new_node
 }
 
 
@@ -208,7 +147,7 @@ Function called in case of SyntaxError
 ======================================
 */
 
-var $_SyntaxError = $B.parser.$_SyntaxError = function (context, msg, indent){
+var $_SyntaxError = function (context, msg, indent){
     //console.log("syntax error", context, "msg", msg, "indent", indent)
     var ctx_node = context
     while(ctx_node.type !== 'node'){ctx_node = ctx_node.parent}
@@ -265,7 +204,7 @@ function check_assignment(context){
     }
 }
 
-var $Node = $B.parser.$Node = function(type){
+var $Node = function(type){
     this.type = type
     this.children = []
     this.yield_atoms = []
@@ -442,40 +381,6 @@ var AliasCtx = function(context){
     this.parent = context
     this.tree = []
     context.tree[context.tree.length - 1].alias = this
-}
-
-var AssertCtx = function(context){
-    // Context for keyword "assert"
-    this.type = 'assert'
-    this.parent = context
-    this.tree = []
-    context.tree[context.tree.length] = this
-
-    this.toString = function(){return '(assert) ' + this.tree}
-
-    this.transform = function(node, rank){
-        if(this.tree[0].type == 'list_or_tuple'){
-            // form "assert condition,message"
-            var condition = this.tree[0].tree[0]
-            var message = this.tree[0].tree[1]
-        }else{
-            var condition = this.tree[0]
-            var message = null
-        }
-        // transform "assert cond" into "if not cond: throw AssertionError"
-        var new_ctx = new ConditionCtx(node.context, 'if')
-        var not_ctx = new NotCtx(new_ctx)
-        not_ctx.tree = [condition]
-        node.context = new_ctx
-        var new_node = new $Node()
-        var js = 'throw _b_.AssertionError.$factory("AssertionError")'
-        if(message !== null){
-            js = 'throw _b_.AssertionError.$factory($B.$str(' +
-                message.to_js() + '))'
-        }
-        new NodeJSCtx(new_node, js)
-        node.add(new_node)
-    }
 }
 
 var AssignCtx = function(context, expression){
@@ -865,7 +770,7 @@ var AwaitCtx = function(context){
     }
 }
 
-var set_loop_context = $B.parser.set_loop_context = function(context, kw){
+var set_loop_context = function(context, kw){
     // For keywords "continue" and "break"
     // "this" is the instance of BreakCtx or ContinueCtx
     // We search the loop to "break" or "continue"
@@ -2375,7 +2280,7 @@ var IntCtx = function(context,value){
     }
 }
 
-var $JSCode = $B.parser.$JSCode = function(js){
+var $JSCode = function(js){
     this.js = js
 
     this.toString = function(){return this.js}
@@ -3548,7 +3453,7 @@ function YieldCtx(context){
     }
 }
 
-var $add_line_num = $B.parser.$add_line_num = function(node,rank){
+var $add_line_num = function(node,rank){
     if(node.type == 'module'){
         var i = 0
         while(i < node.children.length){
@@ -3602,7 +3507,7 @@ var $add_line_num = $B.parser.$add_line_num = function(node,rank){
 
 $B.$add_line_num = $add_line_num
 
-var $bind = $B.parser.$bind = function(name, scope, context){
+var $bind = function(name, scope, context){
     // Bind a name in scope:
     // - add the name in the attribute "binding" of the scope
     // - add it to the attribute "bindings" of the node, except if no_bindings
@@ -3630,7 +3535,7 @@ var $bind = $B.parser.$bind = function(name, scope, context){
     }
 }
 
-var $previous = $B.parser.$previous = function(context){
+var $previous = function(context){
     var previous = context.node.parent.children[
             context.node.parent.children.length - 2]
     if(!previous || !previous.context){
@@ -3639,7 +3544,7 @@ var $previous = $B.parser.$previous = function(context){
     return previous.context.tree[0]
 }
 
-var $get_docstring = $B.parser.$get_docstring = function(node){
+var $get_docstring = function(node){
     var doc_string = ''
     if(node.children.length > 0){
         var firstchild = node.children[0]
@@ -3655,7 +3560,7 @@ var $get_docstring = $B.parser.$get_docstring = function(node){
     return doc_string
 }
 
-var $get_scope = $B.parser.$get_scope = function(context, flag){
+var $get_scope = function(context, flag){
     // Return the instance of $Node indicating the scope of context
     // Return null for the root node
     var ctx_node = context.parent
@@ -3680,7 +3585,7 @@ var $get_scope = $B.parser.$get_scope = function(context, flag){
     return scope
 }
 
-var $get_module = $B.parser.$get_module = function(context){
+var $get_module = function(context){
     // Return the instance of $Node for the module where context
     // is defined
     var ctx_node = context.parent
@@ -3696,14 +3601,14 @@ var $get_module = $B.parser.$get_module = function(context){
     return scope
 }
 
-var $get_src = $B.parser.$get_src = function(context){
+var $get_src = function(context){
     // Get the source code of context module
     var node = $get_node(context)
     while(node.parent !== undefined){node = node.parent}
     return node.src
 }
 
-var $get_node = $B.parser.$get_node = function(context){
+var $get_node = function(context){
     var ctx = context
     while(ctx.parent){
         ctx = ctx.parent
@@ -3711,12 +3616,12 @@ var $get_node = $B.parser.$get_node = function(context){
     return ctx.node
 }
 
-var $to_js_map = $B.parser.$to_js_map = function(tree_element) {
+var $to_js_map = function(tree_element) {
     if(tree_element.to_js !== undefined){return tree_element.to_js()}
     throw Error('no to_js() for ' + tree_element)
 }
 
-var $to_js = $B.parser.$to_js = function(tree,sep){
+var $to_js = function(tree,sep){
     if(sep === undefined){sep = ','}
 
     return tree.map($to_js_map).join(sep)
@@ -5168,9 +5073,6 @@ var $transition = function(context, token, value){
                             return $transition(expr, token, value)
                     }
                     break
-                case 'assert':
-                    return new AbstractExprCtx(
-                        new AssertCtx(context), 'assert', true)
                 case 'async':
                     return new AsyncCtx(context)
                 case 'await':
@@ -5622,19 +5524,19 @@ for(var i = 0; i < s_escaped.length; i++){
 var kwdict = [
     "return", "break", "for", "lambda", "try", "finally",
     "raise", "def", "while", "del", "global",
-    "as", "elif", "else", "if", "assert",
+    "as", "elif", "else", "if", 
     "except", "raise", "in", "continue",
     "async", "await",
     "when", "on", "module", "yield"
     ]
 
-var $tokenize = $B.parser.$tokenize = function(root, src) {
+var $tokenize = function(root, src) {
     var br_close = {")": "(", "]": "[", "}": "{"},
         br_stack = "",
         br_pos = []
     var unsupported = []
     var $indented = [
-        "class", "def", "for", "condition", "single_kw", "try", "except",
+        "def", "for", "condition", "single_kw", "try", "except",
          "when"
     ]
     // from https://developer.mozilla.org/en-US/docs/JavaScript/Reference/Reserved_Words
@@ -6312,7 +6214,7 @@ var $tokenize = $B.parser.$tokenize = function(root, src) {
 
 }
 
-var $create_root_node = $B.parser.$create_root_node = function(src, module,
+var $create_root_node = function(src, module,
         locals_id, parent_block, line_num){
     var root = new $Node('module')
     root.module = module
@@ -6581,7 +6483,7 @@ var $log = $B.$log = function(js){
         console.log(i + 1, ":", line)
     })
 }
-var _run_scripts = $B.parser._run_scripts = function(options){
+var _run_scripts = function(options){
     // Save initial Javascript namespace
     var kk = Object.keys(_window)
 
