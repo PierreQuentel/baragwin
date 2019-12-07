@@ -341,14 +341,13 @@ var loop = $B.loop = function(){
             // If the error was not caught by the Python runtime, build an
             // instance of a Python exception
             if(err.$py_error === undefined){
-                console.log('Javascript error', err, $B.frames_stack.slice())
                 if($B.is_recursion_error(err)){
                     err = _b_.RecursionError.$factory("too much recursion")
                 }else{
                     $B.print_stack()
-                    err = _b_.RuntimeError.$factory(err + '')
+                    err.__class__ = _b_.RuntimeError
+                    err.args = [err.message]
                 }
-                console.log("err.args", err.args)
             }
             if($B.debug > 1){
                 console.log("handle error", err.__class__, err.args,
@@ -379,7 +378,6 @@ $B.handle_error = function(err){
             trace += '\n' + name + ': ' + err.args
         }
     }else{
-        console.log(err)
         trace = err + ""
     }
     try{
