@@ -1067,12 +1067,18 @@ $B.split_format = function(self){
     return parts
 }
 
-str.format = function(self) {
-    var $ = $B.args("format", 1, {self: null}, ["self"],
-        arguments, {}, "$args", "$kw")
+str.format = function(pos, kw) {
+    var $ = $B.args("format", pos, kw, ["self"], {}, "args", "kw"),
+        self = $.self,
+        args = $.args,
+        kw = $.kw
+    return str.$format(self, args, kw)
+}
 
-    var parts = $B.split_format($.self)
+str.$format = function(self, args, kw){
 
+    var parts = $B.split_format(self)
+    
     // Apply formatting to the values passed to format()
     var res = "",
         fmt
@@ -1092,11 +1098,11 @@ str.format = function(self) {
                 if(/\d+/.exec(key)){
                     // If key is numeric, search in positional
                     // arguments
-                    return _b_.tuple.__getitem__($.$args,
+                    return _b_.tuple.__getitem__(args,
                         parseInt(key))
                 }else{
                     // Else try in keyword arguments
-                    return _b_.dict.__getitem__($.$kw, key)
+                    return _b_.dict.__getitem__(kw, key)
                 }
             }
             fmt.spec = fmt.spec.replace(/\{(.*?)\}/g,
@@ -1105,10 +1111,10 @@ str.format = function(self) {
         if(fmt.name.charAt(0).search(/\d/) > -1){
             // Numerical reference : use positional arguments
             var pos = parseInt(fmt.name),
-                value = _b_.tuple.__getitem__($.$args, pos)
+                value = args[pos]
         }else{
             // Use keyword arguments
-            var value = _b_.dict.__getitem__($.$kw, fmt.name)
+            var value = kw[fmt.name]
         }
         // If name has extensions (attributes or subscriptions)
         for(var j = 0; j < fmt.name_ext.length; j++){
@@ -1129,14 +1135,17 @@ str.format = function(self) {
         // the value
         if(fmt.conv == "a"){value = _b_.ascii(value)}
         else if(fmt.conv == "r"){value = _b_.repr(value)}
-        else if(fmt.conv == "s"){value = _b_.str.$factory(value)}
+        else if(fmt.conv == "s"){value = _b_.str.$(value)}
 
         // Call attribute __format__ to perform the actual formatting
         if(value.$is_class || value.$factory){
             // For classes, don't use the class __format__ method
             res += value.__class__.__format__(value, fmt.spec)
         }else{
-            res += _b_.getattr(value, "__format__")(fmt.spec)
+            var klass = $B.get_class(value),
+                func = $B.$getattr(klass, "__format__")
+                
+            res += func(value, fmt.spec)
         }
     }
     return res
