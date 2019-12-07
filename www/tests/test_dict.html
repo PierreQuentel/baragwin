@@ -6,30 +6,21 @@
 <script type="text/javascript" src="/src/builtins.js"></script>
 <script type="text/javascript" src="/src/bg2js.js"></script>
 <script type="text/javascript" src="/src/loaders.js"></script>
-<script type="text/javascript" src="/src/object.js"></script>
-<script type="text/javascript" src="/src/type.js"></script>
 <script type="text/javascript" src="/src/utils.js"></script>
 <script type="text/javascript" src="/src/sort.js"></script>
 <script type="text/javascript" src="/src/builtin_functions.js"></script>
 <script type="text/javascript" src="/src/exceptions.js"></script>
 <script type="text/javascript" src="/src/range_slice.js"></script>
-<script type="text/javascript" src="/src/bytes.js"></script>
-<script type="text/javascript" src="/src/set.js"></script>
 <script type="text/javascript" src="/src/js_objects.js"></script>
-<script type="text/javascript" src="/src/import.js"></script>
 <script type="text/javascript" src="/src/unicode_data.js"></script>
 <script type="text/javascript" src="/src/string.js"></script>
 <script type="text/javascript" src="/src/int.js"></script>
 <script type="text/javascript" src="/src/long_int.js"></script>
 <script type="text/javascript" src="/src/float.js"></script>
-<script type="text/javascript" src="/src/complex.js"></script>
 <script type="text/javascript" src="/src/dict.js"></script>
 <script type="text/javascript" src="/src/list.js"></script>
 <script type="text/javascript" src="/src/dom.js"></script>
-
 <script type="text/javascript" src="/src/builtin_modules.js"></script>
-<script type="text/javascript" src="/src/import_hooks.js"></script>
-<script type="text/javascript" src="/src/async.js"></script>
 
 </head>
 
@@ -39,18 +30,18 @@
 bg`
 f = {'x': 1, 2: 'az'}
 print(f['x'], f[2])
-assert f['x'] == 1
-assert f[2] == 'az'
+Test.equal(f['x'], 1)
+Test.equal(f[2], 'az')
 f[3] = 'toto'
 print("f", f)
-assert f.len() == 3
-assert f.get('x') == 1
-assert f == f
+Test.equal(f.len(), 3)
+Test.equal(f.get('x'), 1)
+Test.equal(f, f)
 d2 = f.copy()
 print('d2', d2)
-assert d2 == f
+Test.equal(d2, f)
 d2.clear()
-assert d2 == {}
+Test.equal(d2, {})
 
 print("dict class", dict)
 
