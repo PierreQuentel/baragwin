@@ -191,16 +191,17 @@
             'foreignObject', 'g', 'image', 'line', 'linearGradient',
             'marker', 'mask', 'path', 'pattern', 'polygon', 'polyline',
             'radialGradient', 'rect', 'set', 'stop', 'svg', 'text',
-            'tref', 'tspan', 'use']
+            'tref', 'tspan', 'use'],
+            svg_ns = "http://www.w3.org/2000/svg"
 
-        function maketag(tagName){
+        function maketag(tagName, svg){
             return function(pos, kw){
                 var $ = $B.args(tagName, pos, kw, ["first"],
                         {first: _b_.None}, null, 'kw'),
                     first = $.first,
                     kw = $.kw
-                if(tagName == "SVG"){
-                    var elt = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+                if(svg){
+                    var elt = document.createElementNS(svg_ns, tagName)
                 }else{
                     var elt = document.createElement(tagName)
                 }
@@ -259,7 +260,7 @@
         }
 
         for(const tag of svg_tags){
-            _b_.Html.SVG[tag] = maketag(tag)
+            _b_.Html.SVG[tag] = maketag(tag, true)
         }
 
     }
