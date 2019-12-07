@@ -808,6 +808,7 @@ var AugmentedAssignCtx = function(context, op){
     this.parent = context.parent
     context.parent.tree.pop()
     context.parent.tree[context.parent.tree.length] = this
+    context.parent = this
     this.op = op
     this.tree = [context]
 
@@ -847,9 +848,18 @@ var AugmentedAssignCtx = function(context, op){
     }
 
     this.to_js = function(){
-        var left = this.tree[0].to_js()
-        return left + " = $B.operations." + augmop2method[this.op] +
-            "(" + left + ", " + this.tree[1].to_js() + ")"
+        var left = this.tree[0],
+            js = left.to_js()
+        if(left.type == "expr" && left.tree[0].type == "sub"){
+            var sub = left.tree[0].value.to_js(),
+                ix = $to_js(left.tree[0].tree),
+                right = this.tree[1].to_js()
+            return "$B.setitem(" + sub + ", " + ix + ", $B.operations." +
+                augmop2method[this.op] + "($B.getitem(" + sub + ", " +
+                ix + "), " + right + "))"
+        }
+        return js + " = $B.operations." + augmop2method[this.op] +
+            "(" + js + ", " + this.tree[1].to_js() + ")"
     }
 }
 
@@ -2337,18 +2347,32 @@ var IdCtx = function(context, value){
     this.to_js = function(arg){
         var value = this.value,
             scope = this.scope
-        var test = false //value == "col_num"
+        var test = false // value == "svg"
         while(scope){
             if(test){
                 console.log("search", value, "in", scope.id, scope.binding)
             }
             if(scope.binding.hasOwnProperty(value)){
+                var is_defined = this.bound || this.boundBefore(scope)
+                var js
+                if(test){
+                    console.log(value, "defined ?", is_defined)
+                }
                 if(scope.id === this.scope.id){
-                    return "locals." + value
+                    js = "locals." + value
                 }else if(scope.id == "__builtins__"){
                     return "_b_." + value
                 }else{
-                    return "locals_" + scope.id + "." + value
+                    js = "locals_" + scope.id + "." + value
+                }
+                if(is_defined){
+                    return js
+                }else{
+                    // If name is not bound in the instruction, or if it has
+                    // not been bound in the previous instructions, check
+                    // that the value is not undefined, otherwise raise a
+                    // NameError
+                    return '$B.check_def("' + value + '", ' + js + ")"
                 }
             }
             scope = scope.parent_block
@@ -3182,8 +3206,8 @@ var StringCtx = function(context,value){
                         }else{
                             fmt = "'" + fmt + "'"
                         }
-                        var res1 = "_b_.str.format('{0:' + " +
-                            fmt + " + '}', " + expr1 + ")"
+                        var res1 = "_b_.str.$format('{0:' + " +
+                            fmt + " + '}', [" + expr1 + "])"
                         elts.push(res1)
                     }else{
                         if(parsed_fstring[i].conversion === null){
@@ -3278,11 +3302,12 @@ function StructCtx(context){
 }
 var SubCtx = function(context){
     // Class for subscription or slicing, eg x in t[x]
+    context.name = "sub"
     this.type = 'sub'
     this.func = 'getitem' // set to 'setitem' if assignment
     this.value = context.tree[0]
     context.tree.pop()
-    context.tree[context.tree.length] = this
+    context.tree.push(this)
     this.parent = context
     this.tree = []
 
@@ -3292,16 +3317,16 @@ var SubCtx = function(context){
 
     this.to_js = function(){
         // setitem if sub is at the left side of an assignment
-        var js = '$B.getitem('
         var p = this.parent
         while(p.parent){
-            if(p.parent.type == "assign" && p === p.parent.tree[0]){
-                js = '$B.setitem('
+            if(["assign", "augm_assign"].indexOf(p.parent.type) > -1 &&
+                    p === p.parent.tree[0]){
+                return ""
             }
             p = p.parent
         }
 
-        return js + this.value.to_js() + ', ' + $to_js(this.tree) + ')'
+        return '$B.getitem(' + this.value.to_js() + ', ' + $to_js(this.tree) + ')'
     }
 }
 
@@ -6448,6 +6473,7 @@ $B.py2js = function(src, module, locals_id, parent_scope, line_num){
     root.children.splice(enter_frame_pos + 2, root.children.length)
 
     var catch_node = NodeJS('catch(err)')
+    catch_node.add(NodeJS('err.frames = $B.frames_stack.slice()'))
     catch_node.add(NodeJS('$B.leave_frame()'))
     catch_node.add(NodeJS('throw err'))
 
