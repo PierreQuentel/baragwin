@@ -1260,9 +1260,13 @@ DOMNode.id = function(self){
     return _b_.None
 }
 
-DOMNode.index = function(self, selector){
+DOMNode.index = function(pos, kw){
+    var $ = $B.args("index", pos, kw, ["self", "selector"],
+            {selector: _b_.None}),
+        self = $.self,
+        selector = $.selector
     var items
-    if(selector === undefined){
+    if(selector === _b_.None){
         items = self.elt.parentElement.childNodes
     }else{
         items = self.elt.parentElement.querySelectorAll(selector)
