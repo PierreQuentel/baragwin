@@ -326,7 +326,7 @@ BaseException.__new__ = function(cls){
     return err
 }
 
-var getExceptionTrace = $B.getExceptionTrace = function(exc, includeInternal) {
+var getExceptionTrace = $B.getExceptionTrace = function(exc, includeInternal){
     if(exc.__class__ === undefined){
         if($B.debug > 1){console.log("no class", exc)}
         return exc + ''

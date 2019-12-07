@@ -627,7 +627,7 @@ $B.$local_search = function(name){
     }
 }
 
-$B.$check_def = function(name, value){
+$B.check_def = function(name, value){
     // Check if value is not undefined
     if(value !== undefined){
         return value

@@ -298,12 +298,6 @@ JSObject.$getattr = function(obj, attr){
                 $.args.forEach(function(arg){
                     args.push(pyobj2jsobj(arg))
                 })
-                if(attr == "ssetInterval"){
-                    console.log(attr, args)
-                    console.log(res)
-                    console.log(args[0], args[1])
-                    return setInterval($.args[0], $.args[1])
-                }
                 return res.apply(obj.js, args)
             }
             var result = JSObject.$factory(f)
