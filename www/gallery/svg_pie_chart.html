@@ -30,33 +30,29 @@ colors = ["C8E0A2", "A6BED1", "E4CC85", "D7D7D7", "90AF97", "698EA8",
         "BFA166", "A8ADB0", "FF6600"]
 
 panel = Document["panel"]
-legend = None
-
 svg = Html.SVG
+
+# zone for legend
+legend = svg.text("", x=350, y=150,
+    font_size=20, text_anchor="middle",
+    style={"stroke": "black"})
+panel <= legend
 
 title = svg.text("", x=150, y=25,
     font_size=22, text_anchor="middle",
     style={"stroke": "black"})
 panel <= title
 
-paths = {}
 
 def pie_chart()
-    global paths, legend
     # clear SVG document
     for child in panel.children # iteration on child nodes
-        if child != title
-            panel.remove(child)
-
-    # zone for legend
-    legend = svg.text("", x=350, y=150,
-        font_size=20, text_anchor="middle",
-        style={"stroke": "black"})
-    panel <= legend
+        if child in [title, legend]
+            continue
+        panel.remove(child)
 
     set_title()
 
-    paths = {}
     data = {}
     for i, cell in enumerate(cells)
         data[f'Item {i + 1}'] = float(cell.text)
@@ -67,11 +63,9 @@ def pie_chart()
     y_center = 160
     x = x_center
     y = y_center - ray
-    print("hey")
-    total = sum(data.values())
-    items = list(data.items())
+    total = sum(values)
     cumul = 0
-    for i, (key, value) in enumerate(items)
+    for i, value in enumerate(values)
         angle1 = 2 * Math.PI * cumul
         cumul += float(value) / total
         angle = 2 * Math.PI * cumul
@@ -88,25 +82,35 @@ def pie_chart()
         color = colors[i % colors.len()]
         style["fill"] = "#" + color
         path = svg.path(d=path, style=style)
-        path.bind("mouseover", lambda ev, key=key: show_legend(key))
-        path.bind("mouseout", lambda ev, legend=legend: hide_legend(legend))
+        key = f"Item {i + 1}"
+        path.id = key
+        path.bind("mouseover", show_legend)
+        path.bind("mouseout", hide_legend)
         panel <= path
-        paths[key] = path
 
 def set_title(*args)
     title.text = title_input.value
 
-def show_legend(key)
-    legend.text = key
+def show_legend(ev)
+    legend.text = ev.target.id
 
-def hide_legend(legend)
+def hide_legend(ev)
     legend.text = ""
 
-def change(rank,offset)
-    x = int(cells[int(rank)].text)
-    if x + int(offset) >= 0
-        cells[int(rank)].text = x + int(offset)
-        pie_chart()
+def change(ev)
+    offset = 1 if ev.target.innerText == ">" else -1
+    row = ev.target.closest("tr")
+    table = row.closest("table")
+    rank = row.index()
+    if values[rank] + offset >= 0
+        sum_others = 100 - values[rank]
+        values[rank] += offset
+        for i, value in enumerate(values)
+            if i != rank
+                values[i] -= offset * values[i] / sum_others
+    for i, row in enumerate(table.select("tr"))
+        row.select("td")[2].innerText = f"{values[i]:.2f}"
+    pie_chart()
 
 nb_cols = 2
 nb_lines = 5
@@ -128,12 +132,12 @@ for i in [:nb_lines]
     row = Html.TR()
     row <= Html.TD(f"Item {i + 1}")
     b_down = Html.BUTTON("<")
-    b_down.bind("click", lambda ev, x=i: change(x, -1))
+    b_down.bind("click", change)
     row <= Html.TD(b_down)
-    cell = Html.SPAN(values[i])
-    row <= Html.TD(cell)
+    cell = Html.SPAN(f"{values[i]:.2f}")
+    row <= Html.TD(cell, align="right")
     b_up = Html.BUTTON(">")
-    b_up.bind("click", lambda ev, x=i: change(x, 1))
+    b_up.bind("click", change)
     row <= Html.TD(b_up)
     cells.append(cell)
     tb <= row
