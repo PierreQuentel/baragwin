@@ -845,10 +845,6 @@ $B.$getattr = function(obj, attr){
         console.log("get attr", attr, "of", obj, typeof obj, "klass", klass)
     }
 
-    if(typeof obj == "number" || obj instanceof Number){
-        console.log("attr", attr, "of", obj)
-        throw _b_.TypeError.$factory("numbers have no attribute")
-    }
     while(klass){
         if(test){
             console.log("search", attr, "in class", klass, "getattr",
