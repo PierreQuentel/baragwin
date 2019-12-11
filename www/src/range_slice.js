@@ -304,7 +304,13 @@ var slice = function(pos, kw){
 slice.__class__ = _b_.type
 slice.__name__ = "slice"
 
-slice.$ = function*(start, stop, step){
+slice.$ = function(start, stop, step){
+    var res = {
+        __class__: slice,
+        start: start,
+        stop: stop,
+        step: step
+    }
     if(stop === _b_.None && step === undefined){
         start = 0
         stop = start
@@ -316,18 +322,23 @@ slice.$ = function*(start, stop, step){
     var value = start
 
     if(step > 0 && stop >= start){
-        while(value < stop){
-            yield value
-            value += step
+        res[Symbol.iterator] = function*(){
+            while(value < stop){
+                yield value
+                value += step
+            }
         }
     }else if(step < 0 && stop <= start){
-        while(value > stop){
-            yield value
-            value += step
+        res[Symbol.iterator] = function*(){
+            while(value > stop){
+                yield value
+                value += step
+            }
         }
     }else{
         throw _b_.ValueError.$factory("wrong values for slice")
     }
+    return res
 }
 
 slice.__eq__ = function(self, other){
@@ -338,13 +349,11 @@ slice.__eq__ = function(self, other){
         conv1[2] == conv2[2]
 }
 
-slice.__repr__ = slice.__str__ = function(self){
+slice.str = function(pos, kw){
+    var $ = $B.args("str", pos, kw, ["self"]),
+        self = $.self
     return "slice(" + _b_.str.$(self.start) + ", " +
         _b_.str.$(self.stop) + ", " + _b_.str.$(self.step) + ")"
-}
-
-slice.__setattr__ = function(self, attr, value){
-    throw _b_.AttributeError.$factory("readonly attribute")
 }
 
 function conv_slice(self){
