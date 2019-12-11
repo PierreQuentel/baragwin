@@ -1217,8 +1217,8 @@ DOMNode.options = function(self){ // for SELECT tag
 }
 
 DOMNode.parent = function(self){
-    if(self.elt.parentElement){
-        return DOMNode.$factory(self.elt.parentElement)
+    if(self.parentElement){
+        return DOMNode.$factory(self.parentElement)
     }
     return _b_.None
 }
