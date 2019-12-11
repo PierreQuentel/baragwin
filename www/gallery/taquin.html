@@ -68,12 +68,6 @@
 container = Document['container'] # Game board
 zone = Document['zone'] # Zone where cells move
 
-def trace(*args)
-    msg = ''
-    for arg in args
-        msg += str(arg) + ' '
-    alert(msg)
-
 # Window dimensions
 width = Window.innerWidth
 height = Window.innerHeight
@@ -82,7 +76,7 @@ dim = min(width, height)
 d = int(0.03 * dim) # Distance of board to top and left of browser Window
 padding = int(dim / 25) # Board padding
 
-# Adapt container and zone dimensions to browser Window dimensions
+# Adapt container and zone dimensions to browser window dimensions
 container.x = d
 container.y = d
 
@@ -97,7 +91,8 @@ zone.style.height = f'{4 * side}px'
 zone.style.fontSize = f'{int(side / 2)}px'
 
 # Get position of zone upper left corner relative to Window
-ztop, zleft = zone.offsetLeft, zone.offsetTop
+ztop = zone.offsetLeft
+zleft = zone.offsetTop
 elt = zone.offsetParent
 while elt
     zleft += elt.offsetLeft
@@ -127,8 +122,8 @@ def click_cell(ev)
         touch = ev.targetTouches[0]
         X, Y = touch.pageX, touch.pageY
 
-    row = int((Y - ztop)/side)
-    col = int((X - zleft)/side)
+    row = int((Y - ztop) / side)
+    col = int((X - zleft) / side)
     rect = grid[row][col]
 
     #trace(row, col, rect)
@@ -141,17 +136,17 @@ def click_cell(ev)
         if row == erow
             if col < ecol
                 allow = 'right'
-                moving = [grid[row][i] for i in range(col, ecol)]
+                moving = [grid[row][i] for i in [col:ecol]]
             else
                 allow = 'left'
-                moving = [grid[row][i] for i in range(ecol + 1, col + 1)]
+                moving = [grid[row][i] for i in [ecol + 1:col + 1]]
         else
             if row < erow
                 allow = 'down'
-                moving = [grid[i][col] for i in range(row, erow)]
+                moving = [grid[i][col] for i in [row:erow]]
             else
                 allow = 'up'
-                moving = [grid[i][col] for i in range(erow + 1, row + 1)]
+                moving = [grid[i][col] for i in [erow + 1:row + 1]]
 
         # Store initial position of moving cells
         del coords[:]

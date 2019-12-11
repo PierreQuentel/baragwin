@@ -1,7 +1,6 @@
 ;(function($B){
 
-var bltns = $B.InjectBuiltins()
-eval(bltns)
+var _b_ = $B.builtins
 
 // build tables from data in unicode_data.js
 var unicode_tables = $B.unicode_tables

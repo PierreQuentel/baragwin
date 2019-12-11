@@ -1,9 +1,7 @@
 ;(function($B){
 
-var bltns = $B.InjectBuiltins()
-eval(bltns)
-
-var object = _b_.object
+var _b_ = $B.builtins,
+    object = _b_.object
 
 var _window = self;
 
@@ -351,49 +349,6 @@ JSObject.__getitem__ = function(self, rank){
         }
         throw _b_.KeyError.$factory(rank)
     }
-}
-
-var JSObject_iterator = $B.make_iterator_class('JS object iterator')
-JSObject.__iter__ = function(self){
-    var items = []
-    if(_window.Symbol && self.js[Symbol.iterator] !== undefined){
-        // Javascript objects that support the iterable protocol, such as Map
-        // For the moment don't use "for(var item of self.js)" for
-        // compatibility with uglifyjs
-        // If object has length and item(), it's a collection : iterate on
-        // its items
-        var items = []
-        if(self.js.next !== undefined){
-            while(true){
-                var nxt = self.js.next()
-                if(nxt.done){
-                    break
-                }
-                items.push(nxt.value)
-            }
-        }else if(self.js.length !== undefined && self.js.item !== undefined){
-            for(var i = 0; i < self.js.length; i++){
-                items.push(self.js.item(i))
-            }
-        }
-        return JSObject_iterator.$factory(items)
-    }else if(self.js.length !== undefined && self.js.item !== undefined){
-        // collection
-        for(var i = 0; i < self.js.length; i++){
-            items.push(JSObject.$factory(self.js.item(i)))
-        }
-        return JSObject_iterator.$factory(items)
-    }
-    // Else iterate on the dictionary built from the JS object
-    var _dict = JSObject.to_dict(self)
-    return _b_.dict.__iter__(_dict)
-}
-
-JSObject.__le__ = function(self, other){
-    if(typeof self.js["appendChild"] == "function"){
-        return $B.DOMNode.__le__($B.DOMNode.$factory(self.js), other)
-    }
-    return _b_.NotImplemented
 }
 
 JSObject.__len__ = function(self){

@@ -37,7 +37,7 @@ print("f", f)
 Test.equal(f.len(), 3)
 Test.equal(f.get('x'), 1)
 Test.equal(f, f)
-d2 = f.copy()
+d2 = {k:v for (k, v) in f.items()}
 print('d2', d2)
 Test.equal(d2, f)
 d2.clear()

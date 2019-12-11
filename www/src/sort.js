@@ -10,8 +10,7 @@
 //    -- wrap the whole thing into a function which injects the
 //       sort implementation into the __BARAGWIN__ object
 
-var bltns = $B.InjectBuiltins()
-eval(bltns)
+var _b_ = $B.builtins
 
 /**
  * Default minimum size of a run.

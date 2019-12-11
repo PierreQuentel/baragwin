@@ -258,6 +258,61 @@ list.str = function(pos, args){
     return "[" + res.join(", ") + "]"
 }
 
+function set_list_slice(obj, start, stop, value){
+    if(start === null){start = 0}
+    else{
+        start = $B.$GetInt(start)
+        if(start < 0){start = Math.max(0, start + obj.length)}
+    }
+    if(stop === null){stop = obj.length}
+    stop = $B.$GetInt(stop)
+    if(stop < 0){stop = Math.max(0, stop + obj.length)}
+    var res = _b_.list.$factory(value)
+    obj.splice.apply(obj,[start, stop - start].concat(res))
+}
+
+function set_list_slice_step(obj, start, stop, step, value){
+    if(step === null || step == 1){
+        return $B.set_list_slice(obj, start, stop, value)
+    }
+
+    if(step == 0){throw _b_.ValueError.$factory("slice step cannot be zero")}
+    step = $B.$GetInt(step)
+
+    if(start === null){start = step > 0 ? 0 : obj.length - 1}
+    else{
+        start = $B.$GetInt(start)
+        if(start < 0){start = Math.min(0, start + obj.length)}
+    }
+
+    if(stop === null){stop = step > 0 ? obj.length : -1}
+    else{
+        stop = $B.$GetInt(stop)
+        if(stop < 0){stop = Math.max(0, stop + obj.length)}
+    }
+
+    var repl = _b_.list.$factory(value),
+        j = 0,
+        test,
+        nb = 0
+    if(step > 0){test = function(i){return i < stop}}
+    else{test = function(i){return i > stop}}
+
+    // Test if number of values in the specified slice is equal to the
+    // length of the replacement sequence
+    for(var i = start; test(i); i += step){nb++}
+    if(nb != repl.length){
+            throw _b_.ValueError.$factory(
+                "attempt to assign sequence of size " + repl.length +
+                " to extended slice of size " + nb)
+    }
+
+    for(var i = start; test(i); i += step){
+        obj[i] = repl[j]
+        j++
+    }
+}
+
 list.$setitem = function(self, arg, value){
     // Used internally to avoid using $B.args
     if(typeof arg == "number" || isinstance(arg, _b_.int)){
@@ -266,24 +321,18 @@ list.$setitem = function(self, arg, value){
         if(pos >= 0 && pos < self.length){self[pos] = value}
         else {throw _b_.IndexError.$factory("list index out of range")}
         return $N
-    }
-    if(isinstance(arg, _b_.slice)){
+    }else if(isinstance(arg, _b_.slice)){
         var s = _b_.slice.$conv_for_seq(arg, self.length)
-        if(arg.step === null){$B.set_list_slice(self, s.start, s.stop, value)}
-        else{$B.set_list_slice_step(self, s.start, s.stop, s.step, value)}
+        if(arg.step === null){
+            set_list_slice(self, s.start, s.stop, value)
+        }else{
+            set_list_slice_step(self, s.start, s.stop, s.step, value)
+        }
         return $N
     }
-
-    if(_b_.hasattr(arg, "__int__") || _b_.hasattr(arg, "__index__")){
-       list.__setitem__(self, _b_.int.$factory(arg), value)
-       return $N
-    }
-
-    throw _b_.TypeError.$factory("list indices must be integer, not " +
+    throw _b_.TypeError.$factory("list indices must be int or slice, not " +
         $B.class_name(arg))
 }
-
-var _ops = ["add", "sub"]
 
 list.append = function(pos, kw){
     var $ = $B.args("append", pos, kw, ["self", "x"])
@@ -291,56 +340,31 @@ list.append = function(pos, kw){
     return $N
 }
 
-list.clear = function(pos, kw){
-    var $ = $B.args("clear", pos, kw, ["self"])
-    while($.self.length){$.self.pop()}
-    return $N
-}
-
-list.count = function(args){
-    var $ = $B.args("count", args, ["self", "x"])
-    var res = 0,
-        _eq = function(other){return $B.rich_comp("__eq__", $.x, other)},
-        i = $.self.length
-    while(i--){if(_eq($.self[i])){res++}}
-    return res
-}
-
-list.extend = function(args){
-    var $ = $B.args("extend", args, ["self", "t"])
-    var other = list.$factory($B.$iter($.t))
-    for(var i = 0; i < other.length; i++){$.self.push(other[i])}
-    return $N
-}
-
-list.index = function(){
-    var missing = {},
-        $ = $B.args("index", 4, {self: null, x: null, start: null, stop: null},
-            ["self", "x", "start" ,"stop"], arguments,
-            {start: 0, stop: missing}, null, null),
+list.index = function(pos, kw){
+    var $ = $B.args("index", pos, kw, ["self", "x", "start" ,"stop"],
+            {start: 0, stop: _b_.None}),
         self = $.self,
         start = $.start,
         stop = $.stop
-    var _eq = function(other){return $B.rich_comp("__eq__", $.x, other)}
     if(start.__class__ === $B.long_int){
         start = parseInt(start.value) * (start.pos ? 1 : -1)
     }
-    if(start < 0){start = Math.max(0, start + self.length)}
-    if(stop === missing){stop = self.length}
-    else{
-        if(stop.__class__ === $B.long_int){
-            stop = parseInt(stop.value) * (stop.pos ? 1 : -1)
-        }
-        if(stop < 0){stop = Math.min(self.length, stop + self.length)}
-        stop = Math.min(stop, self.length)
+    start = start < 0 ? start + self.length : start
+    stop = stop === _b_.None ? self.length : stop
+    if(stop.__class__ === $B.long_int){
+        stop = parseInt(stop.value) * (stop.pos ? 1 : -1)
     }
+    if(stop < 0){
+        stop = Math.min(self.length, stop + self.length)
+    }
+    stop = Math.min(stop, self.length)
     for(var i = start; i < stop; i++){
-        if(_eq(self[i])){return i}
+        if($B.compare.eq($.x, self[i])){return i}
     }
     throw _b_.ValueError.$factory(_b_.str.$factory($.x) + " is not in list")
 }
 
-list.insert = function(pos,kw){
+list.insert = function(pos, kw){
     var $ = $B.args("insert", pos, kw, ["self", "i", "item"])
     $.self.splice($.i, 0, $.item)
     return $N

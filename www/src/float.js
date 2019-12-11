@@ -1,9 +1,6 @@
 ;(function($B){
 
-var bltns = $B.InjectBuiltins()
-eval(bltns)
-
-var object = _b_.object
+var _b_ = $B.builtins
 
 function $err(op, other){
     var msg = "unsupported operand type(s) for " + op +
@@ -20,16 +17,7 @@ function float_value(obj){
 // dictionary for built-in class 'float'
 var float = {
     __class__: _b_.type,
-    __dir__: object.__dir__,
-    __name__: "float",
-    $is_class: true,
-    $native: true,
-    $descriptors: {
-        "numerator": true,
-        "denominator": true,
-        "imag": true,
-        "real": true
-    }
+    __name__: "float"
 }
 
 float.numerator = function(self){return float_value(self)}
@@ -430,8 +418,6 @@ float.__mod__ = function(self, other) {
     $err("%", other)
 }
 
-float.__mro__ = [object]
-
 float.__mul__ = function(self, other){
     self = float_value(self)
     other = float_value(other)
@@ -643,10 +629,6 @@ for(var $op in $B.$comps){
               replace(/__gt__/gm, "__" + $B.$comps[$op] + "__").
               replace(/__le__/, "__" + $B.$inv_comps[$op] + "__"))
 }
-
-// add "reflected" methods
-$B.make_rmethods(float)
-
 // unsupported operations
 var $notimplemented = function(self, other){
     throw _b_.TypeError.$factory(
@@ -747,35 +729,6 @@ $B.$FloatClass = $FloatClass
 
 $B.set_func_names(float, "builtins")
 
-// Dictionary and factory for subclasses of float
-var FloatSubclass = $B.FloatSubclass  = {
-    __class__: _b_.type,
-    __mro__: [object],
-    $infos: {
-        __module__: "builtins",
-        __name__: "float"
-    },
-    $is_class: true
-}
-
-for(var $attr in float){
-    if(typeof float[$attr] == "function"){
-        FloatSubclass[$attr] = (function(attr){
-            return function(){
-                var args = [], pos = 0
-                if(arguments.length > 0){
-                    var args = [arguments[0].valueOf()], pos = 1
-                    for(var i = 1, len = arguments.length; i < len; i++){
-                        args[pos++] = arguments[i]
-                    }
-                }
-                return float[attr].apply(null, args)
-            }
-        })($attr)
-    }
-}
-
-$B.set_func_names(FloatSubclass, "builtins")
 
 _b_.float = float
 })(__BARAGWIN__)

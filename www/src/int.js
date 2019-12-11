@@ -455,9 +455,6 @@ for(var $op in $B.$comps){
               replace(/__lt__/, "__" + $B.$inv_comps[$op] + "__"))
 }
 
-// add "reflected" methods
-$B.make_rmethods(int)
-
 var $valid_digits = function(base) {
     var digits = ""
     if(base === 0){return "0"}

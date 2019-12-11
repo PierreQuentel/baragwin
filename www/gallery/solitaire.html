@@ -121,7 +121,7 @@ when mouseup on SVGRoot as evt
         row = int((target_pos[1] + dragged_pos[1]) / 2)
 
         if (newX == 0 and abs(newY) == 2 and filled[col][row]) \
-            or (newY == 0 and abs(newX)==2 and filled[col][row])
+            or (newY == 0 and abs(newX) == 2 and filled[col][row])
 
             # valid move : there was a ball in the cell jumped over
 
@@ -166,8 +166,8 @@ when mouseup on SVGRoot as evt
 def check_finished()
     # check if there are still possible moves
     remaining = 0
-    for col in range(7)
-        for row in range(7)
+    for col in [:7]
+        for row in [:7]
             if not filled[col][row]
                 continue
             remaining += 1

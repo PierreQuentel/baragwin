@@ -3,24 +3,11 @@
 Module to manipulate long integers
 */
 
-var bltns = $B.InjectBuiltins()
-eval(bltns)
+var _b_ = $B.builtins
 
 var long_int = {
     __class__: _b_.type,
-    __mro__: [_b_.$int, object],
-    $infos: {
-        __module__: "builtins",
-        __name__: "int"
-    },
-    $is_class: true,
-    $native: true,
-    $descriptors: {
-        "numerator": true,
-        "denominator": true,
-        "imag": true,
-        "real": true
-    }
+    __name__: "int"
 }
 
 function add_pos(v1, v2){

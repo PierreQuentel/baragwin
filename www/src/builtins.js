@@ -62,7 +62,7 @@ var path = _window.location.origin + _window.location.pathname,
 path_elts.pop()
 var $script_dir = $B.script_dir = path_elts.join("/")
 
-// Populated in py2js.baragwin(), used for sys.argv
+// Populated in bg2js.baragwin(), used for sys.argv
 $B.__ARGV = []
 
 // For all the scripts defined in the page as webworkers, mapping between
@@ -101,7 +101,7 @@ $B.builtins = {}
 
 $B.builtins_scope = {id:'__builtins__', module:'__builtins__', binding: {}}
 
-// Builtin functions : used in py2js to simplify the code produced by a call
+// Builtin functions : used in bg2js to simplify the code produced by a call
 $B.builtin_funcs = {}
 
 // Builtin classes
@@ -170,7 +170,7 @@ $B.modules = {}
 window.bg = function(src){
     var bgcode = String.raw(src)
     console.log(bgcode)
-    var root = $B.py2js(String.raw(src), "$script", "$script"),
+    var root = $B.bg2js(String.raw(src), "$script", "$script"),
         module = root.module
     eval(root)
     $B.modules[module] = locals

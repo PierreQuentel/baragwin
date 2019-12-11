@@ -347,7 +347,7 @@ Most contexts have an attribute "tree", a list of the elements associated
 with the keyword or the syntax element (eg the arguments in a function
 definition).
 
-For contexts that need transforming the Python instruction into several
+For contexts that need transforming the Baragwin instruction into several
 Javascript instructions, a method transform(node, rank) is defined. It is
 called by the method transform() on the root node (the top level instance of
 $Node).
@@ -2262,7 +2262,7 @@ var IdCtx = function(context, value){
             }
             scope = scope.parent_block
         }
-        return "$B.$global_search('" + value + "')"
+        return "$B.global_search('" + value + "')"
     }
 }
 
@@ -2370,14 +2370,10 @@ var LambdaCtx = function(context){
         var lambda_name = 'lambda' + rand,
             module_name = module.id.replace(/\./g, '_')
 
-        var root = $B.py2js(py, module_name, lambda_name, scope, node.line_num)
+        var root = $B.bg2js(py, module_name, lambda_name, scope, node.line_num)
         var js = root.to_js()
         js = '(function(locals_' + lambda_name + '){\n' + js +
             '\nreturn locals.' + func_name + '\n})({})'
-
-        $B.clear_ns(lambda_name)
-        $B.$py_src[lambda_name] = null
-        delete $B.$py_src[lambda_name]
 
         return js
     }
@@ -2553,17 +2549,12 @@ var ListOrTupleCtx = function(context,real){
                             ix = lc[1],
                             listcomp_name = 'lc' + ix,
                             save_pos = $pos
-                        var root = $B.py2js({src:py, is_comp:true},
+                        var root = $B.bg2js({src:py, is_comp:true},
                             module_name, listcomp_name, scope, 1)
 
                         $pos = save_pos
 
                         var js = root.to_js()
-
-                        root = null
-                        $B.clear_ns(listcomp_name)
-                        delete $B.$py_src[listcomp_name]
-
                         js += 'return locals_lc' + ix + '.x' + ix + ''
                         js = '(function(locals_' + listcomp_name + '){' +
                             js + '})({})'
@@ -2571,7 +2562,7 @@ var ListOrTupleCtx = function(context,real){
 
                     case 'dict_or_set_comp':
                         if(this.expression.length == 1){
-                            return $B.$gen_expr(module_name, scope, items, line_num)
+                            return $B.gen_expr(module_name, scope, items, line_num)
                         }
 
                         return $B.dict_comp(module_name, scope, items, line_num)
@@ -2580,8 +2571,8 @@ var ListOrTupleCtx = function(context,real){
 
                 // Generator expression
                 // Pass the module name and the current scope object
-                // $B.$gen_expr is in py_utils.js
-                return $B.$gen_expr(module_name, scope, items, line_num)
+                // $B.gen_expr is in py_utils.js
+                return $B.gen_expr(module_name, scope, items, line_num)
 
             case 'tuple':
                 var packed = this.packed_indices()
@@ -3043,12 +3034,12 @@ var StringCtx = function(context,value){
                         pos++
                     }
                     expr = parts[0]
-                    // We transform the source code of the expression using py2js.
+                    // We transform the source code of the expression using bg2js.
                     // This gives us a node whose structure is always the same.
                     // The Javascript code matching the expression is the first
                     // child of the first "try" block in the node's children.
                     var save_pos = $pos
-                    var expr_node = $B.py2js(expr, scope.module, scope.id, scope)
+                    var expr_node = $B.bg2js(expr, scope.module, scope.id, scope)
                     $pos = save_pos
                     for(var j = 0; j < expr_node.children.length; j++){
                         var node = expr_node.children[j]
@@ -6254,7 +6245,7 @@ var $create_root_node = function(src, module,
     return root
 }
 
-$B.py2js = function(src, module, locals_id, parent_scope, line_num){
+$B.bg2js = function(src, module, locals_id, parent_scope, line_num){
     // src = Python source (string)
     // module = module name (string)
     // locals_id = the id of the block that will be created
@@ -6432,14 +6423,9 @@ var baragwin = function(options){
 $B.run_script = function(src, name, run_loop){
     // run_loop is set to true if run_script is added to tasks in
     // ajax_load_script
-    if(run_loop){
-        if($B.idb_cx && $B.idb_cx.$closed){
-            $B.tasks.push([$B.idb_open])
-        }
-    }
-    $B.$py_module_path[name] = $B.script_path
+
     try{
-        var root = $B.py2js(src, name, name),
+        var root = $B.bg2js(src, name, name),
             js = root.to_js(),
             script = {
                 __doc__: root.__doc__,
@@ -6454,51 +6440,9 @@ $B.run_script = function(src, name, run_loop){
     }catch(err){
         $B.handle_error(err) // in loaders.js
     }
-    if($B.hasOwnProperty("VFS") && $B.has_indexedDB){
-        // Build the list of stdlib modules required by the
-        // script
-        var imports1 = Object.keys(root.imports).slice(),
-            imports = imports1.filter(function(item){
-                return $B.VFS.hasOwnProperty(item)})
-        Object.keys(imports).forEach(function(name){
-            if($B.VFS.hasOwnProperty(name)){
-                var submodule = $B.VFS[name],
-                    type = submodule[0]
-                if(type==".py"){
-                    var src = submodule[1],
-                        subimports = submodule[2],
-                        is_package = submodule.length == 4
-                    // "subimports" is the list of stdlib modules
-                    // directly imported by the module.
-                    if(type==".py"){
-                        // Add stdlib modules recursively imported
-                        required_stdlib_imports(subimports)
-                    }
-                    subimports.forEach(function(mod){
-                        if(imports.indexOf(mod) == -1){
-                            imports.push(mod)
-                        }
-                    })
-                }
-            }
-        })
-        // Add task to stack
-        for(var j = 0; j < imports.length; j++){
-            $B.tasks.push([$B.inImported, imports[j]])
-        }
-        root = null
-    }
     $B.tasks.push(["execute", script])
-    if(run_loop){
-        $B.loop()
-    }
 }
 
-var $log = $B.$log = function(js){
-    js.split("\n").forEach(function(line, i){
-        console.log(i + 1, ":", line)
-    })
-}
 var _run_scripts = function(options){
     // Save initial Javascript namespace
     var kk = Object.keys(_window)
@@ -6530,90 +6474,70 @@ var _run_scripts = function(options){
 
     var first_script = true, module_name
 
-        if($elts.length > 0){
-            if(options.indexedDB && $B.has_indexedDB &&
-                    $B.hasOwnProperty("VFS")){
-                $B.tasks.push([$B.idb_open])
-            }
-        }
-        // Get all explicitely defined ids, to avoid overriding
-        for(var i = 0; i < $elts.length; i++){
-            var elt = $elts[i]
-            if(elt.id){
-                if(defined_ids[elt.id]){
-                    throw Error("_Baragwin error : Found 2 scripts with the " +
-                      "same id '" + elt.id + "'")
-                }else{
-                    defined_ids[elt.id] = true
-                }
-            }
-        }
-
-        var src
-        for(var i = 0, len = webworkers.length; i < len; i++){
-            var worker = webworkers[i]
-            if(worker.src){
-                // format <script type="text/baragwin" src="python_script.py">
-                // get source code by an Ajax call
-                $B.tasks.push([$B.ajax_load_script,
-                    {name: worker.id, url: worker.src, is_ww: true}])
+    // Get all explicitely defined ids, to avoid overriding
+    for(var i = 0; i < $elts.length; i++){
+        var elt = $elts[i]
+        if(elt.id){
+            if(defined_ids[elt.id]){
+                throw Error("_Baragwin error : Found 2 scripts with the " +
+                  "same id '" + elt.id + "'")
             }else{
-                // Get source code inside the script element
-                src = (worker.innerHTML || worker.textContent)
-                // remove leading CR if any
-                src = src.replace(/^\n/, '')
-                $B.webworkers[worker.id] = src
+                defined_ids[elt.id] = true
             }
         }
+    }
 
-        for(var i = 0; i < $elts.length; i++){
-            var elt = $elts[i]
-            if(elt.type == "text/baragwin"){
-                // Set the module name, ie the value of the builtin variable
-                // __name__.
-                // If the <script> tag has an attribute "id", it is taken as
-                // the module name.
-                if(elt.id){
-                    module_name = elt.id
+    var src
+    for(var i = 0, len = webworkers.length; i < len; i++){
+        var worker = webworkers[i]
+
+        // Get source code inside the script element
+        src = (worker.innerHTML || worker.textContent)
+        // remove leading CR if any
+        src = src.replace(/^\n/, '')
+        $B.webworkers[worker.id] = src
+    }
+
+    for(var i = 0; i < $elts.length; i++){
+        var elt = $elts[i]
+        if(elt.type == "text/baragwin"){
+            // Set the module name, ie the value of the builtin variable
+            // __name__.
+            // If the <script> tag has an attribute "id", it is taken as
+            // the module name.
+            if(elt.id){
+                module_name = elt.id
+            }else{
+                // If no explicit name is given, the module name is
+                // "__main__" for the first script, and "__main__" + a
+                // random value for the next ones.
+                if(first_script){
+                    module_name = '__main__'
+                    first_script = false
                 }else{
-                    // If no explicit name is given, the module name is
-                    // "__main__" for the first script, and "__main__" + a
-                    // random value for the next ones.
-                    if(first_script){
-                        module_name = '__main__'
-                        first_script = false
-                    }else{
-                        module_name = '__main__' + $B.UUID()
-                    }
-                    while(defined_ids[module_name] !== undefined){
-                        module_name = '__main__' + $B.UUID()
-                    }
+                    module_name = '__main__' + $B.UUID()
                 }
-
-                // Get Python source code
-                if(elt.src){
-                    // format <script type="text/baragwin" src="python_script.py">
-                    // get source code by an Ajax call
-                    $B.tasks.push([$B.ajax_load_script,
-                        {name: module_name, url: elt.src}])
-                }else{
-                    // Get source code inside the script element
-                    src = (elt.innerHTML || elt.textContent)
-                    // remove leading CR if any
-                    src = src.replace(/^\n/, '')
-                    if(src.match(new RegExp("^bg`"))){
-                        if(!src.trim().endsWith("`")){
-                            throw SyntaxError('script starts with "bg`" ' +
-                                'but does not end with "`"')
-                        }else{
-                            src = src.substr(3).trim()
-                            src = src.substr(0, src.length - 1)
-                        }
-                    }
-                    $B.run_script(src, module_name)
+                while(defined_ids[module_name] !== undefined){
+                    module_name = '__main__' + $B.UUID()
                 }
             }
+
+            // Get source code inside the script element
+            src = (elt.innerHTML || elt.textContent)
+            // remove leading CR if any
+            src = src.replace(/^\n/, '')
+            if(src.match(new RegExp("^bg`"))){
+                if(!src.trim().endsWith("`")){
+                    throw SyntaxError('script starts with "bg`" ' +
+                        'but does not end with "`"')
+                }else{
+                    src = src.substr(3).trim()
+                    src = src.substr(0, src.length - 1)
+                }
+            }
+            $B.run_script(src, module_name)
         }
+    }
 
 
     $B.loop()

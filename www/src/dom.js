@@ -1,7 +1,5 @@
 ;(function($B){
 
-//eval($B.InjectBuiltins())
-
 var _b_ = $B.builtins;
 var object = _b_.object
 var JSObject = $B.JSObject
@@ -1156,30 +1154,29 @@ DOMNode.get = function(self){
 }
 
 DOMNode.getContext = function(self){ // for CANVAS tag
-    if(!("getContext" in self.elt)){
+    if(!("getContext" in self)){
       throw _b_.AttributeError.$factory("object has no attribute 'getContext'")
     }
-    var obj = self.elt
-    return function(ctx){return JSObject.$factory(obj.getContext(ctx))}
+    return function(ctx){return JSObject.$factory(self.getContext(ctx))}
 }
 
 DOMNode.getSelectionRange = function(self){ // for TEXTAREA
-    if(self.elt["getSelectionRange"] !== undefined){
-        return self.elt.getSelectionRange.apply(null, arguments)
+    if(self["getSelectionRange"] !== undefined){
+        return self.getSelectionRange.apply(null, arguments)
     }
 }
 
 DOMNode.html = function(self){
-    var res = self.elt.innerHTML
+    var res = self.innerHTML
     if(res === undefined){
-        if(self.elt.nodeType == 9){res = self.elt.body.innerHTML}
+        if(self.nodeType == 9){res = self.body.innerHTML}
         else{res = _b_.None}
     }
     return res
 }
 
 DOMNode.id = function(self){
-    if(self.elt.id !== undefined){return self.elt.id}
+    if(self.id !== undefined){return self.id}
     return _b_.None
 }
 
@@ -1203,17 +1200,15 @@ DOMNode.index = function(pos, kw){
 
 DOMNode.inside = function(self, other){
     // Test if a node is inside another node
-    other = other.elt
-    var elt = self.elt
     while(true){
-        if(other === elt){return true}
-        elt = elt.parentElement
-        if(! elt){return false}
+        if(other === self){return true}
+        self = self.parentElement
+        if(! self){return false}
     }
 }
 
 DOMNode.options = function(self){ // for SELECT tag
-    return new $OptionsClass(self.elt)
+    return new $OptionsClass(self)
 }
 
 DOMNode.parent = function(self){
@@ -1228,10 +1223,6 @@ DOMNode.remove = function(pos, kw){
         self = $.self,
         child = $.child
     self.removeChild(child)
-}
-
-DOMNode.reset = function(self){ // for FORM
-    return function(){self.elt.reset()}
 }
 
 DOMNode.select = function(pos, kw){
@@ -1277,8 +1268,8 @@ DOMNode.str = function(pos, kw){
 
 DOMNode.style = function(self){
     // set attribute "float" for cross-browser compatibility
-    self.elt.style.float = self.elt.style.cssFloat || self.style.styleFloat
-    return $B.JSObject.$factory(self.elt.style)
+    self.style.float = self.style.cssFloat || self.style.styleFloat
+    return $B.JSObject.$factory(self.style)
 }
 
 DOMNode.setSelectionRange = function(self){ // for TEXTAREA
@@ -1306,10 +1297,10 @@ DOMNode.set_class_name = function(self, arg){
 }
 
 DOMNode.set_html = function(args){
-    var $ = $B.args("set_html", args, ["self", "value"])
-    var elt = $.self
-    if(elt.nodeType == 9){elt = elt.body}
-    elt.innerHTML = _b_.str.$($.value)
+    var $ = $B.args("set_html", args, ["self", "value"]),
+        self = $.self
+    if(self.nodeType == 9){self = self.body}
+    self.innerHTML = _b_.str.$($.value)
 }
 
 DOMNode.set_style = function(self, style){ // style is a dict
@@ -1337,14 +1328,13 @@ DOMNode.set_style = function(self, style){ // style is a dict
 }
 
 DOMNode.set_text = function(self,value){
-    var elt = self.elt
-    if(elt.nodeType == 9){elt = elt.body}
-    elt.innerText = _b_.str.$(value)
-    elt.textContent = _b_.str.$(value)
+    if(self.nodeType == 9){self = elt.body}
+    self.innerText = _b_.str.$(value)
+    self.textContent = _b_.str.$(value)
 }
 
 DOMNode.set_value = function(self, value){
-    self.elt.value = _b_.str.$(value)
+    self.value = _b_.str.$(value)
 }
 
 DOMNode.set_x = function(self, value){
@@ -1377,33 +1367,23 @@ DOMNode.set_y = function(self, value){
     }
 }
 
-DOMNode.submit = function(self){ // for FORM
-    return function(){self.elt.submit()}
-}
-
 DOMNode.text = function(self){
-    var elt = self.elt
-    if(elt.nodeType == 9){elt = elt.body}
-    var res = elt.innerText || elt.textContent
+    if(self.nodeType == 9){self = self.body}
+    var res = self.innerText || self.textContent
     if(res === null){
         res = _b_.None
     }
     return res
 }
 
-DOMNode.toString = function(self){
-    if(self === undefined){return 'DOMNode'}
-    return self.elt.nodeName
-}
-
 DOMNode.trigger = function (self, etype){
     // Artificially triggers the event type provided for this DOMNode
-    if(self.elt.fireEvent){
-      self.elt.fireEvent("on" + etype)
+    if(self.fireEvent){
+      self.fireEvent("on" + etype)
     }else{
       var evObj = document.createEvent("Events")
       evObj.initEvent(etype, true, false)
-      self.elt.dispatchEvent(evObj)
+      self.dispatchEvent(evObj)
     }
 }
 
@@ -1477,11 +1457,11 @@ DOMNode.unbind = function(pos, kw){
 }
 
 DOMNode.x = function(self){
-    return $getPosition(self.elt).left
+    return $getPosition(self).left
 }
 
 DOMNode.y = function(self){
-    return $getPosition(self.elt).top
+    return $getPosition(self).top
 }
 
 $B.set_func_names(DOMNode, "browser")
@@ -1506,11 +1486,6 @@ Query.__getitem__ = function(self, key){
     if(result === undefined){throw _b_.KeyError.$factory(key)}
     if(result.length == 1){return result[0]}
     return result
-}
-
-var Query_iterator = $B.make_iterator_class("query string iterator")
-Query.__iter__ = function(self){
-    return Query_iterator.$factory(self._keys)
 }
 
 Query.__mro__ = [object]
@@ -1591,26 +1566,6 @@ TagSum.$add = function(self, other){
     return self
 }
 
-TagSum.__radd__ = function(self, other){
-    var res = TagSum.$factory()
-    res.children = self.children.concat(
-        DOMNode.$factory(document.createTextNode(other)))
-    return res
-}
-
-TagSum.__repr__ = function(self){
-    var res = "<object TagSum> "
-    for(var i = 0; i < self.children.length; i++){
-        res += self.children[i]
-        if(self.children[i].toString() == "[object Text]"){
-            res += " [" + self.children[i].textContent + "]\n"
-        }
-    }
-    return res
-}
-
-TagSum.__str__ = TagSum.toString = TagSum.__repr__
-
 TagSum.clone = function(self){
     var res = TagSum.$factory()
     for(var i = 0; i < self.children.length; i++){
@@ -1618,7 +1573,6 @@ TagSum.clone = function(self){
     }
     return res
 }
-
 
 TagSum.__class__ = _b_.type
 

@@ -317,11 +317,11 @@
         $$Math: self.Math && $B.JSObject.$factory(self.Math),
         NULL: null,
         $$Number: self.Number && $B.JSObject.$factory(self.Number),
-        py2js: function(src, module_name){
+        bg2js: function(src, module_name){
             if(module_name === undefined){
                 module_name = '__main__' + $B.UUID()
             }
-            return $B.py2js(src, module_name, module_name,
+            return $B.bg2js(src, module_name, module_name,
                 $B.builtins_scope).to_js()
         },
         pyobj2jsobj:function(obj){return $B.pyobj2jsobj(obj)},

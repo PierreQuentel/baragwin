@@ -1,7 +1,6 @@
 ;(function($B){
 
-var bltns = $B.InjectBuiltins()
-eval(bltns)
+var _b_ = $B.builtins
 
 $B.del_exc = function(){
     var frame = $B.last($B.frames_stack)
