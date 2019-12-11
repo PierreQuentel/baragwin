@@ -32,11 +32,16 @@ Test.equal(list([0:4]), [0, 1, 2, 3])
 Test.equal(list([1:4]), [1, 2, 3])
 Test.equal(list([:4:2]), [0, 2])
 Test.equal(list([10:2:-2]), [10, 8, 6, 4])
-Test.raise(ValueError, list, [:-4])
-Test.raise(ValueError, list, [:-4])
+
+try
+  [:-4]
+  raise Exception("should have raised ValueError")
+except ValueError
+  ""
+
+print([1:10:2])
 `
 </script>
-
 
 </body>
 </html>
