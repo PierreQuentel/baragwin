@@ -1078,7 +1078,7 @@ str.format = function(pos, kw) {
 str.$format = function(self, args, kw){
 
     var parts = $B.split_format(self)
-    
+
     // Apply formatting to the values passed to format()
     var res = "",
         fmt
@@ -1144,7 +1144,7 @@ str.$format = function(self, args, kw){
         }else{
             var klass = $B.get_class(value),
                 func = $B.$getattr(klass, "__format__")
-                
+
             res += func(value, fmt.spec)
         }
     }

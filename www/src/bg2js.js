@@ -648,13 +648,6 @@ var AssignCtx = function(context, expression){
             }
             if(left.type == 'sub'){ // assign to item
 
-              var seq = left.value.to_js(),
-                  temp = '$temp' + $loop_num,
-                  type
-              if(left.value.type == 'id'){
-                  type = $get_node(this).locals[left.value.value]
-              }
-              $loop_num++
               return '$B.setitem(' + left.value.to_js() +
                       ',' + left.tree[0].to_js() + ',' + right_js + ')'
             }
@@ -722,6 +715,7 @@ var AugmentedAssignCtx = function(context, op){
     if(context.type == 'expr'){
         var assigned = context.tree[0]
         if(assigned.type == 'id'){
+            assigned.augm_assign = true
             var name = assigned.value
             if(noassign[name] === true){
                 $_SyntaxError(context, ["can't assign to keyword"])
@@ -762,7 +756,15 @@ var AugmentedAssignCtx = function(context, op){
             return "$B.setitem(" + sub + ", " + ix + ", $B.operations." +
                 augmop2method[this.op] + "($B.getitem(" + sub + ", " +
                 ix + "), " + right + "))"
+        }else if(left.type == "expr" && left.tree[0].type == "attribute"){
+            var sub = left.tree[0].value.to_js(),
+                name = left.tree[0].name,
+                right = this.tree[1].to_js()
+            return '$B.$setattr(' + sub + ', "' + name + '", $B.operations.' +
+                augmop2method[this.op] + '($B.$getattr(' + sub + ', "' +
+                name + '"), ' + right + '))'
         }
+
         return js + " = $B.operations." + augmop2method[this.op] +
             "(" + js + ", " + this.tree[1].to_js() + ")"
     }
@@ -1385,8 +1387,7 @@ var DefCtx = function(context){
             this.other_kw + ')'
 
         nodes.push(NodeJS(js))
-
-        //nodes.push(NodeJS("locals.$parent = locals_" + this.scope.id))
+        nodes.push(NodeJS('locals.__file__ = "' + this.root.__file__ + '"'))
 
         var only_positional = false
         nodes = nodes.concat(enter_frame_nodes)
@@ -1460,6 +1461,7 @@ var DefCtx = function(context){
             if(this.async){
                 except_node.add(NodeJS('err.$stack = $stack'))
             }
+            except_node.add(NodeJS('err.frames = err.frames || $B.frames_stack.slice()'))
             except_node.add(NodeJS('$B.leave_frame();throw err'))
 
             parent.add(except_node)
@@ -1606,32 +1608,6 @@ var DictOrSetCtx = function(context){
         return ixs
     }
 
-    this.unpack_dict = function(packed){
-        var js = "",
-            res,
-            first,
-            i = 0,
-            item,
-            elts = []
-        while(i < this.items.length){
-            item = this.items[i]
-            first = i == 0
-            if(item.type == "expr" && item.packed){
-                res = "_b_.list.$factory(_b_.dict.items(" + item.to_js() + "))"
-                i++
-            }else{
-                res = "[[" + item.to_js() + "," +
-                    this.items[i + 1].to_js() + "]]"
-                i += 2
-            }
-            if(! first){
-                res = ".concat(" + res + ")"
-            }
-            js += res
-        }
-        return js
-    }
-
     this.unpack_set = function(packed){
         var js = "", res
         this.items.forEach(function(t, i){
@@ -1658,14 +1634,13 @@ var DictOrSetCtx = function(context){
                     res.push('[' + this.items[i].to_js() + ',' +
                       this.items[i + 1].to_js() + ']')
                 }
-                return '_b_.dict.$factory(' + res.join(',') + ')' +
+                return 'new Map([' + res.join(',') + '])' +
                     $to_js(this.tree)
             case 'set_comp':
                 return 'new Set(' + $to_js(this.items) + ')' +
                     $to_js(this.tree)
             case 'dict_comp':
-                return 'new Map(' + $to_js(this.items) + ')' +
-                    $to_js(this.tree)
+                return $to_js(this.items)
         }
         var packed = this.packed_indices()
         if(packed.length > 0){
@@ -2252,10 +2227,13 @@ var IdCtx = function(context, value){
     this.to_js = function(arg){
         var value = this.value,
             scope = this.scope
-        var test = false // value == "svg"
+        var test = false // value == "border_pos"
+        if(test){
+            console.log("to js", this)
+        }
         while(scope){
             if(test){
-                console.log("search", value, "in", scope.id, scope.binding)
+                //console.log("search", value, "in", scope.id, scope.binding)
             }
             if(scope.binding.hasOwnProperty(value)){
                 var is_defined = this.bound || this.boundBefore(scope)
@@ -2271,6 +2249,8 @@ var IdCtx = function(context, value){
                     js = "locals_" + scope.id + "." + value
                 }
                 if(is_defined){
+                    return js
+                }else if(this.augm_assign){
                     return js
                 }else{
                     // If name is not bound in the instruction, or if it has
@@ -2568,7 +2548,7 @@ var ListOrTupleCtx = function(context,real){
 
                 switch(this.real) {
                     case 'list_comp':
-                        var lc = $B.$list_comp(items), // defined in py_utils.js
+                        var lc = $B.list_comp(items), // defined in py_utils.js
                             py = lc[0],
                             ix = lc[1],
                             listcomp_name = 'lc' + ix,
@@ -2584,7 +2564,7 @@ var ListOrTupleCtx = function(context,real){
                         $B.clear_ns(listcomp_name)
                         delete $B.$py_src[listcomp_name]
 
-                        js += 'return locals_lc' + ix + '.$x' + ix + ''
+                        js += 'return locals_lc' + ix + '.x' + ix + ''
                         js = '(function(locals_' + listcomp_name + '){' +
                             js + '})({})'
                         return js
@@ -2594,7 +2574,7 @@ var ListOrTupleCtx = function(context,real){
                             return $B.$gen_expr(module_name, scope, items, line_num)
                         }
 
-                        return $B.$dict_comp(module_name, scope, items, line_num)
+                        return $B.dict_comp(module_name, scope, items, line_num)
 
                 }
 
@@ -3458,6 +3438,7 @@ function WhenCtx(context){
     this.transform = function(node, rank){
         node.insert(0, NodeJS('var locals = locals_' + this.node.id +
             ' = $B.args("<callback>", pos, kw, ["' + this.var_name + '"])'))
+        node.insert(1, NodeJS('$B.frames_stack.push(locals)'))
         node.parent.insert(rank + 1, NodeJS("])"))
     }
 
@@ -5555,7 +5536,7 @@ for(var i = 0; i < s_escaped.length; i++){
 var kwdict = [
     "return", "break", "for", "lambda", "try", "finally",
     "raise", "def", "while", "del", "global",
-    "as", "elif", "else", "if", 
+    "as", "elif", "else", "if",
     "except", "raise", "in", "continue",
     "async", "await",
     "when", "on", "module", "yield"
@@ -6267,6 +6248,9 @@ var $create_root_node = function(src, module,
         src = src.src
     }
     root.src = src
+    root.__file__ = $B.script_path +
+                    ($B.script_path.endsWith("/") ? "" : "/") + module
+
     return root
 }
 
@@ -6346,13 +6330,13 @@ $B.py2js = function(src, module, locals_id, parent_scope, line_num){
               '    locals = ' + local_ns]
         pos = js.length
 
-
     var offset = 0
 
     root.insert(0, NodeJS(js.join('')))
     offset++
 
     root.insert(offset++, NodeJS('locals.name = "' + locals_id + '"'))
+    root.insert(offset++, NodeJS('locals.__file__ = "' + root.__file__ + '"'))
 
     // Code to create the execution frame and store it on the frames stack
     var enter_frame_pos = offset,
@@ -6376,7 +6360,7 @@ $B.py2js = function(src, module, locals_id, parent_scope, line_num){
     root.children.splice(enter_frame_pos + 2, root.children.length)
 
     var catch_node = NodeJS('catch(err)')
-    catch_node.add(NodeJS('err.frames = $B.frames_stack.slice()'))
+    catch_node.add(NodeJS('err.frames = err.frames || $B.frames_stack.slice()'))
     catch_node.add(NodeJS('$B.leave_frame()'))
     catch_node.add(NodeJS('throw err'))
 
