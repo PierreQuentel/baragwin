@@ -306,9 +306,12 @@ $B.get_class = function(obj){
                 return $B.Function
             case "object":
                 if(obj instanceof Node){
+                    obj.__class__ = $B.DOMNode
                     return $B.DOMNode
                 }else if(Array.isArray(obj)){
                     return _b_.list
+                }else if(obj instanceof Map){
+                    return _b_.dict
                 }else if(obj instanceof Number){
                     return _b_.float
                 }
@@ -324,16 +327,21 @@ $B.class_name = function(obj){
 
 $B.delitem = function(obj, item){
     if(Array.isArray(obj)){
-        return _b_.list.$del(obj, item)
+        return _b_.list.$delitem(obj, item)
     }
-    throw _b_.TypeError.$factory($B.class_name(obj) +
-        "does not support del")
+    try{
+        var del = $B.$getattr(obj, "delitem")
+        return del([item])
+    }catch(err){
+        throw _b_.TypeError.$factory($B.class_name(obj) +
+            " does not support del")
+    }
 }
 
 $B.getitem = function(obj, item){
     var res
     if(obj instanceof Node){
-        return $B.DOMNode.__getitem__([obj, item])
+        return $B.DOMNode.getitem([obj, item])
     }else if(obj instanceof Map){
         res = obj.get(item)
     }else if(typeof obj == "string"){
@@ -476,7 +484,7 @@ $B.test_iter = function(candidate){
     return candidate
 }
 
-$B.$list_comp = function(items){
+$B.list_comp = function(items){
     // Called for list comprehensions
     // items[0] is the Python code for the comprehension expression
     // items[1:] is the loops and conditions in the comprehension
@@ -493,12 +501,10 @@ $B.$list_comp = function(items){
     py += " ".repeat(indent)
     py += "x" + ix + ".append(" + items[0] + ")\n"
 
-    console.log("list comp", py)
-
     return [py, ix]
 }
 
-$B.$dict_comp = function(module_name, parent_scope, items, line_num){
+$B.dict_comp = function(module_name, parent_scope, items, line_num){
     // Called for dict comprehensions
     // items[0] is the Python code for the comprehension expression
     // items[1:] is the loops and conditions in the comprehension
@@ -511,18 +517,18 @@ $B.$dict_comp = function(module_name, parent_scope, items, line_num){
         indent = 0
     for(var i = 1, len = items.length; i < len; i++){
         var item = items[i].replace(/\s+$/,"").replace(/\n/g, "")
-        py += "    ".repeat(indent) + item + ":\n"
+        py += "    ".repeat(indent) + item + "\n"
         indent++
     }
-    py += "    ".repeat(indent) + res + ".update({" + items[0] + "})"
+    py += "    ".repeat(indent) + res + " += {" + items[0] + "}"
 
     var dictcomp_name = "dc" + ix,
         root = $B.py2js({src:py, is_comp:true}, module_name, dictcomp_name,
             parent_scope, line_num),
         js = root.to_js()
-    js += '\nreturn $locals["' + res + '"]\n'
+    js += '\nreturn locals.' + res + '\n'
 
-    js = "(function($locals_" + dictcomp_name + "){" + js + "})({})"
+    js = "(function(locals_" + dictcomp_name + "){" + js + "})({})"
     $B.clear_ns(dictcomp_name)
     delete $B.$py_src[dictcomp_name]
 
