@@ -17,110 +17,9 @@ function int_value(obj){
 // dictionary for built-in class 'int'
 var int = {
     __class__: _b_.type,
-    __dir__: _b_.object.__dir__,
     __name__: "int",
     $is_class: true,
 }
-
-int.from_bytes = function() {
-  var $ = $B.args("from_bytes", 3,
-      {bytes:null, byteorder:null, signed:null},
-      ["bytes", "byteorder", "signed"],
-      arguments, {signed: false}, null, null)
-
-  var x = $.bytes,
-      byteorder = $.byteorder,
-      signed = $.signed,
-      _bytes, _len
-  if(_b_.isinstance(x, [_b_.bytes, _b_.bytearray])){
-      _bytes = x.source
-      _len = x.source.length
-  }else{
-      _bytes = _b_.list.$factory(x)
-      _len = _bytes.length
-      for(var i = 0; i < _len; i++){
-          _b_.bytes.$factory([_bytes[i]])
-      }
-  }
-  switch(byteorder) {
-      case "big":
-          var num = _bytes[_len - 1]
-          var _mult = 256
-          for(var i = _len - 2; i >= 0; i--){
-              // For operations, use the functions that can take or return
-              // big integers
-              num = $B.add($B.mul(_mult, _bytes[i]), num)
-              _mult = $B.mul(_mult,256)
-          }
-          if(! signed){return num}
-          if(_bytes[0] < 128){return num}
-          return $B.sub(num, _mult)
-      case "little":
-          var num = _bytes[0]
-          if(num >= 128){num = num - 256}
-          var _mult = 256
-          for(var i = 1;  i < _len; i++){
-              num = $B.add($B.mul(_mult, _bytes[i]), num)
-              _mult = $B.mul(_mult, 256)
-          }
-          if(! signed){return num}
-          if(_bytes[_len - 1] < 128){return num}
-          return $B.sub(num, _mult)
-  }
-
-  throw _b_.ValueError.$factory("byteorder must be either 'little' or 'big'")
-}
-
-int.to_bytes = function(){
-    var $ = $B.args("to_bytes", 3,
-        {self: null, len: null, byteorder: null},
-        ["self", "len", "byteorder"],
-        arguments, {}, "args", "kw"),
-        self = $.self,
-        len = $.len,
-        byteorder = $.byteorder,
-        kwargs = $.kw
-    if(! _b_.isinstance(len, _b_.int)){
-        throw _b_.TypeError.$factory("integer argument expected, got " +
-            $B.class_name(len))
-    }
-    if(["little", "big"].indexOf(byteorder) == -1){
-        throw _b_.ValueError.$factory("byteorder must be either 'little' or 'big'")
-    }
-    var signed = kwargs.$string_dict["signed"] || false,
-        res = []
-
-    if(self < 0){
-        if(! signed){
-            throw _b_.OverflowError.$factory("can't convert negative int to unsigned")
-        }
-        self = Math.pow(256, len) + self
-    }
-    var value = self
-    while(true){
-        var quotient = Math.floor(value / 256),
-            rest = value - 256 * quotient
-        res.push(rest)
-        if(quotient == 0){
-            break
-        }
-        value = quotient
-    }
-    if(res.length > len){
-        throw _b_.OverflowError.$factory("int too big to convert")
-    }else{
-        while(res.length < len){
-            res = res.concat([0])
-        }
-    }
-    if(byteorder == "big"){res = res.reverse()}
-    return {
-        __class__: _b_.bytes,
-        source: res
-    }
-}
-
-int.__abs__ = function(self){return _b_.abs(self)}
 
 int.__bool__ = function(self){
     return int_value(self).valueOf() == 0 ? false : true
@@ -129,20 +28,6 @@ int.__bool__ = function(self){
 int.__ceil__ = function(self){return Math.ceil(int_value(self))}
 
 int.__divmod__ = function(self, other){return _b_.divmod(self, other)}
-
-int.__eq__ = function(self, other){
-    // compare object "self" to class "int"
-    if(other === undefined){return self === int}
-    if(_b_.isinstance(other, int)){
-        return self.valueOf() == int_value(other).valueOf()
-    }
-    if(_b_.isinstance(other, _b_.float)){return self.valueOf() == other.valueOf()}
-    if(_b_.isinstance(other, _b_.complex)){
-        if(other.$imag != 0){return False}
-        return self.valueOf() == other.$real
-    }
-    return _b_.NotImplemented
-}
 
 int.__float__ = function(self){
     return new Number(self)
@@ -232,29 +117,6 @@ int.__floordiv__ = function(self, other){
     $err("//", other)
 }
 
-int.__hash__ = function(self){
-   if(self === undefined){
-      return int.__hashvalue__ || $B.$py_next_hash--  // for hash of int type (not instance of int)
-   }
-   return self.valueOf()
-}
-
-//int.__ior__ = function(self,other){return self | other} // bitwise OR
-
-int.__index__ = function(self){
-    return int_value(self)
-}
-
-int.__init__ = function(self, value){
-    if(value === undefined){value = 0}
-    self.toString = function(){return value}
-    return _b_.None
-}
-
-int.__int__ = function(self){return self}
-
-int.__invert__ = function(self){return ~self}
-
 // bitwise left shift
 int.__lshift__ = function(self, other){
     if(_b_.isinstance(other, int)){
@@ -285,9 +147,10 @@ int.__mod__ = function(self, other) {
     $err("%", other)
 }
 
-int.__mro__ = [_b_.object]
-
-int.__mul__ = function(self, other){
+int.mul = function(pos, kw){
+    var $ = $B.args("mul", pos, kw, ["self", "other"]),
+        self = $.self,
+        other = $.other
 
     var val = self.valueOf()
 
@@ -748,7 +611,7 @@ $B.$bool = function(obj){ // return true or false
                 try{return _b_.len(obj) > 0}
                 catch(err){return true}
             }else{
-                var res = $B.$call(bool_method)(obj)
+                var res = $B.call(bool_method)(obj)
                 if(res !== true && res !== false){
                     throw _b_.TypeError.$factory("__bool__ should return " +
                         "bool, returned " + $B.class_name(res))
