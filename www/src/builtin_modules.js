@@ -205,18 +205,18 @@
                 }else{
                     var elt = document.createElement(tagName)
                 }
-                var self = $B.DOMNode.$factory(elt, true)
+                var self = $B.DOMNode.$factory(elt)
                 if(first !== _b_.None){
                     if(_b_.isinstance(first, [_b_.str, _b_.int, _b_.float])){
                         // set "first" as HTML content (not text)
                         elt.innerHTML = _b_.str.$(first)
                     }else if(first.__class__ === TagSum){
                         for(const child of first.children){
-                            elt.appendChild(child.elt)
+                            elt.appendChild(child)
                         }
                     }else{
                         if(_b_.isinstance(first, $B.DOMNode)){
-                            elt.appendChild(first.elt)
+                            elt.appendChild(first)
                         }else{
                             try{
                                 // If the argument is an iterable other than
@@ -243,7 +243,7 @@
                         if(value !== false){
                             // option.selected = false sets it to true :-)
                             try{
-                                self.elt.setAttribute(key, value)
+                                self.setAttribute(key, value)
                             }catch(err){
                                 throw _b_.ValueError.$factory(
                                     "can't set attribute " + key)
