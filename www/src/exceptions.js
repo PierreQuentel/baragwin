@@ -347,20 +347,23 @@ var getExceptionTrace = $B.getExceptionTrace = function(exc, includeInternal){
         var $line_info = frame.line_info
         var line_info = $line_info.split(','),
             src
-        if(exc.module == line_info[1]){
+        if(frame.__file__ && $B.file_cache.hasOwnProperty(frame.__file__)){
+            src = $B.file_cache[frame.__file__]
+        }else if(exc.module == line_info[1]){
             src = exc.src
-        }
-        var globals = frame,
-            j = i
-        while(globals.$src === undefined){
-            j--
-            if(j < 0){
-                console.log("no globals ?")
-                break
+        }else{
+            var globals = frame,
+                j = i
+            while(globals.$src === undefined){
+                j--
+                if(j < 0){
+                    console.log("no globals ?")
+                    break
+                }
+                globals = exc.frames[j]
             }
-            globals = exc.frames[j]
+            var src = globals.$src
         }
-        var src = globals.$src
         if(src === undefined){
             if($B.VFS && $B.VFS.hasOwnProperty(frame.name)){
                 src = $B.VFS[frame.name][1]
@@ -496,9 +499,10 @@ $B.is_exc = function(exc, exc_list){
     var this_exc_class = exc.__class__
     for(var i = 0; i < exc_list.length; i++){
         var exc_class = exc_list[i]
-        if(this_exc_class === exc_class){return true}
-        if(this_exc_class === undefined){console.log("exc class undefined", exc)}
-        if(_b_.$issubclass(this_exc_class, exc_class)){return true}
+        if(this_exc_class === exc_class){
+            return true
+        }
+        if(_b_.Test.issubclass([this_exc_class, exc_class])){return true}
     }
     return false
 }
