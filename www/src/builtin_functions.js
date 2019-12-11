@@ -82,9 +82,9 @@ for(var $func in None){
 
 $B.set_func_names(NoneType, "builtins")
 
-function abs(obj){
-    check_nb_args('abs', 1, arguments)
-    check_no_kw('abs', obj)
+function abs(pos, kw){
+    var $ = $B.args("abs", pos, kw, ["obj"]),
+        obj = $.obj
 
     if(isinstance(obj, _b_.int)){
         if(obj.__class__ === $B.long_int){
@@ -94,7 +94,7 @@ function abs(obj){
                 pos: true
             }
         }else{
-            return _b_.int.$factory(Math.abs(obj))
+            return _b_.int.$factory([Math.abs(obj)])
         }
     }
     if(isinstance(obj, _b_.float)){return _b_.float.$factory(Math.abs(obj))}
@@ -373,16 +373,6 @@ function dir(obj){
     }
     res.sort()
     return res
-}
-
-//divmod() (built in function)
-function divmod(x,y) {
-   check_no_kw('divmod', x, y)
-   check_nb_args('divmod', 2, arguments)
-
-   var klass = x.__class__ || $B.get_class(x)
-   return _b_.tuple.$factory([$B.$getattr(klass, '__floordiv__')(x, y),
-       $B.$getattr(klass, '__mod__')(x, y)])
 }
 
 var enumerate = function*(pos, kw){
@@ -1047,7 +1037,7 @@ function locals(){
 
 function $extreme(args, op){ // used by min() and max()
     var $op_name = 'min'
-    if(op === '__gt__'){$op_name = "max"}
+    if(op === 'gt'){$op_name = "max"}
 
     if(args.length == 0){
         throw _b_.TypeError.$factory($op_name +
@@ -1055,74 +1045,39 @@ function $extreme(args, op){ // used by min() and max()
     }
     var last_arg = args[args.length - 1],
         nb_args = args.length,
-        has_default = false,
-        func = false
-    if(last_arg.$nat == 'kw'){
-        nb_args--
-        last_arg = last_arg.kw
-        for(var attr in last_arg){
-            switch(attr){
-                case 'key':
-                    func = last_arg[attr]
-                    break
-                case '$$default': // _Baragwin changes "default" to "$$default"
-                    var default_value = last_arg[attr]
-                    has_default = true
-                    break
-                default:
-                    throw _b_.TypeError.$factory("'" + attr +
-                        "' is an invalid keyword argument for this function")
-            }
-        }
-    }
-    if(!func){func = function(x){return x}}
+        has_default = false
     if(nb_args == 0){
         throw _b_.TypeError.$factory($op_name + " expected 1 argument, got 0")
     }else if(nb_args == 1){
         // Only one positional argument : it must be an iterable
-        var $iter = iter(args[0]),
+        var iter = $B.test_iter(args[0]),
             res = null
-        while(true){
-            try{
-                var x = next($iter)
-                if(res === null || $B.$bool($B.$getattr(func(x), op)(func(res)))){
-                    res = x
-                }
-            }catch(err){
-                if(err.__class__ == _b_.StopIteration){
-                    if(res === null){
-                        if(has_default){return default_value}
-                        else{throw _b_.ValueError.$factory($op_name +
-                            "() arg is an empty sequence")
-                        }
-                    }else{return res}
-                }
-                throw err
-            }
-        }
-    }else{
-        if(has_default){
-           throw _b_.TypeError.$factory("Cannot specify a default for " +
-               $op_name + "() with multiple positional arguments")
-        }
-        var res = null
-        for(var i = 0; i < nb_args; i++){
-            var x = args[i]
-            if(res === null || $B.$bool($B.$getattr(func(x), op)(func(res)))){
+        for(const x of iter){
+            if(res === null || $B.compare[op](x, res)){
                 res = x
             }
         }
-        return res
+    }else{
+        var res = null
+        for(var i = 0; i < nb_args; i++){
+            var x = args[i]
+            if(res === null || $B.compare[op](x, res)){
+                res = x
+            }
+        }
     }
+    return res
 }
 
 function max(){
-    return $extreme(arguments, '__gt__')
+    var $ = $B.args("min", pos, kw, [], {}, "args")
+    return $extreme($.args, 'gt')
 }
 
 
-function min(){
-    return $extreme(arguments, '__lt__')
+function min(pos, kw){
+    var $ = $B.args("min", pos, kw, [], {}, "args")
+    return $extreme($.args, 'lt')
 }
 
 function next(obj){
@@ -1374,10 +1329,43 @@ var Test = {
                 " not equal to " +_b_.str.$($.y))
         }
     },
+    isinstance: function(pos, kw){
+        var $ = $B.args("isinstance", pos, kw, ["obj"], {}, "classes")
+        return Test.$isinstance($.obj, $.classes)
+    },
+    $isinstance: function(obj, classes){
+        var klass = $B.get_class(obj)
+        while(klass){
+            if(classes.indexOf(klass) > -1){
+                return true
+            }
+            klass = klass.__parent__
+        }
+        return false
+    },
+    issubclass: function(pos, kw){
+        var $ = $B.args("isinstance", pos, kw, ["obj"], {}, "klass"),
+                obj = $.obj,
+                klass = $.klass
+        if(obj.__class__ !== _b_.type){
+            throw _b_.ValueError.$factory("first argument of issubclass" +
+                " is not a class")
+        }
+        var cls = obj
+        console.log("is subclass", cls, klass)
+        while(cls){
+            if(cls === klass){
+                return true
+            }
+            cls = cls.__parent__
+        }
+        return false
+    },
     raise: function(pos, kw){
         var $ = $B.args("raise", pos, kw,
                 ["exception", "func"], {}, "pos", "kw")
         try{
+            console.log("func", $.func, "pos", $.pos, "kw", $.kw)
             $.func($.pos, $.kw)
             throw _b_.AssertionError.$factory("exception not raised")
         }catch(err){
@@ -1501,46 +1489,34 @@ function $url_open(){
     }
 }
 
-var zip = $B.make_class("zip",
-    function(){
-        var res = {
-            __class__:zip,
-            items:[]
+var zip = function(pos, kw){
+    var $ = $B.args("zip", pos, kw, [], {}, "iterables"),
+        res = {
+            __class__: zip
         }
-        if(arguments.length == 0) return res
-        var $ns = $B.args('zip', 0, {}, [], arguments, {}, 'args', 'kw')
-        var _args = $ns['args']
-        var args = []
-        for(var i = 0; i < _args.length; i++){args.push(iter(_args[i]))}
-        var rank = 0,
-            items = []
-        while(1){
-            var line = [], flag = true
-            for(var i = 0; i < args.length; i++){
-                try{
-                    line.push(next(args[i]))
-                }catch(err){
-                    if(err.__class__ == _b_.StopIteration){
-                        flag = false
-                        break
-                    }else{throw err}
-                }
-            }
-            if(!flag){break}
-            items[rank++] = _b_.tuple.$factory(line)
-        }
-        res.items = items
-        return res
+    var iterators = []
+    for(var it of $.iterables){
+        iterators.push(it[Symbol.iterator]())
     }
-)
-
-var zip_iterator = $B.make_iterator_class('zip_iterator')
-
-zip.__iter__ = function(self){
-    return zip_iterator.$factory(self.items)
+    res[Symbol.iterator] = function*(){
+        var row
+        while(true){
+            row = []
+            for(var it of iterators){
+                var item = it.next()
+                if(item.done){
+                    // Stop when first iterator is done
+                    return
+                }
+                row.push(item.value)
+            }
+            yield row
+        }
+    }
+    return res
 }
-
-$B.set_func_names(zip, "builtins")
+zip.__class__ = _b_.type
+zip.__name__ = "zip"
 
 // built-in constants : True, False, None
 
@@ -1563,7 +1539,7 @@ _b_.__BARAGWIN__ = __BARAGWIN__
 
 $B.builtin_funcs = [
     "abs", "all", "any", "callable", "chr",
-    "delattr", "dir", "divmod", "eval", "exec", "exit", "format", "getattr",
+    "delattr", "dir", "eval", "exec", "exit", "format", "getattr",
     "globals", "hasattr", "hex", "input", "isinstance",
     "issubclass", "locals", "max", "min", "next", "oct",
     "open", "ord", "pow", "print", "repr", "round", "setattr",
