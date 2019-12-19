@@ -783,7 +783,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
             self.send_header("Content-type", self.ctype)
             self.send_header("Last-Modified",
                 self.date_time_string(fs.st_mtime))
-
             # Use HTTP compression if available
             f = self.handle_compression(f)
 
