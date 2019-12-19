@@ -409,191 +409,21 @@ $B.to_alias = function(attr){
 }
 
 //eval() (built in function)
-function $$eval(src, _globals, _locals){
+function $$eval(pos, kw){
 
-    var $ = $B.args("eval", 4,
-            {src: null, globals: null, locals: null, is_exec: null},
-            ["src", "globals", "locals", "is_exec"], arguments,
-            {globals: _b_.None, locals: _b_.None, is_exec: false}, null, null),
-            src = $.src,
-            _globals = $.globals,
-            _locals = $.locals,
-            is_exec = $.is_exec
+    var $ = $B.args("eval", pos, kw, ["src", "is_exec"], {is_exec: false})
+        src = $.src,
+        is_exec = $.is_exec
 
-    var current_frame = $B.frames_stack[$B.frames_stack.length - 1]
-    if(current_frame !== undefined){
-        var current_locals_id = current_frame[0].replace(/\./, '_'),
-            current_globals_id = current_frame[2].replace(/\./, '_')
-    }
-
-    var stack_len = $B.frames_stack.length
-
-    if(src.__class__ === code){
-        is_exec = src.mode == "exec"
-        src = src.source
-    }else if(typeof src !== 'string'){
+    var frame = $B.last($B.frames_stack),
+        stack_len = $B.frames_stack.length
+    if(typeof src !== 'string'){
         throw _b_.TypeError.$factory("eval() arg 1 must be a string, bytes "+
             "or code object")
     }
 
-    // code will be run in a specific block
-    var globals_id = '$exec_' + $B.UUID(),
-        globals_name = globals_id,
-        locals_id = '$exec_' + $B.UUID(),
-        parent_scope
-
-    if(_globals === _b_.None){
-        if(current_locals_id == current_globals_id){
-            locals_id = globals_id
-        }
-
-        var local_scope = {
-            module: locals_id,
-            id: locals_id,
-            binding: {},
-            bindings: {}
-        }
-        for(var attr in current_frame[1]){
-            local_scope.binding[attr] = true
-            local_scope.bindings[attr] = true
-        }
-        var global_scope = {
-            module: globals_id,
-            id: globals_id,
-            binding: {},
-            bindings: {}
-        }
-        for(var attr in current_frame[3]){
-            global_scope.binding[attr] = true
-            global_scope.bindings[attr] = true
-        }
-        local_scope.parent_block = global_scope
-        global_scope.parent_block = $B.builtins_scope
-
-        parent_scope = local_scope
-
-        // restore parent scope object
-        eval("$locals_" + parent_scope.id + " = current_frame[1]")
-
-    }else{
-        // If a _globals dictionary is provided, set or reuse its attribute
-        // globals_id
-        if(_globals.__class__ != _b_.dict){
-            throw _b_.TypeError.$factory("exec() globals must be a dict, not "+
-                $B.class_name(_globals))
-        }
-        if(_globals.globals_id){
-            globals_id = globals_name = _globals.globals_id
-        }
-        _globals.globals_id = globals_id
-
-        if(_locals === _globals || _locals === _b_.None){
-            locals_id = globals_id
-            parent_scope = $B.builtins_scope
-        }else{
-            // The parent block of locals must be set to globals
-            var grandparent_scope = {
-                id: globals_id,
-                parent_block: $B.builtins_scope,
-                binding: {}
-            }
-            parent_scope = {
-                id: locals_id,
-                parent_block: grandparent_scope,
-                binding: {}
-            }
-            for(var attr in _globals.$string_dict){
-                grandparent_scope.binding[attr] = true
-            }
-            for(var attr in _locals.$string_dict){
-                parent_scope.binding[attr] = true
-            }
-        }
-    }
-
-    // set module path
-    $B.$py_module_path[globals_id] = $B.$py_module_path[current_globals_id]
-    // Initialise the object for block namespaces
-    eval('var $locals_' + globals_id + ' = {}\nvar $locals_' +
-        locals_id + ' = {}')
-
-    // Initialise block globals
-    if(_globals === _b_.None){
-        var gobj = current_frame[3],
-            ex = 'var $locals_' + globals_id + ' = gobj;',
-            obj = {}
-        eval(ex) // needed for generators
-        for(var attr in gobj){
-            if((! attr.startsWith("$"))){
-                obj[attr] = gobj[attr]
-            }
-        }
-        eval("$locals_" + globals_id +" = obj")
-    }else{
-        if(_globals.$jsobj){var items = _globals.$jsobj}
-        else{var items = _globals.$string_dict}
-        eval("$locals_" + globals_id + " = _globals.$string_dict")
-        for(var item in items){
-            var item1 = $B.to_alias(item)
-            try{
-                eval('$locals_' + globals_id + '["' + item1 +
-                    '"] = items[item]')
-            }catch(err){
-                console.log(err)
-                console.log('error setting', item)
-                break
-            }
-        }
-    }
-    _globals.$is_namespace = true
-
-    // Initialise block locals
-
-    if(_locals === _b_.None){
-        if(_globals !== _b_.None){
-            eval('var $locals_' + locals_id + ' = $locals_' + globals_id)
-        }else{
-            var lobj = current_frame[1],
-                ex = '',
-                obj = {}
-            for(var attr in current_frame[1]){
-                if(attr.startsWith("$") && !attr.startsWith("$$")){continue}
-                obj[attr] = lobj[attr]
-            }
-            eval('$locals_' + locals_id + " = obj")
-        }
-    }else{
-        if(_locals.$jsobj){var items = _locals.$jsobj}
-        else{var items = _locals.$string_dict}
-        for(var item in items){
-            var item1 = $B.to_alias(item)
-            try{
-                eval('$locals_' + locals_id + '["' + item + '"] = items.' + item)
-            }catch(err){
-                console.log(err)
-                console.log('error setting', item)
-                break
-            }
-        }
-        // Attribute $exec_locals is used in py_utils.$search to raise
-        // NameError instead of UnboundLocalError
-        eval("$locals_" + locals_id + ".$exec_locals = true")
-    }
-    _locals.$is_namespace = true
-
-    if(_globals === _b_.None && _locals === _b_.None &&
-            current_frame[0] == current_frame[2]){
-    }else{
-        eval("$locals_" + locals_id + ".$src = src")
-    }
-
-    var root = $B.bg2js(src, globals_id, locals_id, parent_scope),
+    var root = $B.bg2js(src, frame.__name__, frame.__name__, frame),
         js, gns, lns
-    if(_globals !== _b_.None && _locals == _b_.None){
-        for(var attr in _globals.$string_dict){
-            root.binding[attr] = true
-        }
-    }
 
     try{
         // The result of bg2js ends with
@@ -637,83 +467,18 @@ function $$eval(src, _globals, _locals){
         }
 
         js = root.to_js()
+        eval("locals_" + frame.__name__ + " = frame")
 
         if(is_exec){
-            var locals_obj = eval("$locals_" + locals_id),
-                globals_obj = eval("$locals_" + globals_id)
-
-            if(_globals === _b_.None){
-                var res = new Function("$locals_" + globals_id,
-                    "$locals_" + locals_id, js)(globals_obj, locals_obj)
-
-            }else{
-                current_globals_obj = current_frame[3]
-                current_locals_obj = current_frame[1]
-
-                var res = new Function("$locals_" + globals_id,
-                    "$locals_" + locals_id,
-                    "$locals_" + current_globals_id,
-                    "$locals_" + current_locals_id,
-                    js)(globals_obj, locals_obj,
-                        current_globals_obj, current_locals_obj)
-            }
+            var res = new Function(js)()
         }else{
             var res = eval(js)
         }
 
-        gns = eval("$locals_" + globals_id)
-        if($B.frames_stack[$B.frames_stack.length - 1][2] == globals_id){
-            gns = $B.frames_stack[$B.frames_stack.length - 1][3]
-        }
-
-        // Update _locals with the namespace after execution
-        if(_locals !== _b_.None){
-            lns = eval("$locals_" + locals_id)
-            for(var attr in lns){
-                var attr1 = $B.from_alias(attr)
-                if(attr1.charAt(0) != '$'){
-                    if(_locals.$jsobj){_locals.$jsobj[attr] = lns[attr]}
-                    else{_locals.$string_dict[attr1] = lns[attr]}
-                }
-            }
-        }else{
-            for(var attr in lns){
-                if(attr !== "$src"){
-                    current_frame[1][attr] = lns[attr]
-                }
-            }
-        }
-
-        if(_globals !== _b_.None){
-            // Update _globals with the namespace after execution
-            for(var attr in gns){
-                attr1 = $B.from_alias(attr)
-                if(attr1.charAt(0) != '$'){
-                    if(_globals.$jsobj){_globals.$jsobj[attr1] = gns[attr]}
-                    else{_globals.$string_dict[attr] = gns[attr]}
-                }
-            }
-            // Remove attributes starting with $
-            for(var attr in _globals.$string_dict){
-                if(attr.startsWith("$") && !attr.startsWith("$$")){
-                    delete _globals.$string_dict[attr]
-                }
-            }
-        }else{
-            for(var attr in gns){
-                if(attr !== "$src"){
-                    current_frame[3][attr] = gns[attr]
-                }
-            }
-        }
-
-        // fixme: some extra variables are bleeding into locals...
-        /*  This also causes issues for unittests */
         if(res === undefined){return _b_.None}
         return res
     }catch(err){
         err.src = src
-        err.module = globals_id
         if(err.$py_error === undefined){throw $B.exception(err)}
         throw err
     }finally{
@@ -725,15 +490,9 @@ function $$eval(src, _globals, _locals){
 }
 $$eval.$is_func = true
 
-function exec(src, globals, locals){
-    var missing = {}
-    var $ = $B.args("exec", 3, {src: null, globals: null, locals: null},
-        ["src", "globals", "locals"], arguments,
-        {globals: _b_.None, locals: _b_.None}, null, null),
-        src = $.src,
-        globals = $.globals,
-        locals = $.locals
-    return $$eval(src, globals, locals, true) || _b_.None
+function exec(pos, kw){
+    var $ = $B.args("exec", pos, kw, ["src"])
+    return $$eval([$.src, true]) || _b_.None
 }
 
 exec.$is_func = true
@@ -928,6 +687,10 @@ Info = {
             console.log(err)
             return Object.keys($.obj)
         }
+    },
+    len: function(pos, kw){
+        var $ = $B.args("len", pos, kw, ["obj"])
+        return $B.$getattr($.obj, "len")([], {})
     }
 }
 
@@ -1321,6 +1084,12 @@ var Test = {
                 " not equal to " +_b_.str.$($.y))
         }
     },
+    false: function(pos, kw){
+        var $ = $B.args("false", pos, kw, ["obj"])
+        if($B.$bool($.obj)){
+            throw _b_.AssertionError.$factory("not true")
+        }
+    },
     isinstance: function(pos, kw){
         var $ = $B.args("isinstance", pos, kw, ["obj"], {}, "classes")
         return Test.$isinstance($.obj, $.classes)
@@ -1560,10 +1329,13 @@ for(var i = 0; i < builtin_names.length; i++){
         orig_name = name,
         name1 = name
     if(name == 'open'){name1 = '$url_open'}
-    if(name == 'eval'){name = name1 = '$$eval'}
+    if(name == 'eval'){name1 = '$$eval'}
     if(name == 'print'){name1 = '$print'}
     try{
         _b_[name] = eval(name1)
+        if(name == '$$eval'){
+            console.log("set eval", _b_[name] + '')
+        }
         if($B.builtin_funcs.indexOf(orig_name) > -1){
             // used by inspect module
             _b_[name].$infos = {
@@ -1582,6 +1354,5 @@ for(var i = 0; i < builtin_names.length; i++){
 
 _b_['open'] = $url_open
 _b_['$print'] = $print
-
 
 })(__BARAGWIN__)
