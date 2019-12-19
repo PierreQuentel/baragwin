@@ -102,8 +102,8 @@ t <= title
 rows = []
 for i in [:int(lines.len() / 4)]
     row = Html.TR()
-    row <= (Html.TD(lines[4 * i + j]) for j in range(2))
-    row <= (Html.TD(lines[4 * i + j], align="right") for j in range(2, 4))
+    row <= (Html.TD(lines[4 * i + j]) for j in [:2])
+    row <= (Html.TD(lines[4 * i + j], align="right") for j in [2:4])
     rows.append(row)
 
 t <= rows
