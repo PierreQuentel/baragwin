@@ -65,8 +65,10 @@
 <body onload="baragwin(2)">
 
 <script type="text/baragwin">
-container = Document['container'] # Game board
-zone = Document['zone'] # Zone where cells move
+container = Html.DIV(id="container")
+zone = Html.DIV(id="zone")
+container <= zone
+Document <= container
 
 # Window dimensions
 width = Window.innerWidth
@@ -107,7 +109,7 @@ moving = []    # List of moving cells : between clicked cell and empty cell
 coords = []    # Initial position of moving cells
 rect = None    # Current clicked cell
 
-def click_cell(ev)
+when mousedown, touchstart on zone as ev
     """Handler for mouse click or finger touch"""
     global X0, Y0, moving, allow, rect
 
@@ -214,7 +216,7 @@ def release_cell(ev)
 
     rect = None
 
-def move_cell(ev)
+when mousemove, touchmove on zone as ev
     """Handler for mouse or finger move"""
     ev.preventDefault()
     ev.stopPropagation()
@@ -316,30 +318,16 @@ def init(*args)
 
         grid.append(cell_row)
 
-        zone.bind('mousedown', click_cell)
-        zone.bind('mousemove', move_cell)
         zone.bind('mouseup', release_cell)
-
-        zone.bind('touchstart', click_cell)
-        zone.bind('touchmove', move_cell)
         zone.bind('touchend', release_cell)
 
-def no_sel(ev)
+when mousedown, mousemove, touchmove on Document as ev
     ev.preventDefault()
     ev.stopPropagation()
 
-# avoid default behaviour to select text when dragging mouse
-Document.bind('mousedown', no_sel)
-Document.bind('mousemove', no_sel)
-Document.bind('touchmove', no_sel)
 
 init()
 </script>
-
-<div id="container">
-    <div id="zone">
-    </div>
-</div>
 
 </body>
 </html>
