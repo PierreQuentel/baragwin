@@ -2227,7 +2227,7 @@ var IdCtx = function(context, value){
     this.to_js = function(arg){
         var value = this.value,
             scope = this.scope
-        var test = false // value == "border_pos"
+        var test = value == "Empty"
         if(test){
             console.log("to js", this)
         }
@@ -2972,7 +2972,11 @@ var SliceCtx = function(context){
                 this.tree[i].to_js = function(){return "_b_.None"}
             }
         }
-        return "_b_.slice.$(" + $to_js(this.tree) + ")"
+        if(this.parent.type == "sub"){
+            return "_b_.slice.$(" + $to_js(this.tree) + ")"
+        }else{
+            return "_b_.range.$(" + $to_js(this.tree) + ")"
+        }
     }
 }
 
@@ -3149,6 +3153,7 @@ function StructCtx(context){
     this.expect = "id"
 
     this.id = context.tree[0]
+    this.id.bound = true
     context.parent.tree = [this]
 
     var scope = $get_scope(context)
@@ -3409,6 +3414,7 @@ function WhenCtx(context){
     this.parent = context
     this.tree = []
     this.expect = "id"
+    this.event_names = []
     this.var_name = ""
     this.node = $get_node(this)
     this.scope = $get_scope(this)
@@ -3434,8 +3440,17 @@ function WhenCtx(context){
     }
 
     this.to_js = function(){
-        var js = "$B.DOMNode.bind([" + this.tree[0].to_js() +
-            ', "' + this.event_name + '", function(pos, kw)'
+        var js = "$B.DOMNode.bind([" + this.tree[0].to_js() + ', '
+        if(this.event_names.length == 1){
+            js += '"' + this.event_names[0] + '"'
+        }else{
+            var names = []
+            for(const name of this.event_names){
+                names.push('"' + name + '"')
+            }
+            js += '[' + names.join(', ') + ']'
+        }
+        js += ', function(pos, kw)'
         return js
     }
 }
@@ -5457,7 +5472,7 @@ var $transition = function(context, token, value){
             switch(token){
                 case 'id':
                     if(context.expect == "id"){
-                        context.event_name = value
+                        context.event_names.push(value)
                         context.expect = "on"
                         return context
                     }else if(context.expect == "expr"){
@@ -5480,6 +5495,12 @@ var $transition = function(context, token, value){
                 case 'as':
                     if(context.expect == "as"){
                         context.expect = "alias"
+                        return context
+                    }
+                    $_SyntaxError(context, 'token ' + token)
+                case ',':
+                    if(context.expect == "on"){
+                        context.expect = "id"
                         return context
                     }
                     $_SyntaxError(context, 'token ' + token)
@@ -6407,7 +6428,7 @@ var baragwin = function(options){
     $B.$options = options
 
     // URL of the script where function baragwin() is called
-    var $href = $B.script_path = _window.location.href,
+    var $href = $B.script_path,
         $href_elts = $href.split('/')
     $href_elts.pop()
     if($B.isWebWorker || $B.isNode){$href_elts.pop()} // WebWorker script is in the web_workers subdirectory
