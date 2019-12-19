@@ -479,7 +479,7 @@ $B.exception = function(js_exc){
         exc.__suppress_context__ = false
         var $message = "<Javascript " + js_exc.name + ">: " +
             (js_exc.message || "<" + js_exc + ">")
-        exc.args = _b_.tuple.$factory([$message])
+        exc.args = [$message]
         exc.$py_error = true
         exc.stack = deep_copy($B.frames_stack);
     }else{

@@ -5,36 +5,6 @@ var _b_ = $B.builtins,
     isinstance = _b_.isinstance,
     $N = _b_.None
 
-function indices(t, slice){
-    // Return the list of indices in t defined by slice
-    var start,
-        stop,
-        step
-    if(slice.stop === _b_.None && slice.step === undefined){
-        start = 0
-        stop = t.length
-        step = 1
-    }else{
-        start = slice.start === _b_.None ? 0 : slice.start
-        step = slice.step === undefined ? 1 : step
-    }
-    var res = []
-    if(stop >= start && step > 0){
-        for(var i = start; i < stop; i += step){
-            res.push(i)
-        }
-        res.reverse()
-    }else if(stop <= start && step < 0){
-        for(var i = start; i > stop; i += step){
-            res.push(i)
-        }
-    }else{
-        throw _b_.ValueError.$factory("invalid values for slice " +
-            _b_.str.$(slice))
-    }
-    return res
-}
-
 function $list(){
     // used for list displays
     // different from list : $list(1) is valid (matches [1])
@@ -151,7 +121,11 @@ list.$delitem = function(self, item){
         }
         self.splice(item, 1)
     }else if(_b_.Test.$isinstance(item, [_b_.slice])){
-        for(const ix of indices(self, item)){
+        var ranks = _b_.slice.indices(item, self)
+        if(ranks.length > 1 && ranks[0] < ranks[1]){
+            ranks.reverse()
+        }
+        for(const ix of ranks){
             self.splice(ix, 1)
         }
     }else{
@@ -184,6 +158,31 @@ list.$eq = function(self, other){
    return false
 }
 
+list.$getitem = function(self, arg){
+    // Used internally to avoid using $B.args
+    if(typeof arg.valueOf() == "number"){
+        if(! (arg instanceof Number) ||
+                arg.valueOf() == Math.floor(arg.valueOf())){
+            var pos = arg.valueOf()
+            if(arg < 0){
+                pos = self.length + pos
+            }
+            if(pos >= 0 && pos < self.length){
+                return self[pos]
+            }else{
+                throw _b_.IndexError.$factory("list index out of range")
+            }
+        }
+    }else if(isinstance(arg, _b_.slice)){
+        var res = []
+        for(const ix of _b_.slice.indices(arg, self)){
+            res.push(self[ix])
+        }
+        return res
+    }
+    throw _b_.TypeError.$factory("list indices must be int or slice, not " +
+        $B.class_name(arg))
+}
 
 list.__iadd__ = function() {
     var $ = $B.args("__iadd__", 2, {self: null, x: null}, ["self", "x"],

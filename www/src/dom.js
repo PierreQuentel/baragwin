@@ -978,6 +978,12 @@ DOMNode.bind = function(pos, kw){
     if(self.__class__ === $B.JSObject){
         self = self.js
     }
+    if(Array.isArray(event)){
+        for(const evt of event){
+            DOMNode.bind([self, evt, func, options])
+        }
+        return
+    }
     var callback = (function(f){
         return function(ev){
             try{

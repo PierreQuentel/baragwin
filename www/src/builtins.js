@@ -166,14 +166,10 @@ $B.$options = {}
 
 $B.modules = {}
 
+$B.script_path = window.location.href
 
 window.bg = function(src){
-    var bgcode = String.raw(src)
-    console.log(bgcode)
-    var root = $B.bg2js(String.raw(src), "$script", "$script"),
-        module = root.module
-    eval(root)
-    $B.modules[module] = locals
-
+    var root = $B.bg2js(String.raw(src), "script", "script")
+    new Function("locals_script", root.to_js())({})
 }
 })(__BARAGWIN__)

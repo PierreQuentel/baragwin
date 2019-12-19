@@ -52,6 +52,15 @@ Test.equal(t, [0, 2, 3])
 del t[-1]
 Test.equal(t, [0, 2])
 
+Test.equal(t[:2], [0, 2])
+Test.equal(t[:-1], [0])
+
+Test.equal(list([:4]), [0, 1, 2, 3])
+Test.equal(list([0:4]), [0, 1, 2, 3])
+Test.equal(list([1:4]), [1, 2, 3])
+Test.equal(list([:4:2]), [0, 2])
+Test.equal(list([10:2:-2]), [10, 8, 6, 4])
+
 print("done")
 `
 </script>

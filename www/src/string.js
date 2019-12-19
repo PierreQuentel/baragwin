@@ -1415,6 +1415,15 @@ str.join = function(){
     return res.join($.self)
 }
 
+str.len = function(pos, kw){
+    var $ = $B.args("len", pos, kw, ["self"])
+    return str.$len($.self)
+}
+
+str.$len= function(self){
+    return self.length
+}
+
 str.ljust = function(self) {
     var $ = $B.args("ljust", 3, {self: null, width: null, fillchar:null},
         ["self", "width", "fillchar"],

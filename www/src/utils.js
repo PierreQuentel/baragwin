@@ -250,7 +250,7 @@ $B.operations = {
         }else if(x.__class__ && x.__class__.sub !== undefined){
             return x.__class__.sub([x, y])
         }else{
-            throw _b_.$TypeError.$factory("- not supported between types " +
+            throw _b_.TypeError.$factory("- not supported between types " +
                 $B.class_name(x) + " and " + $B.class_name(y))
         }
     }
@@ -351,11 +351,7 @@ $B.getitem = function(obj, item){
         }
         res = obj.charAt(item)
     }else if(Array.isArray(obj)){
-        if(typeof item != "number"){
-            throw _b_.TypeError.$factory("list indice must be int, not " +
-                $B.get_class(obj))
-        }
-        res = obj[item]
+        res = _b_.list.$getitem(obj, item)
     }else{
         try{
             var getitem = $B.$getattr(obj, "getitem")
