@@ -42,7 +42,7 @@ def fake_qs()
     return f"?foo={time}"
 
 def show(req)
-    if not "status" in Info.attrs(req)
+    if not req.hasattr("status")
         Document["result"].innerText = "no status"
     elif req.status == 200
         Document["result"].innerText = req.responseText
