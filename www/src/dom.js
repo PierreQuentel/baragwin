@@ -5,6 +5,51 @@ var object = _b_.object
 var JSObject = $B.JSObject
 var _window = self;
 
+var to_bg = $B.to_bg = function(self, res){
+
+    switch(typeof res){
+        case "undefined":
+            return _b_.None
+        case "string":
+        case "number":
+            return res
+        case "function":
+            return function(pos, kw){
+                var $ = $B.args(res.name, pos, kw, [], {}, "args")
+                var js_args = []
+                $.args.forEach(function(arg){
+                    js_args.push(from_bg(arg))
+                })
+                return to_bg(self, res.apply(self, js_args))
+            }
+        case "object":
+            if(res instanceof Node){
+                return $B.DOMNode.$factory(res)
+            }else{
+                return $B.JSObject.$factory(res)
+            }
+        default:
+            throw _b_.TypeError.$factory("can't convert from " + res)
+    }
+}
+
+var from_bg = $B.from_bg = function(obj){
+    if(obj === _b_.None){
+        return null
+    }else if(typeof obj == "function"){
+        // Pass a BG function to Javascript
+        return function(){
+            var args = []
+            for(var i = 0, len = arguments.length; i < len; i++){
+                args.push(arguments[i])
+            }
+            return from_bg(obj(args))
+        }
+    }else{
+        return obj
+    }
+}
+
 // cross-browser utility functions
 function $getMouseOffset(target, ev){
     ev = ev || _window.event;
@@ -620,7 +665,7 @@ DOMNode.getattr = function(pos, kw){
 }
 
 DOMNode.$getattr = function(self, attr){
-    var test = false // attr == "setAttributeNS"
+    var test = false // attr == "options"
     if(test){
         console.log("attr", attr, "of", self)
     }
@@ -711,23 +756,7 @@ DOMNode.$getattr = function(self, attr){
         if(test){
             console.log(attr, "direct attr", res)
         }
-        if(typeof res == "function"){
-            return function(pos, kw){
-                var $ = $B.args(attr, pos, kw, [], {}, "args")
-                var js_args = []
-                $.args.forEach(function(arg){
-                    if(arg === _b_.None){
-                        js_args.push(null)
-                    }else{
-                        js_args.push(arg)
-                    }
-                })
-                return res.apply(self, js_args)
-            }
-        }else if(res instanceof Node){
-            return $B.DOMNode.$factory(res)
-        }
-        return res
+        return to_bg(self, res)
     }
 
     res = DOMNode[attr]
@@ -990,6 +1019,8 @@ DOMNode.bind = function(pos, kw){
                 return f([$B.JSObject.$factory(ev)])
             }catch(err){
                 if(err.__class__ !== undefined){
+                    console.log("err", err.__class__, err.args)
+                    console.log("frames", $B.frames_stack.slice())
                     var trace = $B.getExceptionTrace(err)
                     trace += "\n" + $B.class_name(err)
                     if(err.args){trace += ": " + err.args[0]}
@@ -1172,10 +1203,11 @@ DOMNode.getSelectionRange = function(self){ // for TEXTAREA
     }
 }
 
-DOMNode.html = function(self){
-    var res = self.innerHTML
+DOMNode.html = function(pos, kw){
+    var $ = $B.args("html", pos, kw, ["self"])
+    var res = $.self.innerHTML
     if(res === undefined){
-        if(self.nodeType == 9){res = self.body.innerHTML}
+        if($.self.nodeType == 9){res = $.self.body.innerHTML}
         else{res = _b_.None}
     }
     return res
@@ -1302,11 +1334,9 @@ DOMNode.set_class_name = function(self, arg){
     self.elt.setAttribute("class", arg)
 }
 
-DOMNode.set_html = function(args){
-    var $ = $B.args("set_html", args, ["self", "value"]),
-        self = $.self
+DOMNode.set_html = function(self, value){
     if(self.nodeType == 9){self = self.body}
-    self.innerHTML = _b_.str.$($.value)
+    self.innerHTML = _b_.str.$(value)
 }
 
 DOMNode.set_style = function(self, style){ // style is a dict
