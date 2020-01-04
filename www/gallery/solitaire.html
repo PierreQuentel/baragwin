@@ -29,46 +29,44 @@ SVGRoot = Document["svg_root"]
 ball_color = "sienna"
 plate_color = "moccasin"
 
+Border: pos
+Drag: target, start, pos
 
 when mousedown on SVGRoot as evt
-    global DragTarget, DragStart, dragged_pos
 
-    # find out which element we moused down on
     target = evt.target
 
-    # you cannot drag the background itself, so ignore any attempts to mouse down on it
     if target != BackDrop and target.style.fill == ball_color
         # set the item moused down on as the element to be dragged
-        DragTarget = target
-        print("DragTarget", DragTarget)
+        Drag.target = target
 
         # turn off all pointer events to the dragged element, this does 2 things:
         #    1) allows us to drag text elements without selecting the text
         #    2) allows us to find out where the dragged element is dropped (see Drop)
-        DragTarget.setAttributeNS(None, "pointer-events", "none")
+        Drag.target.setAttributeNS(None, "pointer-events", "none")
 
         # we need to find the current position and translation of the grabbed element,
         # so that we only apply the differential between the current location
         # and the new location
-        transMatrix = DragTarget.getCTM()
+        transMatrix = Drag.target.getCTM()
         GrabPoint.x = TrueCoords.x - transMatrix.e
         GrabPoint.y = TrueCoords.y - transMatrix.f
-        DragStart = GrabPoint
+        Drag.start = GrabPoint
 
-        dragged_pos = [int(i) for i in DragTarget.id.split("_")]
+        Drag.pos = [int(i) for i in Drag.target.id.split("_")]
 
         # move this element to the "top" of the display, so it is (almost)
         # always over other elements (exception: in this case, elements that are
         # "in the folder" (children of the folder group) with only maintain
         # hierarchy within that group
-        DragTarget.parent <= DragTarget
+        Drag.target.parent <= Drag.target
 
 when mousemove on SVGRoot as evt
     # account for zooming and panning
     GetTrueCoords(evt)
 
     # if we don't currently have an element in tow, don't do anything
-    if not DragTarget
+    if not Drag.target
         return
 
     # account for the offset between the element's origin and the
@@ -78,14 +76,13 @@ when mousemove on SVGRoot as evt
 
     # apply a new tranform translation to the dragged element, to display
     # it in its new location
-    DragTarget.setAttributeNS(None, "transform",
+    Drag.target.setAttributeNS(None, "transform",
         f"translate({newX},{newY})")
 
 when mouseup on SVGRoot as evt
-    global DragTarget, border_pos
-
+    
     # if we aren't currently dragging an element, don't do anything
-    if not DragTarget
+    if not Drag.target
         return
 
     # since the element currently being dragged has its pointer-events turned off,
@@ -93,19 +90,19 @@ when mouseup on SVGRoot as evt
     targetElement = evt.target
 
     # turn the pointer-events back on, so we can grab this item later
-    DragTarget.setAttributeNS(None, "pointer-events", "all")
+    Drag.target.setAttributeNS(None, "pointer-events", "all")
     if targetElement.id == "BackDrop"
         # invalid move : not dropped on a ball
-        newX = DragStart.x - GrabPoint.x
-        newY = DragStart.y - GrabPoint.y
-        DragTarget.setAttributeNS(None, "transform",
+        newX = Drag.start.x - GrabPoint.x
+        newY = Drag.start.y - GrabPoint.y
+        Drag.target.setAttributeNS(None, "transform",
             f"translate({newX},{newY})")
 
     elif targetElement.style.fill == ball_color
         # invalid move : dropped on a non empty cell
-        newX = DragStart.x - GrabPoint.x
-        newY = DragStart.y - GrabPoint.y
-        DragTarget.setAttributeNS(None, "transform",
+        newX = Drag.start.x - GrabPoint.x
+        newY = Drag.start.y - GrabPoint.y
+        Drag.target.setAttributeNS(None, "transform",
             f"translate({newX},{newY})")
 
     else
@@ -113,12 +110,12 @@ when mouseup on SVGRoot as evt
         # compute column and row of target cell
         target_pos = [int((targetElement.cx.baseVal.value - left) / dx),
             int((targetElement.cy.baseVal.value - top - dy) / dy)]
-        newX = target_pos[0] - dragged_pos[0]
-        newY = target_pos[1] - dragged_pos[1]
+        newX = target_pos[0] - Drag.pos[0]
+        newY = target_pos[1] - Drag.pos[1]
 
         # column and row of cell jumped over
-        col = int((target_pos[0] + dragged_pos[0]) / 2)
-        row = int((target_pos[1] + dragged_pos[1]) / 2)
+        col = int((target_pos[0] + Drag.pos[0]) / 2)
+        row = int((target_pos[1] + Drag.pos[1]) / 2)
 
         if (newX == 0 and abs(newY) == 2 and filled[col][row]) \
             or (newY == 0 and abs(newX) == 2 and filled[col][row])
@@ -129,14 +126,14 @@ when mouseup on SVGRoot as evt
             removed = Document[filled[col][row].id]
             old_x = removed.cx.baseVal.value
             old_y = removed.cy.baseVal.value
-            cx = center_x + store_ray * Math.cos(border_pos)
-            cy = center_y + store_ray * Math.sin(border_pos)
+            cx = center_x + store_ray * Math.cos(Border.pos)
+            cy = center_y + store_ray * Math.sin(Border.pos)
             Document[filled[col][row].id].setAttributeNS(None, "transform",
                 f"translate({cx - old_x},{cy - old_y})")
-            border_pos += Math.PI / 18
+            Border.pos += Math.PI / 18
 
             # remove dragged ball
-            del Document[DragTarget.id]
+            del Document[Drag.target.id]
 
             # create new ball at target position
             tx, ty = target_pos
@@ -148,20 +145,20 @@ when mouseup on SVGRoot as evt
             SVGRoot <= ball
 
             # reset dictionary
-            filled[dragged_pos[0]][dragged_pos[1]] = None
+            filled[Drag.pos[0]][Drag.pos[1]] = None
             filled[col][row] = None
             filled[target_pos[0]][target_pos[1]] = ball
             check_finished()
         else
             # invalid move : jump over an empty cell
-            newX = DragStart.x - GrabPoint.x
-            newY = DragStart.y - GrabPoint.y
-            DragTarget.setAttributeNS(None, "transform",
+            newX = Drag.start.x - GrabPoint.x
+            newY = Drag.start.y - GrabPoint.y
+            Drag.target.setAttributeNS(None, "transform",
                 f"translate({newX},{newY})")
 
-    # set the global variable to None, so nothing will be dragged until we
+    # set the Drag.target to None, so nothing will be dragged until we
     # grab the next element
-    DragTarget = None
+    Drag.target = None
 
 def check_finished()
     # check if there are still possible moves
@@ -192,11 +189,6 @@ def GetTrueCoords(evt)
     TrueCoords.x = (evt.clientX - translation.x) / newScale
     TrueCoords.y = (evt.clientY - translation.y) / newScale
 
-DragTarget = None
-dragged_pos = None
-DragStart = None
-shadow = None
-
 # these svg points hold x and y values...
 # very handy, but they do not display on the screen (just so you know)
 TrueCoords = SVGRoot.createSVGPoint()
@@ -215,7 +207,7 @@ left = 150
 top = 100
 filled = {i: {j: False for j in [:7]} for i in [:7]}
 
-border_pos = - Math.PI / 2 # angle for position of next place to put captured balls
+Border.pos = - Math.PI / 2 # angle for position of next place to put captured balls
 store_ray = int(13.5 * ray)
 
 # plate

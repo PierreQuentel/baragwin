@@ -292,7 +292,7 @@ var $Node = function(type){
 
         if(this.type === 'module'){
             // module doc string
-            this.__doc__ = $get_docstring(this)
+            this.$doc = $get_docstring(this)
             var i = 0
             while(i < this.children.length){
                 var offset = this.children[i].transform(i)
@@ -425,26 +425,19 @@ var AssignCtx = function(context, expression){
             // Attribute bound of an id indicates if it is being
             // bound, as it is the case in the left part of an assignment
             assigned.bound = true
-            if(!scope.globals || !scope.globals.has(assigned.value)){
-                // A value is going to be assigned to a name
-                // After assignment the name will be bound to the current
-                // scope
-                // We must keep track of the list of bound names before
-                // this assignment, because in code like
-                //
-                //    range = range
-                //
-                // the right part of the assignement must be evaluated
-                // first, and it is the builtin "range"
-                var node = $get_node(this)
-                node.bound_before = Object.keys(scope.binding)
-                $bind(assigned.value, scope, this)
-            }else{
-                // assignement to a variable defined as global : bind name at
-                // module level (issue #690)
-                var module = $get_module(context)
-                $bind(assigned.value, module, this)
-            }
+            // A value is going to be assigned to a name
+            // After assignment the name will be bound to the current
+            // scope
+            // We must keep track of the list of bound names before
+            // this assignment, because in code like
+            //
+            //    range = range
+            //
+            // the right part of the assignement must be evaluated
+            // first, and it is the builtin "range"
+            var node = $get_node(this)
+            node.bound_before = Object.keys(scope.binding)
+            $bind(assigned.value, scope, this)
         }else if(["str", "int", "float", "complex"].indexOf(assigned.type) > -1){
             $_SyntaxError(context, ["can't assign to literal"])
         }else if(assigned.type == "unary"){
@@ -479,11 +472,7 @@ var AssignCtx = function(context, expression){
                 }else if(left.tree[0].type == 'id'){
                     // simple assign : set attribute "bound" for name resolution
                     var name = left.tree[0].value
-                    // check if name in globals
-                    if(scope.globals && scope.globals.has(name)){
-                    }else{
-                        left.tree[0].bound = true
-                    }
+                    left.tree[0].bound = true
                 }
                 break
             case 'target_list':
@@ -536,8 +525,15 @@ var AssignCtx = function(context, expression){
                 if(item.type == "expr" && item.tree[0].type == "id"){
                     $bind(item.tree[0].value, scope, this.tree[0])
                 }
-                new_nodes.push(NodeJS(item.to_js() + " = right" + $loop_num +
-                    "[" + rank + "]"))
+                if(item.type == "expr" && item.tree[0].type == "attribute"){
+                    var attr = item.tree[0]
+                    new_nodes.push(NodeJS("$B.$setattr(" +
+                        attr.value.to_js() + ', "' + attr.name + '", right' +
+                        $loop_num + "[" + rank + "])"))
+                }else{
+                    new_nodes.push(NodeJS(item.to_js() + " = right" + $loop_num +
+                        "[" + rank + "]"))
+                }
             }, this)
             for(var i = new_nodes.length - 1; i >= 0; i--){
                 node.parent.insert(rank, new_nodes[i])
@@ -721,14 +717,11 @@ var AugmentedAssignCtx = function(context, op){
                 $_SyntaxError(context, ["can't assign to keyword"])
             }else if(scope.ntype == 'def' &&
                     scope.binding[name] === undefined){
-                if(scope.globals === undefined ||
-                        ! scope.globals.has(name)){
-                    // Augmented assign to a variable not yet defined in
-                    // local scope : set attribute "unbound" to the id. If not
-                    // defined in the rest of the block this will raise an
-                    // UnboundLocalError
-                    assigned.unbound = true
-                }
+                // Augmented assign to a variable not yet defined in
+                // local scope : set attribute "unbound" to the id. If not
+                // defined in the rest of the block this will raise an
+                // UnboundLocalError
+                assigned.unbound = true
             }
         }else if(['str', 'int', 'float', 'complex'].indexOf(assigned.type) > -1){
             $_SyntaxError(context, ["can't assign to literal"])
@@ -882,36 +875,48 @@ var CallCtx = function(context){
         return '(call) ' + this.func + '(' + this.tree + ')'
     }
 
-    if(this.func && this.func.type == "attribute" && this.func.name == "wait"
-        && this.func.value.type == "id" && this.func.value.value == "time"){
-        console.log('call', this.func)
-        $get_node(this).blocking = {'type': 'wait', 'call': this}
-    }
-
-    if(this.func && this.func.value == 'input'){
-        $get_node(this).blocking = {'type': 'input'}
-    }
-
     this.to_js = function(){
         var positional = [],
+            star = [],
+            dstar = [],
             keywords = []
         for(var i = 0, len = this.tree.length; i < len; i++){
             var arg = this.tree[i]
             if(arg.type == "call_arg"){
+
                 switch(arg.tree[0].type){
                     case "expr":
                     case "ternary":
                         positional.push(arg.tree[0].to_js())
                         break
+                    case "star_arg":
+                        star.push(arg.tree[0].to_js())
+                        break
                     case "kwarg":
                         var kw = arg.tree[0].tree
                         keywords.push(kw[0].value + ':' + kw[1].to_js())
                         break
+                    default:
+                        positional.push(arg.tree[0].to_js())
+                        break
                 }
+            }else if(arg.type == "double_star_arg"){
+                dstar.push(arg.tree[0].to_js())
             }
         }
-        return '$B.call(' + this.func.to_js() + ")([" + positional.join(", ") + "], {" +
-            keywords.join(", ") + "})"
+        var js = '$B.call(' + this.func.to_js() + ")([" +
+            positional.join(", ") + "]"
+        if(star.length > 0){
+            js += ".concat(" + star.join("), concat(") + ")"
+        }
+        js += ", "
+        if(dstar.length == 0){
+            js += "{" + keywords.join(", ") + "})"
+        }else{
+            js += "$B.extend({" + keywords.join(", ") + "}," +
+                dstar.join(", ") + "))"
+        }
+        return js
     }
 }
 
@@ -1126,11 +1131,6 @@ var DecoratorCtx = function(context){
         var tail = '',
             scope = $get_scope(this),
             ref = 'locals["'
-        // reference of the original function, may have been declared global
-        if(scope.globals && scope.globals.has(obj.name)){
-            var module = $get_module(this)
-            ref = 'locals_' + module.id + '["'
-        }
         ref += obj.name + '"]'
         var res = ref + ' = '
 
@@ -1249,13 +1249,7 @@ var DefCtx = function(context){
 
         this.binding = {}
 
-        if(this.scope.globals !== undefined &&
-                this.scope.globals.has(name)){
-            // function name was declared global
-            $bind(this.name, this.root, this)
-        }else{
-            $bind(this.name, this.scope, this)
-        }
+        $bind(this.name, this.scope, this)
 
         // If function is defined inside another function, add the name
         // to local names
@@ -1524,18 +1518,7 @@ var DelCtx = function(context){
                     // cf issue #923
                     var scope = $get_scope(this),
                         is_global = false
-                    if(scope.ntype == "def" &&
-                            scope.globals && scope.globals.has(expr.value)){
-                        // Delete from global namespace
-                        scope = scope.parent
-                        while(scope.parent &&
-                                scope.parent.id !== "__builtins__"){
-                            scope = scope.parent
-                        }
-                        is_global = true
-                    }
-                    var res = '$B.$delete("' + expr.value + '"' +
-                        (is_global ? ', "global"' : '') + ');'
+                    var res = '$B.$delete("' + expr.value + '");'
                     // Delete from scope to force the use of $search or
                     // $global_search in name resolution, even if del is never
                     // called.
@@ -1710,8 +1693,6 @@ var ExceptCtx = function(context){
     }
 
     this.to_js = function(){
-        // in method "transform" of TryCtx instances, related
-        // ExceptCtx instances receive an attribute __name__
 
         this.js_processed = true
 
@@ -2003,31 +1984,6 @@ var FuncStarArgCtx = function(context,op){
 
 }
 
-var GlobalCtx = function(context){
-    // Class for keyword "global"
-    this.type = 'global'
-    this.parent = context
-    this.tree = []
-    context.tree[context.tree.length] = this
-    this.expect = 'id'
-    this.scope = $get_scope(this)
-    this.scope.globals = this.scope.globals || new Set()
-    this.module = $get_module(this)
-    this.module.binding = this.module.binding || {}
-
-    this.toString = function(){return 'global ' + this.tree}
-
-    this.add = function(name){
-        this.scope.globals.add(name)
-        this.module.binding[name] = true
-    }
-
-    this.to_js = function(){
-        this.js_processed = true
-        return ''
-    }
-}
-
 var IdCtx = function(context, value){
     // Class for identifiers (variable names)
 
@@ -2094,12 +2050,6 @@ var IdCtx = function(context, value){
         if(context.type == 'expr' && context.parent.type == 'comp_if'){
             // form {x for x in foo if x>5} : don't put x in referenced names
             return
-        }else if(context.type == 'global'){
-            if(scope.globals === undefined){
-                scope.globals = new Set([value])
-            }else{
-                scope.globals.add(value)
-            }
         }
     }
 
@@ -2227,13 +2177,13 @@ var IdCtx = function(context, value){
     this.to_js = function(arg){
         var value = this.value,
             scope = this.scope
-        var test = value == "Empty"
+        var test = false // value == "pos"
         if(test){
             console.log("to js", this)
         }
         while(scope){
             if(test){
-                //console.log("search", value, "in", scope.id, scope.binding)
+                console.log("search", value, "in", scope.id, scope.binding)
             }
             if(scope.binding.hasOwnProperty(value)){
                 var is_defined = this.bound || this.boundBefore(scope)
@@ -2969,7 +2919,7 @@ var SliceCtx = function(context){
     this.to_js = function(){
         for(var i = 0; i < this.tree.length; i++){
             if(this.tree[i].type == "abstract_expr"){
-                this.tree[i].to_js = function(){return "_b_.None"}
+                this.tree[i].to_js = function(){return "undefined"}
             }
         }
         if(this.parent.type == "sub"){
@@ -2991,7 +2941,7 @@ var StarArgCtx = function(context){
 
     this.to_js = function(){
         this.js_processed = true
-        return '{$nat:"ptuple",arg:' + $to_js(this.tree) + '}'
+        return $to_js(this.tree)
     }
 }
 
@@ -3149,7 +3099,7 @@ function StructCtx(context){
     this.type = "struct"
     var node = context.parent
     this.parent = context.parent
-    this.tree = []
+    this.tree = [context]
     this.expect = "id"
 
     this.id = context.tree[0]
@@ -3159,25 +3109,19 @@ function StructCtx(context){
     var scope = $get_scope(context)
     $bind(context.tree[0].value, scope, context)
 
-    this.transform = function(node, rank){
-        var create_obj_node = NodeJS("return")
-        create_obj_node.add(NodeJS("__class__: " + this.id.to_js() + ","))
-        var params = []
-        this.tree.forEach(function(item, i){
-            params.push('"' + item + '"')
-            line = item + ": $." + item
-            if(i < this.tree.length - 1){
-                line += ","
-            }
-            create_obj_node.add(NodeJS(line))
-        }, this)
-        node.add(NodeJS('var $ = $B.args("' + this.id.value +
-            '", pos, kw, [' + params.join(", ") + "])"))
-        node.add(create_obj_node)
-    }
-
     this.to_js = function(){
-        return this.id.to_js() + " = function(pos, kw)"
+        var js = this.id.to_js() + ' = _b_.struct("' + this.id.value + '", ['
+        var names = []
+        for(const call_arg of this.tree[0].tree){
+            if(call_arg.tree[0].type == "kwarg"){
+                names.push('{' + call_arg.tree[0].tree[0].value + ': ' +
+                    call_arg.tree[0].tree[1].to_js() + '}')
+            }else if(call_arg.tree[0].type == "expr" &&
+                    call_arg.tree[0].name == "id"){
+                names.push('"' + call_arg.tree[0].tree[0].value + '"')
+            }
+        }
+        return js + names.join(', ') + '])'
     }
 
 }
@@ -3494,7 +3438,7 @@ var $add_line_num = function(node,rank){
         else if(elt.type == 'single_kw'){flag = false}
         if(flag){
             // add a trailing None for interactive mode
-            var js = 'locals.line_info = "' + line_num + ',' +
+            var js = 'locals.$line_info = "' + line_num + ',' +
                 mod_id + '";'
 
             var new_node = new $Node()
@@ -3512,7 +3456,7 @@ var $add_line_num = function(node,rank){
         if((elt.type == 'condition' && elt.token == "while")
                 || node.context.type == 'for'){
             if($B.last(node.children).context.tree[0].type != "return"){
-                node.add(NodeJS('locals.line_info = "' + line_num +
+                node.add(NodeJS('locals.$line_info = "' + line_num +
                     ',' + mod_id + '";'))
             }
         }
@@ -3531,11 +3475,6 @@ var $bind = function(name, scope, context){
     // - add it to the attribute "bindings" of the node, except if no_bindings
     //   is set, which is the case for "for x in A" : if A is empty the name
     //   has no value (issue #1233)
-    if(scope.globals && scope.globals.has(name)){
-        var module = $get_module(context)
-        module.binding[name] = true
-        return
-    }
 
     if(! context.no_bindings){
         var node = $get_node(context)
@@ -3972,6 +3911,11 @@ var $transition = function(context, token, value){
                         }
                         return $transition(context.parent, token, value)
                     }
+                case 'eol':
+                    if(context.parent.parent.type == "struct"){
+                        return $transition(context.parent.parent, token, value)
+                    }
+
             }
             $_SyntaxError(context, 'token ' + token + ' after ' + context)
 
@@ -4543,7 +4487,8 @@ var $transition = function(context, token, value){
                 }else if(context.parent.type == "slice"){
                     return $transition(context.parent, token, value)
                 }else if(context.parent.type == "node"){
-                    return new StructCtx(context)
+                    // syntax "Position: x, y"
+                    return new CallCtx(new StructCtx(context))
                 }
                 break
             case '=':
@@ -5140,8 +5085,6 @@ var $transition = function(context, token, value){
                         $_SyntaxError(context, 'except after ' + previous.type)
                     }
                     return new ExceptCtx(context)
-                case 'global':
-                    return new GlobalCtx(context)
                 case 'lambda':
                     return new LambdaCtx(context)
                 case "module":
@@ -5330,27 +5273,10 @@ var $transition = function(context, token, value){
 
         case 'struct':
             switch(token){
-                case 'id':
-                    if(context.expect == "id"){
-                        context.tree.push(value)
-                        context.expect = ","
-                        return context
-                    }
-                    $_SyntaxError(context, 'token ' + token)
-                case ',':
-                    if(context.expect == ","){
-                        context.expect = "id"
-                        return context
-                    }
-                    $_SyntaxError(context, 'token ' + token)
                 case 'eol':
-                    if(context.expect == ","){
-                        return context.parent
-                    }
-                    $_SyntaxError(context, 'token ' + token)
+                    return context.parent
                 default:
                     $_SyntaxError(context, 'token ' + token)
-
             }
 
         case 'sub':
@@ -5547,7 +5473,7 @@ for(var i = 0; i < s_escaped.length; i++){
 
 var kwdict = [
     "return", "break", "for", "lambda", "try", "finally",
-    "raise", "def", "while", "del", "global",
+    "raise", "def", "while", "del",
     "as", "elif", "else", "if",
     "except", "raise", "in", "continue",
     "async", "await",
@@ -6260,7 +6186,7 @@ var $create_root_node = function(src, module,
         src = src.src
     }
     root.src = src
-    root.__file__ = $B.script_path +
+    root.$file = $B.script_path +
                     ($B.script_path.endsWith("/") ? "" : "/") + module
 
     return root
@@ -6278,7 +6204,7 @@ $B.bg2js = function(src, module, locals_id, parent_scope, line_num){
 
     if(typeof module == "object"){
         var __package__ = module.__package__
-        module = module.__name__
+        module = module.$name
     }else{
         var __package__ = ""
     }
@@ -6347,8 +6273,8 @@ $B.bg2js = function(src, module, locals_id, parent_scope, line_num){
     root.insert(0, NodeJS(js.join('')))
     offset++
 
-    root.insert(offset++, NodeJS('locals.name = "' + locals_id + '"'))
-    root.insert(offset++, NodeJS('locals.__file__ = "' + root.__file__ + '"'))
+    root.insert(offset++, NodeJS('locals.$name = "' + locals_id + '"'))
+    root.insert(offset++, NodeJS('locals.$file = "' + root.$file + '"'))
 
     // Code to create the execution frame and store it on the frames stack
     var enter_frame_pos = offset,
@@ -6378,9 +6304,7 @@ $B.bg2js = function(src, module, locals_id, parent_scope, line_num){
 
     root.add(catch_node)
 
-    if($B.debug > 0){
-        $add_line_num(root, null, module)
-    }
+    $add_line_num(root, null, module)
 
     var t1 = new Date().getTime()
     if($B.debug > 2){
@@ -6449,11 +6373,11 @@ $B.run_script = function(src, name, run_loop){
         var root = $B.bg2js(src, name, name),
             js = root.to_js(),
             script = {
-                __doc__: root.__doc__,
+                $doc: root.$doc,
                 js: js,
-                __name__: name,
+                $name: name,
                 $src: src,
-                __file__: $B.script_path +
+                $file: $B.script_path +
                     ($B.script_path.endsWith("/") ? "" : "/") + name
             }
             $B.file_cache[script.__file__] = src

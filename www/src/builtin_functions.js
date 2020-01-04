@@ -41,11 +41,11 @@ var NoneType = {
         return None
     },
     $infos:{
-        __name__: "NoneType",
         __module__: "builtins"
     },
     __bool__: function(self){return False},
     __class__: _b_.type,
+    name: "None",
     str: function(self){return 'None'},
     $is_class: true
 }
@@ -421,8 +421,17 @@ function $$eval(pos, kw){
         throw _b_.TypeError.$factory("eval() arg 1 must be a string, bytes "+
             "or code object")
     }
+    var scope = {
+        id: frame.$name,
+        binding: {}
+    }
+    for(var attr in frame){
+        if(! (attr.startsWith("$"))){
+            scope.binding[attr] = true
+        }
+    }
 
-    var root = $B.bg2js(src, frame.__name__, frame.__name__, frame),
+    var root = $B.bg2js(src, scope.id, scope.id, scope),
         js, gns, lns
 
     try{
@@ -467,7 +476,7 @@ function $$eval(pos, kw){
         }
 
         js = root.to_js()
-        eval("locals_" + frame.__name__ + " = frame")
+        eval("locals_" + scope.id + " = frame")
 
         if(is_exec){
             var res = new Function(js)()
@@ -575,7 +584,7 @@ function getattr(pos, kw){
 
 $B.$getattr = function(obj, attr){
     // Used internally to avoid having to parse the arguments
-    var test = false // attr == "split"
+    var test = false // attr == "row"
     if(obj===undefined){
         console.log("obj undef, attr", attr)
     }
@@ -639,13 +648,6 @@ function globals(){
     return res
 }
 
-function hasattr(obj,attr){
-    check_no_kw('hasattr', obj, attr)
-    check_nb_args('hasattr', 2, arguments)
-    try{$B.$getattr(obj,attr); return true}
-    catch(err){return false}
-}
-
 function _get_builtins_doc(){
     if($B.builtins_doc === undefined){
         // Load builtins docstrings from file builtins_doctring.js
@@ -676,22 +678,6 @@ function __import__(mod_name, globals, locals, fromlist, level) {
         {globals:None, locals:None, fromlist:_b_.tuple.$factory(), level:0},
         null, null)
     return $B.$__import__($.name, $.globals, $.locals, $.fromlist)
-}
-
-Info = {
-    attrs: function(pos, kw){
-        var $ = $B.args("attrs", pos, kw, ["obj"])
-        try{
-            return $B.$getattr($.obj, "attrs")([], {})
-        }catch(err){
-            console.log(err)
-            return Object.keys($.obj)
-        }
-    },
-    len: function(pos, kw){
-        var $ = $B.args("len", pos, kw, ["obj"])
-        return $B.$getattr($.obj, "len")([], {})
-    }
 }
 
 // not a direct alias of prompt: input has no default value
@@ -867,6 +853,21 @@ object = {
     $getattr: function(self, attr){
         var res = self[attr]
         if(res === undefined){
+            // Special arguments
+            if(attr == "hasattr"){
+                return function(pos, kw){
+                    var $ = $B.args("hasattr", pos, kw, ["attr"])
+                    try{
+                        $B.$getattr(self, $.attr)
+                        return true
+                    }catch(err){
+                        if(err.__class__ === _b_.AttributeError){
+                            return false
+                        }
+                        throw err
+                    }
+                }
+            }
             throw _b_.AttributeError.$factory(attr)
         }
         return res
@@ -881,7 +882,7 @@ object = {
     },
     str: function(pos, kw){
         var $ = $B.args("str", pos, kw, ["self"])
-        return $.self.toString()
+        return '<' + $B.class_name($.self) + ' object>'
     }
 }
 
@@ -951,7 +952,7 @@ function $print(pos, kw){
     console.log(res)
     return None
 }
-$print.__name__ = 'print'
+$print.name = 'print'
 $print.is_func = true
 
 function repr(obj){
@@ -1057,7 +1058,78 @@ function sorted () {
     return _list
 }
 
-// str() defined in py_string.js
+function struct(name, attrs){
+    var params = [],
+        defaults = {}
+    for(const attr of attrs){
+        if(typeof attr == "string"){
+            params.push(attr)
+        }else{
+            for(var key in attr){
+                params.push(key)
+                defaults[key] = attr[key]
+            }
+        }
+    }
+    var obj = {
+            __class__: struct,
+            $name: name,
+            $params: params,
+            $defaults: defaults
+        }
+    // Initialize with None
+    for(const param of params){
+        if(defaults[param] !== undefined){
+            obj[param] = defaults[param]
+        }else{
+            obj[param] = _b_.None
+        }
+    }
+    obj.$factory = function(pos, kw){
+        var res = $B.args(name, pos, kw, obj.$params,
+            obj.$defaults)
+        res.__class__ = obj
+        return res
+    }
+    obj.getattr = function(pos, kw){
+        var $ = $B.args("setattr", pos, kw, ["self", "attr"]),
+            res = $.self[$.attr]
+        if(res === undefined){
+            throw _b_.AttributeError.$factory(attr)
+        }
+        return res
+    }
+    obj.setattr = function(pos, kw){
+        var $ = $B.args("setattr", pos, kw, ["self", "attr", "value"])
+        if(params.indexOf($.attr) == -1){
+            throw _b_.AttributeError.$factory($.attr)
+        }
+        $.self[$.attr] = $.value
+    }
+    obj.str = function(pos, kw){
+        var $ = $B.args("str", pos, kw, ["self"]),
+            values = []
+        for(const param of params){
+            if($.self[param] !== undefined){
+                values.push(param + ": " + _b_.str.$($.self[param]))
+            }
+        }
+        return "<" + name + " " + values.join(", ") + ">"
+    }
+    return obj
+}
+
+struct.__class__ = _b_.type
+struct.str = function(pos, kw){
+    var $ = $B.args("str", pos, kw, ["self"]),
+        attrs = []
+    for(const param of $.self.$params){
+        if($.self[param] !== undefined){
+            attrs.push(param + ": " + _b_.str.$($.self[param]))
+        }
+    }
+    return "<struct " + attrs.join(", ") + ">"
+}
 
 function sum(pos, kw){
     var $ = $B.args('sum', pos, kw, ['iterable']),
@@ -1126,11 +1198,11 @@ var Test = {
         var $ = $B.args("raise", pos, kw,
                 ["exception", "func"], {}, "pos", "kw")
         try{
-            console.log("func", $.func, "pos", $.pos, "kw", $.kw)
             $.func($.pos, $.kw)
             throw _b_.AssertionError.$factory("exception not raised")
         }catch(err){
             if(err.__class__ !== $.exception){
+                console.log("err", err.message)
                 throw _b_.AssertionError.$factory("exception not raised")
             }
         }
@@ -1146,6 +1218,23 @@ var Test = {
 var type = {
     __parent__: object
 }
+
+// Class of generator expressions
+$B.generator_expression = function(gen){
+    var res = {
+        __class__: $B.generator_expression
+    }
+    res[Symbol.iterator] = function(){
+        return gen([], {})
+    }
+    return res
+}
+
+$B.generator_expression.__class__ = type
+
+$B.generator_expression.name = "GeneratorExpression"
+
+// Class of functions
 
 $B.Function = {
     __class__: type
@@ -1277,16 +1366,15 @@ var zip = function(pos, kw){
     return res
 }
 zip.__class__ = _b_.type
-zip.__name__ = "zip"
 
 // built-in constants : True, False, None
 
 function no_set_attr(klass, attr){
     if(klass[attr] !== undefined){
-        throw _b_.AttributeError.$factory("'" + klass.$infos.__name__ +
+        throw _b_.AttributeError.$factory("'" + klass.name +
             "' object attribute '" + attr + "' is read-only")
     }else{
-        throw _b_.AttributeError.$factory("'" + klass.$infos.__name__ +
+        throw _b_.AttributeError.$factory("'" + klass.name +
             "' object has no attribute '" + attr + "'")
     }
 }
@@ -1301,7 +1389,7 @@ _b_.__BARAGWIN__ = __BARAGWIN__
 $B.builtin_funcs = [
     "abs", "all", "any", "callable", "chr",
     "delattr", "dir", "eval", "exec", "exit", "format", "getattr",
-    "globals", "hasattr", "hex", "input", "isinstance",
+    "globals", "hex", "input", "isinstance",
     "issubclass", "locals", "max", "min", "next", "oct",
     "open", "ord", "pow", "print", "repr", "round", "setattr",
     "sorted", "sum"
@@ -1311,13 +1399,13 @@ $B.builtin_classes = [
     "bool", "bytearray", "bytes", "complex", "dict", "enumerate",
     "filter", "float", "frozenset", "int", "list", "map",
     "object", "range", "set", "slice",
-    "str", "type", "zip"
+    "str", "struct", "type", "zip"
 ]
 
 var other_builtins = [
     'False',  'None', 'True', '__import__',
     'copyright', 'credits', 'license',
-    'Date', 'Info', 'Test'
+    'Date', 'Test'
 ]
 
 var builtin_names = $B.builtin_funcs.
