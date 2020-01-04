@@ -12,19 +12,17 @@ range.__class__ = _b_.type
 range.__name__ = "range"
 
 range.$ = function(start, stop, step){
+    start = start === undefined ? 0 : start
+    if(stop === undefined){
+        throw _b_.ValueError.$factory("wrong values for range")
+    }
+    step = step === undefined ? 1 : step
+
     var res = {
         __class__: range,
         start: start,
         stop: stop,
         step: step
-    }
-    if(stop === _b_.None && step === undefined){
-        start = 0
-        stop = start
-        step = 1
-    }else{
-        start = start === _b_.None ? 0 : start
-        step = step === undefined ? 1 : step
     }
     var value = start
 
@@ -43,7 +41,7 @@ range.$ = function(start, stop, step){
             }
         }
     }else{
-        throw _b_.ValueError.$factory("wrong values for slice")
+        throw _b_.ValueError.$factory("wrong values for range")
     }
     return res
 }
@@ -66,51 +64,34 @@ slice.__class__ = _b_.type
 slice.__name__ = "slice"
 
 slice.$ = function(start, stop, step){
-    var res = {
-        __class__: slice
+    return {
+        __class__: slice,
+        start: start,
+        stop: stop,
+        step: step
     }
-    if(stop === _b_.None && step === undefined){
-        res.start = 0
-        res.stop = start
-        res.step = 1
-    }else{
-        res.start = start === _b_.None ? 0 : start
-        res.stop = stop
-        res.step = step === undefined ? 1 : step
-    }
-    return res
 }
 
 slice.indices = function(self, t){
     // Return the list of indices in t defined by slice
-    var start,
-        stop,
-        step
-    if(self.stop === _b_.None && self.step === undefined){
-        start = 0
-        stop = t.length
-        step = 1
-    }else{
-        start = self.start === _b_.None ? 0 : self.start
-        stop = self.stop == _b_.None ? t.length : self.stop
+    var start = self.start === undefined ? 0 : self.start
+        stop = self.stop == undefined ? t.length : self.stop
         step = self.step === undefined ? 1 : self.step
-    }
+
     start = start < 0 ? start + t.length : start
     stop = stop < 0 ? stop + t.length : stop
 
     var res = []
-    if(stop >= start && step > 0){
+    if(step > 0){
         for(var i = start; i < stop; i += step){
             res.push(i)
         }
-    }else if(stop <= start && step < 0){
+    }else if(step < 0){
         for(var i = start; i > stop; i += step){
             res.push(i)
         }
     }else{
-        console.log(self, t, start, stop, step)
-        throw _b_.ValueError.$factory("invalid values for slice " +
-            _b_.slice.str([self]))
+        throw _b_.ValueError.$factory("slice step cannot be 0")
     }
     return res
 }
