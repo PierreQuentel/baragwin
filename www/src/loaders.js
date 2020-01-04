@@ -20,11 +20,11 @@ var loop = $B.loop = function(){
     if(func == "execute"){
         try{
             var script = task[1],
-                script_id = script.__name__.replace(/\./g, "_"),
+                script_id = script.$name.replace(/\./g, "_"),
                 module = $B.module.$factory(script.__name__)
 
             module.$src = script.$src
-            module.__file__ = script.__file__
+            module.$file = script.$file
             $B.imported[script_id] = module
 
             new Function("locals_" + script_id, script.js)(module)

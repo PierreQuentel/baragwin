@@ -108,7 +108,7 @@ $B.print_stack = function(stack){
                 info[1] = "<module>"
             }
             trace.push(info[1] + " line " + info[0])
-            var src = $B.file_cache[frame.__file__]
+            var src = $B.file_cache[frame.$file]
             if(src){
                 var lines = src.split("\n"),
                     line = lines[parseInt(info[0]) - 1]
@@ -222,8 +222,8 @@ var frame = $B.make_class("frame",
             }
             res.f_globals = $B.obj_dict(_frame[3])
 
-            if(_frame[3].__file__ !== undefined){
-                filename = _frame[3].__file__
+            if(_frame[3].$file !== undefined){
+                filename = _frame[3].$file
             }else if(locals_id.startsWith("$exec")){
                 filename = "<string>"
             }
@@ -234,7 +234,7 @@ var frame = $B.make_class("frame",
                 res.f_lineno = parseInt(line_info[0])
                 var module_name = line_info[1]
                 if($B.imported.hasOwnProperty(module_name)){
-                    filename = $B.imported[module_name].__file__
+                    filename = $B.imported[module_name].$file
                 }
                 res.f_lineno = parseInt(_frame[1].line_info.split(',')[0])
             }
@@ -248,7 +248,7 @@ var frame = $B.make_class("frame",
                     co_name = _frame[0].$name
                 }else if(_frame.length > 4){
                     if(_frame[4].$infos){
-                        co_name = _frame[4].$infos.__name__
+                        co_name = _frame[4].$infos.$name
                     }else{
                         co_name = _frame[4].name
                     }
@@ -340,14 +340,14 @@ var getExceptionTrace = $B.getExceptionTrace = function(exc, includeInternal){
 
     for(var i = 0; i < exc.frames.length; i++){
         var frame = exc.frames[i]
-        if(! frame.line_info){
+        if(! frame.$line_info){
             continue
         }
-        var $line_info = frame.line_info
+        var $line_info = frame.$line_info
         var line_info = $line_info.split(','),
             src
-        if(frame.__file__ && $B.file_cache.hasOwnProperty(frame.__file__)){
-            src = $B.file_cache[frame.__file__]
+        if(frame.$file && $B.file_cache.hasOwnProperty(frame.$file)){
+            src = $B.file_cache[frame.$file]
         }else if(exc.module == line_info[1]){
             src = exc.src
         }else{
@@ -364,9 +364,9 @@ var getExceptionTrace = $B.getExceptionTrace = function(exc, includeInternal){
             var src = globals.$src
         }
         if(src === undefined){
-            if($B.VFS && $B.VFS.hasOwnProperty(frame.name)){
-                src = $B.VFS[frame.name][1]
-            }else if(src = $B.file_cache[frame.__file__]){
+            if($B.VFS && $B.VFS.hasOwnProperty(frame.$name)){
+                src = $B.VFS[frame.$name][1]
+            }else if(src = $B.file_cache[frame.$file]){
                 // For imported modules, cf. issue 981
             }else{
                 continue
@@ -602,10 +602,10 @@ _b_.SyntaxError.$factory = function(){
     var exc = se.apply(null, arguments),
         frame = $B.last($B.frames_stack)
     if(frame){
-        line_info = frame.line_info
-        exc.filename = frame.__file__
+        line_info = frame.$line_info
+        exc.filename = frame.$file
         exc.lineno = parseInt(line_info.split(",")[0])
-        var src = $B.file_cache[frame.__file__]
+        var src = $B.file_cache[frame.$file]
         if(src){
             lines = src.split("\n")
             exc.text = lines[exc.lineno - 1]
