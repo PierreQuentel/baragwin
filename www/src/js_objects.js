@@ -133,7 +133,7 @@ var Undefined = {
 $B.set_func_names(UndefinedClass, "<javascript>")
 
 var jsobj2pyobj = $B.jsobj2pyobj = function(jsobj) {
-    switch(jsobj) {
+    switch(jsobj){
       case true:
       case false:
         return jsobj
@@ -271,6 +271,20 @@ JSObject.__dir__ = function(self){
     return Object.keys(self.js)
 }
 
+JSObject.contains = function(pos, kw){
+    var $ = $B.args("contains", pos, kw, ["self", "item"])
+    if($.self.js[Symbol.iterator]){
+        for(const item of $.self.js){
+            if($B.compare.eq(item, $.item)){
+                return true
+            }
+        }
+        return false
+    }
+    throw _b_.TypeError.$factory("can't test membership in " +
+        self.js)
+}
+
 JSObject.getattr = function(pos, kw){
     var $ = $B.args("getattr", pos, kw, ["obj", "attr"])
     return JSObject.$getattr($.obj, $.attr)
@@ -314,6 +328,19 @@ JSObject.$getattr = function(obj, attr){
         result.js_func = obj.js_func
         result.is_constructor = true
         return result
+    }else if(attr == "hasattr"){
+        return function(pos, kw){
+            var $ = $B.args("hasattr", pos, kw, ["attr"])
+            try{
+                $B.$getattr(obj.js, $.attr)
+                return true
+            }catch(err){
+                if(err.__class__ === _b_.AttributeError){
+                    return false
+                }
+                throw err
+            }
+        }
     }else if(JSObject[attr] !== undefined){
         if(typeof JSObject[attr] == "function"){
             return function(pos, kw){
@@ -326,28 +353,13 @@ JSObject.$getattr = function(obj, attr){
     }
 }
 
-JSObject.__getitem__ = function(self, rank){
-    if(typeof self.js.length == 'number'){
-        if((typeof rank == "number" || typeof rank == "boolean") &&
-                typeof self.js.item == 'function'){
-            var rank_to_int = _b_.int.$factory(rank)
-            if(rank_to_int < 0){rank_to_int += self.js.length}
-            var res = self.js.item(rank_to_int)
-            if(res === null){throw _b_.IndexError.$factory(rank)}
-            return JSObject.$factory(res)
-        }else if(typeof rank == "string" &&
-                typeof self.js.getNamedItem == 'function'){
-            var res = JSObject.$factory(self.js.getNamedItem(rank))
-            if(res === undefined){throw _b_.KeyError.$factory(rank)}
-            return res
-        }
-    }
-    try{return getattr(self.js, '__getitem__')(rank)}
-    catch(err){
-        if(self.js[rank] !== undefined){
-            return JSObject.$factory(self.js[rank])
-        }
-        throw _b_.KeyError.$factory(rank)
+JSObject.getitem = function(pos, kw){
+    var $ = $B.args("getitem", pos, kw, ["self", "item"])
+    if($.self.js.item){
+        return JSObject.$factory($.self.js.item($.item))
+    }else{
+        throw _b_.TypeError.$factory(JSObject.str($.self) +
+            " is not subscriptable")
     }
 }
 
