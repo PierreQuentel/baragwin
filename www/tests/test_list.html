@@ -61,6 +61,10 @@ Test.equal(list([1:4]), [1, 2, 3])
 Test.equal(list([:4:2]), [0, 2])
 Test.equal(list([10:2:-2]), [10, 8, 6, 4])
 
+Test.true([1, 2].hasattr("len"))
+Test.false([1, 2].hasattr("zzz"))
+
+
 print("done")
 `
 </script>

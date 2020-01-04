@@ -325,6 +325,35 @@ $B.class_name = function(obj){
     return $B.get_class(obj).__name__
 }
 
+$B.extend = function(){
+    // Build a Javascript object as the union of all arguments
+    // Used in function calls when there are **kw arguments
+    var res = {},
+        key,
+        value
+    for(var i = 0, len = arguments.length; i < len; i++){
+        var arg = arguments[i]
+        if(arg instanceof Map){
+            for(const [key, value] of arg.entries()){
+                if(res[key] !== undefined){
+                    throw _b_.ValueError.$factory("duplicate keyword argument: " +
+                        key)
+                }
+                res[key] = arg[key]
+            }
+        }else{
+            for(var key in arg){
+                if(res[key] !== undefined){
+                    throw _b_.ValueError.$factory("duplicate keyword argument: " +
+                        key)
+                }
+                res[key] = arg[key]
+            }
+        }
+    }
+    return res
+}
+
 $B.delitem = function(obj, item){
     if(Array.isArray(obj)){
         return _b_.list.$delitem(obj, item)
@@ -345,13 +374,12 @@ $B.getitem = function(obj, item){
     }else if(obj instanceof Map){
         res = obj.get(item)
     }else if(typeof obj == "string"){
-        if(typeof obj != "number"){
-            throw _b_.TypeError.$factory("list indice must be int, not " +
-                $B.get_class(obj))
-        }
-        res = obj.charAt(item)
+        res = _b_.str.$getitem(obj, item)
     }else if(Array.isArray(obj)){
         res = _b_.list.$getitem(obj, item)
+    }else if(typeof obj == "number" || obj instanceof Number){
+            throw _b_.TypeError.$factory("'" + $B.class_name(obj) +
+                "' object is not subscriptable")
     }else{
         try{
             var getitem = $B.$getattr(obj, "getitem")
@@ -370,14 +398,15 @@ $B.getitem = function(obj, item){
 
 $B.is_member = function(item, container){
     // used for "item in container"
+    var klass = container.__class__ || $B.get_class(container)
     if(typeof container == "string"){
         if(typeof item != "string"){
             throw _b_.TypeError.$factory("cannot test " +
                 $B.class_name(item) + " in string")
         }
         return container.indexOf(item) >  -1
-    }else if(container.__class__ && container.__class__.contains){
-        return container.__class__.contains([container, item])
+    }else if(klass.contains){
+        return klass.contains([container, item])
     }else if(container[Symbol.iterator]){
         for(const x of container){
             if($B.compare.eq(x, item)){
@@ -443,9 +472,8 @@ module.$factory = function(name, doc, $package){
     return {
         //__class__: module,
         $class: module,
-        __name__: name,
-        __doc__: doc || _b_.None,
-        __package__: $package || _b_.None
+        $name: name,
+        $doc: doc || _b_.None
     }
 }
 
@@ -473,7 +501,6 @@ $B.to_list = function(obj, expected){
 
 $B.test_iter = function(candidate){
     if(candidate[Symbol.iterator] === undefined){
-        console.log("not iterator", candidate)
         throw _b_.TypeError.$factory($B.class_name(candidate) +
             " object is not iterable")
     }
@@ -525,7 +552,7 @@ $B.dict_comp = function(module_name, parent_scope, items, line_num){
     js += '\nreturn locals.' + res + '\n'
 
     js = "(function(locals_" + dictcomp_name + "){" + js + "})({})"
-    
+
     return js
 }
 
@@ -543,14 +570,14 @@ $B.gen_expr = function(module_name, parent_scope, items, line_num){
     py += "yield " + items[0]
 
     var genexpr_name = "__ge" + $ix,
-        root = $B.bg2js({src: py, is_comp: true}, genexpr_name, genexpr_name,
+        root = $B.bg2js({src: py, is_comp: true}, module_name, genexpr_name,
             parent_scope, line_num),
         js = root.to_js(),
         lines = js.split("\n")
 
     js = lines.join("\n")
-    js += "\nvar $res = locals." + genexpr_name +
-        '([], {});\n$res.is_gen_expr = true;\nreturn $res\n'
+    js += "\nvar res = locals." + genexpr_name +
+        ';\nreturn $B.generator_expression(res)\n'
     js = "(function(locals_" + genexpr_name +"){" + js + "})({})\n"
 
     return js
@@ -768,7 +795,7 @@ $B.leave_frame = function(arg){
     $B.frames_stack.pop()
 }
 
-var min_int = Math.pow(-2, 53), 
+var min_int = Math.pow(-2, 53),
     max_int = Math.pow(2, 53) - 1
 
 $B.is_safe_int = function(){

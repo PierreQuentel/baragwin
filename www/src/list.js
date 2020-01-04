@@ -22,7 +22,6 @@ function list(pos, kw){
     return res
 }
 list.__class__ = _b_.type
-list.__name__ = "list"
 
 list.add = function(pos, kw){
     var $ = $B.args("add", pos, kw, ["self", "other"])
@@ -544,39 +543,6 @@ $B.$list = function(t){
     return t
 }
 
-// constructor for built-in type 'list'
-list.$factory = function(){
-    if(arguments.length == 0){return []}
-    var $ = $B.args("list", 1, {obj: null}, ["obj"],
-        arguments, {}, null, null),
-        obj = $.obj
-
-    if(Array.isArray(obj)){ // most simple case
-        obj = obj.slice() // list(t) is not t
-        obj.__baragwin__ = true;
-        if(obj.__class__ == tuple){
-            var res = obj.slice()
-            res.__class__ = list
-            return res
-        }
-        return obj
-    }
-    var res = [],
-        pos = 0,
-        arg = $B.$iter(obj),
-        next_func = $B.$call(getattr(arg, "__next__"))
-
-    while(1){
-        try{
-            res[pos++] = next_func()
-        }catch(err){
-            if(!isinstance(err, _b_.StopIteration)){throw err}
-            break
-        }
-    }
-    res.__baragwin__ = true // false for Javascript arrays - used in sort()
-    return res
-}
 
 $B.set_func_names(list, "builtins")
 

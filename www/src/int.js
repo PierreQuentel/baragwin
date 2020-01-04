@@ -600,7 +600,11 @@ $B.$bool = function(obj){ // return true or false
             if(obj){return true}
             return false
         default:
-            if(obj.$is_class){return true}
+            if(obj.$is_class){
+                return true
+            }else if(Array.isArray(obj)){
+                return obj.length > 0
+            }
             var klass = obj.__class__ || $B.get_class(obj),
                 missing = {},
                 bool_method = $B.$getattr(klass, "__bool__", missing)

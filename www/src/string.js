@@ -21,6 +21,8 @@ str.$ = function(arg){
             return arg
         case "number":
             return arg.toString()
+        case "boolean":
+            return arg.toString()
     }
     if(arg instanceof Number){
         return arg.toString()
@@ -50,7 +52,7 @@ function normalize_start_end($){
         $.end = Math.max(0, $.end)
     }
 
-    if(! isinstance($.start, _b_.int) || ! isinstance($.end, _b_.int)){
+    if(! _b_.isinstance($.start, _b_.int) || ! _b_.isinstance($.end, _b_.int)){
         throw _b_.TypeError.$factory("slice indices must be integers " +
             "or None or have an __index__ method")
     }
@@ -1155,6 +1157,31 @@ str.format_map = function(self) {
       "function format_map not implemented yet")
 }
 
+str.$getitem = function(self, arg){
+    // Used internally to avoid using $B.args
+    if(typeof arg.valueOf() == "number"){
+        if(! (arg instanceof Number) ||
+                arg.valueOf() == Math.floor(arg.valueOf())){
+            var pos = arg.valueOf()
+            if(arg < 0){
+                pos = self.length + pos
+            }
+            if(pos >= 0 && pos < self.length){
+                return self.charAt(pos)
+            }else{
+                throw _b_.IndexError.$factory("list index out of range")
+            }
+        }
+    }else if(_b_.isinstance(arg, _b_.slice)){
+        var res = ''
+        for(const ix of _b_.slice.indices(arg, self)){
+            res += self.charAt(ix)
+        }
+        return res
+    }
+    throw _b_.TypeError.$factory("list indices must be int or slice, not " +
+        $B.class_name(arg))
+}
 
 
 str.index = function(self){
@@ -1391,26 +1418,17 @@ str.isupper = function(self){
 }
 
 
-str.join = function(){
-    var $ = $B.args("join", 2, {self: null, iterable: null},
-        ["self", "iterable"], arguments, {}, null, null)
-
-    var iterable = _b_.iter($.iterable),
+str.join = function(pos, kw){
+    var $ = $B.args("join", pos, kw, ["self", "iterable"]),
         res = [],
         count = 0
-    while(1){
-        try{
-            var obj2 = _b_.next(iterable)
-            if(! isinstance(obj2, str)){throw _b_.TypeError.$factory(
-                "sequence item " + count + ": expected str instance, " +
-                $B.class_name(obj2) + " found")}
-            res.push(obj2)
-        }catch(err){
-            if(_b_.isinstance(err, _b_.StopIteration)){
-                break
-            }
-            else{throw err}
+    for(const item of $.iterable){
+        if(typeof item != "string"){
+            throw _b_.TypeError.$factory("sequence item " +
+                count + ": expected str instance, " +
+                $B.class_name(obj2) + " found")
         }
+        res.push(item)
     }
     return res.join($.self)
 }
@@ -1782,20 +1800,19 @@ str.splitlines = function(self){
     }
 }
 
-str.startswith = function(){
+str.startswith = function(pos, kw){
     // Return True if string starts with the prefix, otherwise return False.
     // prefix can also be a tuple of prefixes to look for. With optional
     // start, test string beginning at that position. With optional end,
     // stop comparing string at that position.
-    var $ = $B.args("startswith", 4,
-        {self: null, prefix: null, start: null, end: null},
+    var $ = $B.args("startswith", pos, kw,
         ["self", "prefix", "start", "end"],
-        arguments, {start: 0, end: null}, null, null)
+        {start: 0, end: null})
 
     normalize_start_end($)
 
     var prefixes = $.prefix
-    if(! isinstance(prefixes, _b_.tuple)){prefixes = [prefixes]}
+    if(! _b_.isinstance(prefixes, _b_.list)){prefixes = [prefixes]}
 
     var s = $.self.substring($.start, $.end)
     for(var i = 0, len = prefixes.length; i < len; i++){

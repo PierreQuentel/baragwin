@@ -52,6 +52,8 @@ print(x, "ok", end="-")
 def f(y, z=3)
     return y + z
 
+t = []
+kw = {}
 Test.equal(f(5, z=6, *t, **kw), 11)
 Test.equal(f(5), 8)
 
