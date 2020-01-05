@@ -557,6 +557,15 @@ function format(value, format_spec) {
     return $B.$call(method)(value, $.format_spec)
 }
 
+$B.Function = {
+    __name__: "function"
+}
+$B.Function.__class__ = _b_.type
+$B.Function.str = function(pos, kw){
+    var $ = $B.args("str", pos, kw, ["self"])
+    return '<function' + ($.self.name ? ' ' + $.self.name : '') + '>'
+}
+
 function attr_error(attr, cname){
     var msg = "bad operand type for unary #: '" + cname + "'"
     switch(attr){
@@ -584,7 +593,7 @@ function getattr(pos, kw){
 
 $B.$getattr = function(obj, attr){
     // Used internally to avoid having to parse the arguments
-    var test = false // attr == "row"
+    var test = false // attr == "calc"
     if(obj===undefined){
         console.log("obj undef, attr", attr)
     }
@@ -625,6 +634,9 @@ $B.$getattr = function(obj, attr){
                     }
                     method.func = res
                     method.__class__ = $B.method
+                    if(test){
+                        console.log("return method", method)
+                    }
                     return method
                 }else{
                     return res
@@ -632,6 +644,9 @@ $B.$getattr = function(obj, attr){
             }
         }
         klass = klass.__parent__
+    }
+    if(test){
+        console.log("use object.$getattr", object.$getattr(obj, attr))
     }
     return object.$getattr(obj, attr)
 }
@@ -851,6 +866,10 @@ object = {
         return object.$getattr($.self, $.attr)
     },
     $getattr: function(self, attr){
+        var test = false // attr == "calc"
+        if(test){
+            console.log("obj getattr", self, attr, self[attr])
+        }
         var res = self[attr]
         if(res === undefined){
             // Special arguments
@@ -1064,6 +1083,7 @@ function struct(name, attrs){
     for(const attr of attrs){
         if(typeof attr == "string"){
             params.push(attr)
+            defaults[attr] = _b_.None
         }else{
             for(var key in attr){
                 params.push(key)
@@ -1096,6 +1116,11 @@ function struct(name, attrs){
             res = $.self[$.attr]
         if(res === undefined){
             throw _b_.AttributeError.$factory(attr)
+        }else if(typeof res == "function"){
+            return function(pos, kw){
+                var pos1 = [$.self].concat(pos)
+                return res(pos1, kw)
+            }
         }
         return res
     }
@@ -1120,6 +1145,14 @@ function struct(name, attrs){
 }
 
 struct.__class__ = _b_.type
+
+struct.setattr = function(pos, kw){
+    var $ = $B.args("setattr", pos, kw, ["self", "attr", "value"])
+    object.$setattr($.self, $.attr, $.value)
+    $.self.$defaults[$.attr] = $.value
+    return _b_.None
+}
+
 struct.str = function(pos, kw){
     var $ = $B.args("str", pos, kw, ["self"]),
         attrs = []
@@ -1233,12 +1266,6 @@ $B.generator_expression = function(gen){
 $B.generator_expression.__class__ = type
 
 $B.generator_expression.name = "GeneratorExpression"
-
-// Class of functions
-
-$B.Function = {
-    __class__: type
-}
 
 function $url_open(){
     // first argument is file : can be a string, or an instance of a DOM File object

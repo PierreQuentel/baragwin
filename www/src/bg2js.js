@@ -1236,6 +1236,7 @@ var DefCtx = function(context){
                 this.assign_expr = name
                 if(name.tree[0].type == "sub"){
                     name.tree[0].func = "setitem"
+                    this.key = name.tree[0].tree[0].tree[0].to_js()
                 }
                 name = "$func" + $loop_num
                 $loop_num++
@@ -1460,6 +1461,10 @@ var DefCtx = function(context){
 
             parent.add(except_node)
         }
+        if(this.assigned &&
+                ["attribute", "sub"].indexOf(this.assign_expr.tree[0].type) > -1){
+            node.parent.insert(rank + 1, NodeJS(")"))
+        }
 
         this.transformed = true
 
@@ -1472,8 +1477,16 @@ var DefCtx = function(context){
 
         var js = 'locals.' + this.name
         if(this.assign_expr){
-            console.log(this.assign_expr)
-            js = this.assign_expr.to_js()
+            var expr = this.assign_expr
+            if(expr.tree[0].type == "attribute"){
+                js = '$B.$setattr(' + expr.tree[0].value.to_js() +
+                    ', "' + expr.tree[0].name + '", function(pos, kw)'
+                return js
+            }else if(expr.tree[0].type == "sub"){
+                js = '$B.setitem(' + expr.tree[0].value.to_js() +
+                    ', ' + this.key + ', function(pos, kw)'
+                return js
+            }
         }
 
         js += ' = function'
@@ -3099,29 +3112,45 @@ function StructCtx(context){
     this.type = "struct"
     var node = context.parent
     this.parent = context.parent
-    this.tree = [context]
+    this.name = context
+    this.tree = []
+    this.params = []
     this.expect = "id"
 
     this.id = context.tree[0]
-    this.id.bound = true
+    if(context.tree[0].type == "id"){
+        this.id.bound = true
+    }
     context.parent.tree = [this]
 
     var scope = $get_scope(context)
     $bind(context.tree[0].value, scope, context)
 
     this.to_js = function(){
-        var js = this.id.to_js() + ' = _b_.struct("' + this.id.value + '", ['
+        var type = this.name.tree[0].type
+        var js = '_b_.struct("' + this.id.value + '", ['
         var names = []
-        for(const call_arg of this.tree[0].tree){
-            if(call_arg.tree[0].type == "kwarg"){
-                names.push('{' + call_arg.tree[0].tree[0].value + ': ' +
-                    call_arg.tree[0].tree[1].to_js() + '}')
-            }else if(call_arg.tree[0].type == "expr" &&
-                    call_arg.tree[0].name == "id"){
-                names.push('"' + call_arg.tree[0].tree[0].value + '"')
+        for(const param of this.params){
+            if(Array.isArray(param)){
+                names.push('{' + param[0] + ': ' +
+                    this.tree[param[1]].to_js() + '}')
+            }else{
+                names.push('"' + param + '"')
             }
         }
-        return js + names.join(', ') + '])'
+        js += names.join(', ') + '])'
+        console.log(this.name)
+        var target = this.name.tree[0]
+        switch(this.name.tree[0].type){
+            case 'id':
+                return this.name.to_js() + ' = ' + js
+            case 'sub':
+                return '$B.setitem(' + target.value.to_js() +
+                    ', ' + target.tree[0].tree[0].to_js() + ', ' + js + ')'
+            case 'attribute':
+                return '$B.$setattr(' + target.value.to_js() +
+                    ', "' + target.name + '", ' + js + ')'
+        }
     }
 
 }
@@ -4194,23 +4223,6 @@ var $transition = function(context, token, value){
             }
             $_SyntaxError(context, 'token ' + token + ' after ' + context)
 
-        case 'ellipsis':
-            if(token == '.'){
-                context.nbdots++
-                if(context.nbdots == 3 && $pos - context.start == 2){
-                    context.$complete = true
-                }
-                return context
-            }else{
-                if(! context.$complete){
-                    $pos--
-                    $_SyntaxError(context, 'token ' + token + ' after ' +
-                        context)
-                }else{
-                    return $transition(context.parent, token, value)
-                }
-            }
-
         case 'end_positional':
             if(token == "," || token == ")"){
                 return $transition(context.parent, token, value)
@@ -4488,7 +4500,7 @@ var $transition = function(context, token, value){
                     return $transition(context.parent, token, value)
                 }else if(context.parent.type == "node"){
                     // syntax "Position: x, y"
-                    return new CallCtx(new StructCtx(context))
+                    return new StructCtx(context)
                 }
                 break
             case '=':
@@ -4728,30 +4740,6 @@ var $transition = function(context, token, value){
                     }
                     return $transition(context.parent, token)
             }// switch
-            $_SyntaxError(context, 'token ' + token + ' after ' + context)
-
-        case 'global':
-            switch(token) {
-                case 'id':
-                    if(context.expect == 'id'){
-                       new IdCtx(context, value)
-                       context.add(value)
-                       context.expect = ','
-                       return context
-                    }
-                    break
-                case ',':
-                    if(context.expect == ','){
-                       context.expect = 'id'
-                       return context
-                    }
-                    break
-                case 'eol':
-                    if(context.expect == ','){
-                       return $transition(context.parent, token)
-                    }
-                    break
-            }
             $_SyntaxError(context, 'token ' + token + ' after ' + context)
 
         case 'id':
@@ -5273,8 +5261,33 @@ var $transition = function(context, token, value){
 
         case 'struct':
             switch(token){
+                case 'id':
+                    if(context.expect == 'id'){
+                        context.params.push(value)
+                        context.expect = ","
+                        return context
+                    }
+                    $_SyntaxError(context, ["struct expects an identifier"])
+                case '=':
+                    if(context.expect == ','){
+                        // default value : replace last parameter name by a
+                        // list [param name, rank of default value in context.tree]
+                        var param = context.params.pop()
+                        context.params.push([param, context.tree.length])
+                        return new AbstractExprCtx(context, false)
+                    }
+                    $_SyntaxError(context, ["unexpected = in struct definition"])
+                case ',':
+                    if(context.expect == ','){
+                        context.expect = 'id'
+                        return context
+                    }
+                    $_SyntaxError(context, ["unexpected , in struct definition"])
                 case 'eol':
-                    return context.parent
+                    if(context.expect == ','){
+                        return context.parent
+                    }
+                    $_SyntaxError(context, ["struct expects an identifier"])
                 default:
                     $_SyntaxError(context, 'token ' + token)
             }

@@ -302,7 +302,6 @@ $B.get_class = function(obj){
             case "boolean":
                 return _b_.bool
             case "function":
-                obj.__class__ = $B.Function
                 return $B.Function
             case "object":
                 if(obj instanceof Node){

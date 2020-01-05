@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+
+<script type="text/javascript" src="/src/builtins.js"></script>
+<script type="text/javascript" src="/src/bg2js.js"></script>
+<script type="text/javascript" src="/src/loaders.js"></script>
+<script type="text/javascript" src="/src/utils.js"></script>
+<script type="text/javascript" src="/src/sort.js"></script>
+<script type="text/javascript" src="/src/builtin_functions.js"></script>
+<script type="text/javascript" src="/src/exceptions.js"></script>
+<script type="text/javascript" src="/src/range_slice.js"></script>
+<script type="text/javascript" src="/src/js_objects.js"></script>
+<script type="text/javascript" src="/src/unicode_data.js"></script>
+<script type="text/javascript" src="/src/string.js"></script>
+<script type="text/javascript" src="/src/int.js"></script>
+<script type="text/javascript" src="/src/long_int.js"></script>
+<script type="text/javascript" src="/src/float.js"></script>
+<script type="text/javascript" src="/src/dict.js"></script>
+<script type="text/javascript" src="/src/list.js"></script>
+<script type="text/javascript" src="/src/dom.js"></script>
+<script type="text/javascript" src="/src/builtin_modules.js"></script>
+
+</head>
+
+<body onload="baragwin(2)">
+
+<script type="text/baragwin">
+bg`
+Empty: row=3, col=3, calc
+
+Empty.calc = def(obj)
+  return obj.row + obj.col
+
+print("struct", Empty)
+print("Empty.calc", Empty.calc)
+
+empty = Empty()
+print(empty)
+print(empty.calc)
+print(empty.calc())
+
+t = {}
+t["f"] = def(x)
+  return x + 1
+Test.equal(t["f"](5), 6)
+
+t = {}
+t['x']: row=3, col=3, calc
+print(t['x'])
+a = t['x'](5, 8)
+Test.equal(a.row + a.col, 13)
+
+Pos: x, y
+Pos.x: a, b=2
+pos1 = Pos.x(1, 8)
+Test.equal(pos1.a + pos1.b, 9)
+pos2 = Pos.x(a=7)
+Test.equal(pos2.a + pos2.b, 9)
+
+`
+</script>
+
+</body>
+</html>
