@@ -154,9 +154,6 @@
             }
         })
 
-        // creation of an HTML element
-        _b_.Html = {}
-
         var _b_ = $B.builtins
         var TagSum = $B.TagSum
 
@@ -256,11 +253,11 @@
         }
 
         for(const tag of tags){
-            _b_.Html[tag] = maketag(tag)
+            _b_.$[tag.toLowerCase()] = maketag(tag)
         }
 
         for(const tag of svg_tags){
-            _b_.Html.SVG[tag] = maketag(tag, true)
+            _b_.$.svg[tag.toLowerCase()] = maketag(tag, true)
         }
 
     }
