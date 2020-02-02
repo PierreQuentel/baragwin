@@ -1183,6 +1183,26 @@ str.$getitem = function(self, arg){
         $B.class_name(arg))
 }
 
+str.getattr = function(pos, kw){
+    var $ = $B.args("getattr", pos, kw, ["self", "attr"])
+    return str.$getattr($.self, $.attr)
+}
+
+str.$getattr = function(self, attr){
+    // Don't use Javascript attributes like "split"
+    if(str[attr] !== undefined){
+        if(typeof str[attr] == "function"){
+            return function(pos, kw){
+                var pos1 = pos.slice()
+                pos1.splice(0, 0, self)
+                return str[attr](pos1, kw)
+            }
+        }else{
+            return str[attr]
+        }
+    }
+    throw _b_.AttributeError.$factory(attr)
+}
 
 str.index = function(self){
     // Like find(), but raise ValueError when the substring is not found.
