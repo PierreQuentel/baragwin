@@ -161,7 +161,7 @@ code.file{
     <button id="button0">display an alert box</button>
 
     <script type="text/baragwin" id="script0">
-    when click on Document["button0"]
+    when click on $["button0"]
         Window.alert("Hello !")
 
     </script>
@@ -192,8 +192,8 @@ code.file{
     <span id="zone1" class="zone">Initial content</span>
 
     <script type="text/baragwin" id="script1">
-    when click on Document["button1"]
-        Document["zone1"].textContent = "New content"
+    when click on $["button1"]
+        $["zone1"].textContent = "New content"
 
     </script>
 
@@ -223,8 +223,8 @@ code.file{
     <span id="zone2" style="color:blue;background-color:#aad;" class="zone">coloured content</span>
 
     <script type="text/baragwin" id="script2">
-    when click on Document["button2"]
-        style = Document["zone2"].style
+    when click on $["button2"]
+        style = $["zone2"].style
         color = style.color
         style.color = "#cc8" if color == "blue" else "blue"
         style.backgroundColor = "gray" if color == "blue" else "#aad"
@@ -250,10 +250,10 @@ code.file{
     <span id="zone_class" style="color:blue;background-color:#aad;" class="zone">a random text</span>
 
     <script type="text/baragwin" id="script_class">
-    element = Document["zone_class"]
+    element = $["zone_class"]
     element.classList.add("down")
 
-    when click on Document["button_class"]
+    when click on $["button_class"]
         if "up" in element.classList
             element.classList.remove("up")
             element.classList.add("down")
@@ -280,9 +280,9 @@ code.file{
     <span id="zone3" class="zone">on / off</span>
 
     <script type="text/baragwin"  id="script3">
-    when click on Document["button3"]
-        display = Document["zone3"].style.display
-        Document["zone3"].style.display = "inline" if display == "none" else "none"
+    when click on $["button3"]
+        display = $["zone3"].style.display
+        $["zone3"].style.display = "inline" if display == "none" else "none"
 
     </script>
 
@@ -313,15 +313,14 @@ code.file{
 
     <script type="text/baragwin" id="script6_std">
     element = Document.getElementById("zone6_std")
-    nb = 0
+    Counter: nb=0
 
     def change(event)
-        global nb
         elt = Document.createElement("B")
-        txt = Document.createTextNode(f" {nb}")
+        txt = Document.createTextNode(f" {Counter.nb}")
         elt.appendChild(txt)
         element.appendChild(elt)
-        nb += 1
+        Counter.nb += 1
 
     Document.getElementById("button6_std").addEventListener("click", change)
     </script>
@@ -342,17 +341,15 @@ code.file{
 </div>
 
 <div class="example" id="ex6">
-    <button id="button6">insert an element (Brython style)</button>
+    <button id="button6">insert an element (Baragwin style)</button>
     <span id="zone6" class="zone">initial content</span>
 
     <script type="text/baragwin" id="script6">
-    element = Document["zone6"]
-    nb = 0
+    Counter: nb = 0
 
-    when click on Document["button6"]
-        global nb
-        element <= Html.B(f" {nb}")
-        nb += 1
+    when click on $["button6"]
+        $["zone6"] <= $.b(f" {Counter.nb}")
+        Counter.nb += 1
 
     </script>
 
@@ -373,14 +370,13 @@ code.file{
     <div id="zone61" class="zone"><ul><li>element</ul></div>
 
     <script type="text/baragwin" id="script61">
-    ul = Document["zone61"].select("ul")[0]
+    ul = $("#zone61 ul")[0]
     element = ul.select("li")[0]
-    nb = 0
+    Counter: nb = 0
 
-    when click on Document["button61"]
-        global nb
-        nb += 1
-        ul.insertBefore(Html.LI(f"element before {nb}"), element)
+    when click on $["button61"]
+        Counter.nb += 1
+        ul.insertBefore($.li(f"element before {Counter.nb}"), element)
     </script>
 
     <p>
@@ -399,14 +395,14 @@ code.file{
     <div id="zone62" class="zone"><ul><li>element</ul></div>
 
     <script type="text/baragwin" id="script62">
-    ul = Document["zone62"].select("ul")[0]
+    ul = $["zone62"].select("ul")[0]
     element = ul.select("li")[0]
-    nb = 0
+    Counter: nb = 0
 
-    when click on Document["button62"]
-        global nb
-        nb += 1
-        ul.insertBefore(Html.LI(f"element after {nb}"), element.nextSibling)
+    when click on $["button62"]
+        Counter.nb += 1
+        ul.insertBefore($.li(f"element after {Counter.nb}"),
+          element.nextSibling)
 
     </script>
 
@@ -430,10 +426,10 @@ the end.
     <span id="zone_elt_attr" class="zone">initial content</span>
 
     <script type="text/baragwin" id="script_elt_attr">
-    element = Document["zone_elt_attr"]
+    element = $["zone_elt_attr"]
 
-    when click on Document["button_elt_attr"]
-        element <= Html.SPAN("new text",
+    when click on $["button_elt_attr"]
+        element <= $.span("new text",
             style={"color": "red", "paddingLeft":"1em"},
             class="down")
 
@@ -458,18 +454,18 @@ the end.
     <div id="zone7" class="zone" style="width:60%"></div>
 
     <script type="text/baragwin" id="script7">
-    when click on Document["button7"]
-        table = Html.TABLE()
+    when click on $["button7"]
+        table = $.table()
 
         # header row
-        table <= Html.TR(Html.TH(f"Column {i}") for i in [:5])
+        table <= $.tr($.th(f"Column {i}") for i in [:5])
 
         # table rows
         for row in [:3]
-            table <= Html.TR(Html.TD(f"Cell {row}-{i}") for i in [:5])
+            table <= $.tr($.td(f"Cell {row}-{i}") for i in [:5])
 
-        Document["zone7"].clear()
-        Document["zone7"] <= table
+        $["zone7"].clear()
+        $["zone7"] <= table
 
     </script>
 
@@ -497,11 +493,11 @@ the end.
         num = event.target.selectedIndex
         Window.alert(f"Selected: {dropdown.options[num].value}")
 
-    when click on Document["button12"]
-        Document["zone12"] <= "Your choice : "
-        dropdown = Html.SELECT(Html.OPTION(f"Choice {i}") for i in [:5])
+    when click on $["button12"]
+        $["zone12"] <= "Your choice : "
+        dropdown = $.select($.option(f"Choice {i}") for i in [:5])
         dropdown.bind("change", show)
-        Document["zone12"] <= dropdown
+        $["zone12"] <= dropdown
 
     </script>
 
@@ -530,23 +526,18 @@ the end.
     <canvas id="zone8" width="200" height="50"
         style="border-color:#000;border-style:solid;border-width:1px;margin-left:5em;"></canvas>
 
-    <script type="text/python" id="script8">
-    from browser import document, html
-    import math
-
-    canvas = document["zone8"]
+    <script type="text/baragwin" id="script8">
+    canvas = $["zone8"]
     ctx = canvas.getContext("2d")
 
-    x = 20
+    Position: x = 20
 
-    def draw(event):
-        global x
+    when click on $["button8"]
         ctx.beginPath()
-        ctx.arc(x, 25, 15, 0, 2 * math.pi)
-        x += 15
+        ctx.arc(Position.x, 25, 15, 0, 2 * Math.PI)
+        Position.x += 15
         ctx.stroke()
 
-    document["button8"].bind("click", draw)
     </script>
 
     <p>
@@ -563,17 +554,13 @@ the end.
     <button id="button9">insert an image</button>
     <p><div id="zone9" class="zone" style="height:60px;"></div>
 
-    <script type="text/python"  id="script9">
-    from browser import document, html
-
+    <script type="text/baragwin"  id="script9">
     logo = "https://www.python.org/static/community_logos/python-logo-master-v3-TM.png"
 
-    def insert_image(event):
-        document["zone9"].clear()
-        document["zone9"] <= html.IMG(src=logo, height=50)
-
-    document["button9"].bind("click", insert_image)
-    </script>
+    when click on $["button9"]
+        $["zone9"].clear()
+        $["zone9"] <= $.img(src=logo, height=50)
+  </script>
 </div>
 
 <div class="example" id="ex16">
@@ -591,21 +578,18 @@ the end.
       <textarea id="textarea16" rows=3 cols=30 autocomplete="off">your content here !...</textarea>
     </div>
 
-    <script type="text/python" id="script16">
-    from browser import document, html
-
-    def show_values(event):
-        input = document["input16"].value
-        select = document["select16"]
+    <script type="text/baragwin" id="script16">
+    when click on $["button16"]
+        input = $["input16"].value
+        select = $["select16"]
         option = select.options[select.selectedIndex].value
-        text = document["textarea16"].value
-        document["zone16"].clear()
-        document["zone16"] <= (f"Value in INPUT field: {input}",
-            html.BR(), f"Selected option: {option}",
-            html.BR(), f"Value in TEXTAREA field: {text}"
+        text = $["textarea16"].value
+        $["zone16"].clear()
+        $["zone16"] <= (f"Value in INPUT field: {input}",
+            $.br(), f"Selected option: {option}",
+            $.br(), f"Value in TEXTAREA field: {text}"
             )
 
-    document["button16"].bind("click", show_values)
     </script>
 
     <p>
@@ -618,22 +602,19 @@ the end.
     <button id="button13">select elements by CSS selectors</button>
     <span id="zone13" class="zone"></span>
 
-    <script type="text/python" id="script13">
-    from browser import document, html
-
-    def change(event):
+    <script type="text/baragwin" id="script13">
+    when click on $["button13"]
         # clear the zone
-        document["zone13"].clear()
+        $["zone13"].clear()
 
         # get a list of all BUTTON elements
-        buttons = document.select("button")
-        document["zone13"] <= "On this page there are {} buttons ".format(len(buttons))
+        buttons = $("button")
+        $["zone13"] <= f"On this page there are {buttons.len()} buttons "
 
         # get a list of all tags with class "zone"
-        zones = document.select(".zone")
-        document["zone13"] <= "and {} elements with class 'zone'".format(len(zones))
+        zones = $(".zone")
+        $["zone13"] <= f"and {zones.len()} elements with class 'zone'"
 
-    document["button13"].bind("click", change)
     </script>
 
     <p>
@@ -652,18 +633,14 @@ the end.
         <button style="background-color: red; width: 2em;" id="rot14">&nbsp;</button>
     </span>
 
-    <script type="text/python" id="script14">
-    from browser import document, html
+    <script type="text/baragwin" id="script14">
+    moving = $["rot14"]
+    Position: angle = 10
 
-    moving = document["rot14"]
-    angle = 10
+    when click on $["button14"]
+        moving.style.transform = f"rotate({Position.angle}deg)"
+        Position.angle += 10
 
-    def change(event):
-        global angle
-        moving.style.transform = f"rotate({angle}deg)"
-        angle += 10
-
-    document["button14"].bind("click", change)
     </script>
 
     <p>
@@ -682,40 +659,31 @@ the end.
         <button style="background-color: #fff; border-width: 0px; color:#000;padding:0;font-size:24px;height:auto;" id="rot15">&#9658;</button>
     </div>
 
-    <script type="text/python" id="script15">
-    from browser import document, window
+    <script type="text/baragwin" id="script15">
+    moving = $["rot15"]
+    Movement:x = 0, dx = 3, run = None
 
-    moving = document["rot15"]
-    x = 0
-    dx = 3
-    run = None
-
-    def change(event):
-        global run
-        if run is None:
+    when click on $["button15"]
+        if Movement.run is None
             # start animation
             animloop(1)
-        else:
+        else
             # stop animation
-            window.cancelAnimationFrame(run)
-            run = None
+            Window.cancelAnimationFrame(Movement.run)
+            Movement.run = None
 
-    document["button15"].bind("click", change)
-
-    def render():
-        global x, dx
-        moving.style.transform = "translate({}px,0)".format(x)
-        x += dx
-        if x > document["zone15"].offsetWidth-moving.offsetWidth:
-            dx = -dx
+    def render()
+        moving.style.transform = f"translate({Movement.x}px,0)"
+        Movement.x += Movement.dx
+        if Movement.x > $["zone15"].offsetWidth - moving.offsetWidth
+            Movement.dx = -Movement.dx
             moving.html = "&#9668;" # left triangle
-        elif x <= 0:
-            dx = -dx
+        elif Movement.x <= 0
+            Movement.dx = -Movement.dx
             moving.html = "&#9658;" # right triangle
 
-    def animloop(t):
-        global run
-        run = window.requestAnimationFrame(animloop)
+    def animloop(t)
+        Movement.run = Window.requestAnimationFrame(animloop)
         render()
     </script>
 
@@ -735,47 +703,28 @@ the end.
     <button id="button_mousemove" style="border-width:0;background-color:inherit;">
         move an element with the mouse
     </button>
-    <b style="position: relative;left:140;top:10;font-size:16px; padding: 3px; background-color: #ddd; border-radius: 4px;"
+    <b style="position: relative;left:140;top:10;font-size:16px; padding: 3px; 
+              background-color: #ddd; border-radius: 4px;cursor: move;"
         id="moving">drag me
     </b>
 
-    <script type="text/python"  id="script_mousemove">
-    from browser import document
+    <script type="text/baragwin"  id="script_mousemove">
+    Movement: is_moving=False
+    
+    when mousedown on $["moving"] as event
+        Movement.is_moving = True
+        Movement.mouse_pos = [event.x, event.y]
+        Movement.elt_pos = [$["moving"].left, $["moving"].top]
+        event.preventDefault()
 
-    class ElementMove:
+    when mousemove on Document as event
+        if not Movement.is_moving
+            return
+        $["moving"].left = Movement.elt_pos[0] + event.x - Movement.mouse_pos[0]
+        $["moving"].top = Movement.elt_pos[1] + event.y - Movement.mouse_pos[1]
 
-        def __init__(self, moving):
-            """Make "moving" element movable with the mouse"""
-            self.moving = moving
-            self.is_moving = False
-            self.moving.bind("mousedown", self.start)
-            self.moving.bind("mousemove", self.move)
-            self.moving.bind("mouseup", self.stop)
-            moving.style.cursor = "move"
-
-        def start(self, event):
-            """When user clicks on the moving element, set boolean is_moving
-            to True and store mouse and moving element positions"""
-            self.is_moving = True
-            self.mouse_pos = [event.x, event.y]
-            self.elt_pos = [self.moving.left, self.moving.top]
-            # prevent default behaviour to avoid selecting the moving element
-            event.preventDefault()
-
-        def move(self, event):
-            """User moves the mouse"""
-            if not self.is_moving:
-                return
-
-            # set new moving element coordinates
-            self.moving.left = self.elt_pos[0] + event.x - self.mouse_pos[0]
-            self.moving.top = self.elt_pos[1] + event.y - self.mouse_pos[1]
-
-        def stop(self, event):
-            """When user releases the mouse button, stop moving the element"""
-            self.is_moving = False
-
-    ElementMove(document["moving"])
+    when mouseup on $["moving"]
+        Movement.is_moving = False
     </script>
 
     <p>
@@ -1063,37 +1012,36 @@ the end.
 <script type="text/baragwin">
 # create first menu entry
 
+Current: id="home"
+
 def home(ev)
-    global current
-    if current is not None
-        Document[current].style.display = "none"
-        Document <= document[current]
-        Document["a"+current].style.fontWeight = "normal"
+    if Current.id is not None
+        Document[Current.id].style.display = "none"
+        Document <= document[Current.id]
+        Document["a"+Current.id].style.fontWeight = "normal"
     example_id = "home"
     ev.target.style.fontWeight = "bold"
     Document["panel"].clear()
     Document["panel"] <= document[example_id]
     Document[example_id].style.display="block"
-    current = example_id
+    Current.id = example_id
 
-anchor = Html.A("Home", Class="menu", href="#", id="ahome")
+anchor = $.a("Home", Class="menu", href="#", id="ahome")
 anchor.bind("click", home)
 
-Document["menu"] <= Html.LI(anchor)
-current = "home"
+Document["menu"] <= $.li(anchor)
 
 def load_example(ev)
-    global current
-    if current is not None
-        Document[current].style.display = "none"
-        Document <= Document[current]
-        Document["a"+current].style.fontWeight = "normal"
+    if Current.id is not None
+        Document[Current.id].style.display = "none"
+        Document <= Document[Current.id]
+        Document["a"+Current.id].style.fontWeight = "normal"
     example_id = ev.target.num
     ev.target.style.fontWeight = "bold"
     Document["panel"].clear()
     Document["panel"] <= Document[example_id]
     Document[example_id].style.display = "block"
-    current = example_id
+    Current.id = example_id
 
 for example in Document.select(".example")
     # add the Python source inside the example
@@ -1114,11 +1062,11 @@ for example in Document.select(".example")
 
     # create a menu entry
     button = example.select("button")[0]
-    anchor = Html.A(button.text, Class="menu", href="#", id="a" + example.id)
+    anchor = $.a(button.text, Class="menu", href="#", id="a" + example.id)
     anchor.num = example.id
 
     anchor.bind("click", load_example)
-    Document["menu"] <= Html.LI(anchor)
+    Document["menu"] <= $.li(anchor)
 
     # hide the element
     example.style.display = "none"
