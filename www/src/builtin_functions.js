@@ -593,7 +593,7 @@ function getattr(pos, kw){
 
 $B.$getattr = function(obj, attr){
     // Used internally to avoid having to parse the arguments
-    var test = false // attr == "calc"
+    var test = false // attr == "split"
     if(obj===undefined){
         console.log("obj undef, attr", attr)
     }
@@ -607,7 +607,7 @@ $B.$getattr = function(obj, attr){
     while(klass){
         if(test){
             console.log("search", attr, "in class", klass, "getattr",
-                klass.getattr)
+                klass.getattr, klass.getattr + '')
         }
         if(klass.getattr){
             if(klass.$getattr){
@@ -620,28 +620,6 @@ $B.$getattr = function(obj, attr){
                 console.log("return klass getattr", res)
             }
             return res
-        }else{
-            res = klass[attr]
-            if(res){
-                if(test){
-                    console.log(res, res + "", typeof res)
-                }
-                if(typeof res == "function"){
-                    var method = function(pos, kw){
-                        var pos1 = pos.slice()
-                        pos1.splice(0, 0, obj)
-                        return res(pos1, kw)
-                    }
-                    method.func = res
-                    method.__class__ = $B.method
-                    if(test){
-                        console.log("return method", method)
-                    }
-                    return method
-                }else{
-                    return res
-                }
-            }
         }
         klass = klass.__parent__
     }
@@ -866,12 +844,15 @@ object = {
         return object.$getattr($.self, $.attr)
     },
     $getattr: function(self, attr){
-        var test = false // attr == "calc"
+        var test = false // attr == "append"
         if(test){
             console.log("obj getattr", self, attr, self[attr])
         }
-        var res = self[attr]
-        if(res === undefined){
+        var native = (typeof self == "string") || Array.isArray(self)
+        var obj_attr = self[attr]
+        if(obj_attr !== undefined && ! native){
+            return obj_attr
+        }else{
             // Special arguments
             if(attr == "hasattr"){
                 return function(pos, kw){
@@ -887,9 +868,23 @@ object = {
                     }
                 }
             }
-            throw _b_.AttributeError.$factory(attr)
+            var klass = self.__class__ || $B.get_class(self)
+            while(klass){
+                if(klass[attr] !== undefined){
+                    if(typeof klass[attr] == "function"){
+                        return function(pos, kw){
+                            var pos1 = pos.slice()
+                            pos1.splice(0, 0, self)
+                            return klass[attr](pos1, kw)
+                        }
+                    }else{
+                        return klass[attr]
+                    }
+                }
+                klass = klass.__parent__
+            }
         }
-        return res
+        throw _b_.AttributeError.$factory(attr)
     },
     setattr: function(pos, kw){
         var $ = $B.args("setattr", pos, kw, ["self", "attr", "value"])
@@ -1091,7 +1086,7 @@ function struct(name, attrs){
             }
         }
     }
-    var obj = {
+    var klass = {
             __class__: struct,
             $name: name,
             $params: params,
@@ -1100,38 +1095,31 @@ function struct(name, attrs){
     // Initialize with None
     for(const param of params){
         if(defaults[param] !== undefined){
-            obj[param] = defaults[param]
+            klass[param] = defaults[param]
         }else{
-            obj[param] = _b_.None
+            klass[param] = _b_.None
         }
     }
-    obj.$factory = function(pos, kw){
-        var res = $B.args(name, pos, kw, obj.$params,
-            obj.$defaults)
-        res.__class__ = obj
-        return res
-    }
-    obj.getattr = function(pos, kw){
-        var $ = $B.args("setattr", pos, kw, ["self", "attr"]),
-            res = $.self[$.attr]
-        if(res === undefined){
-            throw _b_.AttributeError.$factory(attr)
-        }else if(typeof res == "function"){
-            return function(pos, kw){
-                var pos1 = [$.self].concat(pos)
-                return res(pos1, kw)
+    klass.$factory = function(pos, kw){
+        var res = $B.args(name, pos, kw, klass.$params,
+            klass.$defaults)
+        for(var key in res){
+            if(res[key] === klass.$defaults[key] &&
+                    typeof res[key] == "function"){
+                delete res[key]
             }
         }
+        res.__class__ = klass
         return res
     }
-    obj.setattr = function(pos, kw){
+    klass.setattr = function(pos, kw){
         var $ = $B.args("setattr", pos, kw, ["self", "attr", "value"])
         if(params.indexOf($.attr) == -1){
             throw _b_.AttributeError.$factory($.attr)
         }
         $.self[$.attr] = $.value
     }
-    obj.str = function(pos, kw){
+    klass.str = function(pos, kw){
         var $ = $B.args("str", pos, kw, ["self"]),
             values = []
         for(const param of params){
@@ -1141,7 +1129,7 @@ function struct(name, attrs){
         }
         return "<" + name + " " + values.join(", ") + ">"
     }
-    return obj
+    return klass
 }
 
 struct.__class__ = _b_.type
