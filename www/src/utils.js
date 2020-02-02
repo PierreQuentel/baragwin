@@ -182,6 +182,8 @@ $B.operations = {
             }
         }else if(Array.isArray(x)){
             return _b_.list.$add(x, y)
+        }else if(x instanceof Map){
+            return _b_.dict.add([x, y])
         }else{
             try{
                 var add = $B.$getattr(x, "add")
@@ -383,6 +385,7 @@ $B.getitem = function(obj, item){
         try{
             var getitem = $B.$getattr(obj, "getitem")
         }catch(err){
+            console.log("no getitme", obj)
             throw _b_.TypeError.$factory("'" + $B.class_name(obj) +
                 "' object is not subscriptable")
         }
@@ -421,7 +424,7 @@ $B.is_member = function(item, container){
 
 $B.setitem = function(obj, item, value){
     if(obj instanceof Node){
-        return $B.DOMNode.__setitem__([obj, item])
+        return $B.DOMNode.$setitem(obj, item, value)
     }else if(obj instanceof Map){
         obj.set(item, value)
     }else if(Array.isArray(obj)){
@@ -431,8 +434,16 @@ $B.setitem = function(obj, item, value){
         }
         obj[item] = value
     }else{
-        throw _b_.TypeError.$factory("'" + $B.class_name(obj) +
-            "' object is not subscriptable")
+        try{
+            var setitem = $B.$getattr(obj, "setitem")
+        }catch(err){
+            if(err.__class__ === _b_.AttributeError){
+                throw _b_.TypeError.$factory("'" + $B.class_name(obj) +
+                    "' object is not subscriptable")
+            }
+            throw err
+        }
+        return setitem([item, value])
     }
 }
 
