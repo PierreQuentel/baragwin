@@ -248,15 +248,18 @@ Attributes.__next__ = function(){
     }
 }
 
-Attributes.__setitem__ = function(){
-    var $ = $B.args("__setitem__", 3, {self: null, key:null, value: null},
-        ["self", "key", "value"], arguments, {}, null, null)
-    if($.self.elt instanceof SVGElement &&
-            typeof $.self.elt.setAttributeNS == "function"){
-        $.self.elt.setAttributeNS(null, $.key, $.value)
+Attributes.setitem = function(pos, kw){
+    var $ = $B.args("setitem", pos, kw, ["self", "key", "value"])
+    return Attributes.$setitem($.self, $.key, $.value)
+}
+
+Attributes.$setitem = function(self, key, value){
+    if(self.elt instanceof SVGElement &&
+            typeof self.elt.setAttributeNS == "function"){
+        self.elt.setAttributeNS(null, key, value)
         return _b_.None
-    }else if(typeof $.self.elt.setAttribute == "function"){
-        $.self.elt.setAttribute($.key, $.value)
+    }else if(typeof self.elt.setAttribute == "function"){
+        self.elt.setAttribute(key, value)
         return _b_.None
     }
     throw _b_.TypeError.$factory("Can't set attributes on element")
@@ -982,7 +985,12 @@ DOMNode.setattr = function(pos, kw){
     }
 }
 
-DOMNode.__setitem__ = function(self, key, value){
+DOMNode.setitem = function(pos, kw){
+    var $ = $.args("setitem", pos, kw, ["self", "key", "value"])
+    return DOMNode.$setitem($.self, $.key, $.value)
+}
+
+DOMNode.$setitem = function(self, key, value){
     if(typeof key == "number"){
         self.elt.childNodes[key] = value
     }else if(typeof key == "string"){
@@ -1004,6 +1012,12 @@ DOMNode.bind = function(pos, kw){
             event = $.event,
             func = $.func,
             options = $.options
+    if(Array.isArray(self)){
+        for(const node of self){
+            DOMNode.bind([node, event, func, options])
+        }
+        return
+    }
     if(self.__class__ === $B.JSObject){
         self = self.js
     }
@@ -1067,7 +1081,9 @@ DOMNode.children = function(pos, kw){
     return res
 }
 
-DOMNode.clear = function(self){
+DOMNode.clear = function(pos, kw){
+    var $ = $B.args("clear", pos, kw, ["self"]),
+        self = $.self
     // remove all children elements
     if(self.nodeType == 9){self = self.body}
     while(self.firstChild){
@@ -1638,6 +1654,20 @@ _b_.Document = $B.DOMNode.$factory(document)
 _b_.Window = {
     __class__: $B.JSObject,
     js: window
+}
+
+_b_.$ = function(pos, kw){
+    var $ = $B.args("$", pos, kw, ['selector'], arguments)
+    return make_list(document.querySelectorAll($.selector))
+}
+_b_.$.getitem = function(pos, kw){
+    var $ = $B.args("getitem", pos, kw, ['id'], arguments),
+        elt = document.getElementById($.id)
+    if(elt){
+        return DOMNode.$factory(elt)
+    }else{
+        throw _b_.KeyError.$factory($.id)
+    }
 }
 
 })(__BARAGWIN__)
