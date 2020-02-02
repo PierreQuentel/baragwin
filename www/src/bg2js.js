@@ -57,13 +57,12 @@ Internal variables
 $B.op2method = {
     operations: {
         "**": "pow", "//": "floordiv", "<<": "lshift", ">>": "rshift",
-        "+": "add", "-": "sub", "*": "mul", "/": "truediv", "%": "mod",
-        "@": "matmul" // PEP 465
+        "+": "add", "-": "sub", "*": "mul", "/": "truediv", "%": "mod"
     },
     augmented_assigns: {
         "//=": "ifloordiv", ">>=": "irshift", "<<=": "ilshift", "**=": "ipow",
         "+=": "iadd","-=": "isub", "*=": "imul", "/=": "itruediv",
-        "%=": "imod", "&=": "iand","|=": "ior","^=": "ixor", "@=": "imatmul"
+        "%=": "imod", "&=": "iand","|=": "ior","^=": "ixor"
     },
     binary: {
         "&": "and", "|": "or", "~": "invert", "^": "xor"
@@ -116,7 +115,7 @@ var $op_order = [['or'], ['and'], ['not'],
     ['>>', '<<'],
     ['+'],
     ['-'],
-    ['*', '@', '/', '//', '%'],
+    ['*', '/', '//', '%'],
     ['unary_neg', 'unary_inv', 'unary_pos'],
     ['**']
 ]
@@ -1052,146 +1051,6 @@ var ContinueCtx = function(context){
     }
 }
 
-var DecoratorCtx = function(context){
-    // Class for decorators
-    this.type = 'decorator'
-    this.parent = context
-    context.tree[context.tree.length] = this
-    this.tree = []
-
-    this.toString = function(){return '(decorator) ' + this.tree}
-
-    this.transform = function(node, rank){
-        var func_rank = rank + 1,
-            children = node.parent.children,
-            decorators = [this.tree]
-        while(1){
-            if(func_rank >= children.length){
-                $_SyntaxError(context, ['decorator expects function'])
-            }
-            else if(children[func_rank].context.type == 'node_js'){
-                func_rank++
-            }else if(children[func_rank].context.tree[0].type ==
-                    'decorator'){
-                decorators.push(children[func_rank].context.tree[0].tree)
-                children.splice(func_rank, 1)
-            }else{break}
-        }
-        // Associate a random variable name to each decorator
-        // In a code such as
-        // class Cl(object):
-        //      def __init__(self):
-        //          self._x = None
-        //
-        //      @property
-        //      def x(self):
-        //          return self._x
-        //
-        //      @x.setter
-        //      def x(self, value):
-        //          self._x = value
-        //
-        // we can't replace the decorated methods by something like
-        //
-        //      def x(self):
-        //          return self._x
-        //      x = property(x)      # [1]
-        //
-        //      def x(self,value):   # [2]
-        //          self._x = value
-        //      x = x.setter(x)      # [3]
-        //
-        // because when we want to use x.setter in [3], x is no longer the one
-        // defined in [1] : it has been reset by the function declaration in [2]
-        // The technique used here is to replace these lines by :
-        //
-        //      $vth93h6g = property # random variable name
-        //      def $dec001(self):   # another random name
-        //          return self._x
-        //      x = $vth93h6g($dec001)
-        //
-        //      $h3upb5s8 = x.setter
-        //      def $dec002(self, value):
-        //          self._x = value
-        //      x = $h3upb5s8($dec002)
-        //
-        this.dec_ids = []
-        var pos = 0
-        decorators.forEach(function(){
-            this.dec_ids.push('$id' + $B.UUID())
-        }, this)
-
-        var obj = children[func_rank].context.tree[0]
-        if(obj.type == 'def'){
-            obj.decorated = true
-            obj.alias = '$dec' + $B.UUID()
-        }
-
-        // add a line after decorated element
-        var tail = '',
-            scope = $get_scope(this),
-            ref = 'locals["'
-        ref += obj.name + '"]'
-        var res = ref + ' = '
-
-        decorators.forEach(function(elt, i){
-            res += this.dec_ids[i] + '('
-            tail +=')'
-        }, this)
-        res += (obj.decorated ? obj.alias : ref) + tail + ';'
-
-        // If obj is a function or a class we must set binding to 'true'
-        // instead of "def" or "class" because the result might have an
-        // attribute "__call__"
-        $bind(obj.name, scope, this)
-
-        node.parent.insert(func_rank + 1, NodeJS(res))
-        this.decorators = decorators
-    }
-
-    this.to_js = function(){
-        this.js_processed = true
-        var res = []
-        this.decorators.forEach(function(decorator, i){
-            res.push('var ' + this.dec_ids[i] + ' = ' +
-                $to_js(decorator) + ';')
-        }, this)
-        return res.join('')
-    }
-}
-
-var DecoratorExprCtx = function(context){
-    // Class for decorator expression. This can't be an arbitrary expression :
-    // it must be a dotted name, possibly called with arbitrary arguments
-    this.type = 'decorator_expression'
-    this.parent = context
-    context.tree[context.tree.length] = this
-    this.names = []
-    this.tree = []
-    this.is_call = false
-
-    this.toString = function(){return '(decorator expression)'}
-
-    this.to_js = function(){
-        this.js_processed = true
-
-        var func = new IdCtx(this, this.names[0])
-        var obj = func.to_js()
-        this.names.slice(1).forEach(function(name){
-            obj = "_b_.getattr(" + obj + ", '" + name + "')"
-        })
-
-        if(this.tree.length > 1){
-            // decorator is a call
-            this.tree[0].func = {to_js: function(){return obj}}
-            return this.tree[0].to_js()
-        }
-
-
-        return obj
-    }
-}
-
 var DefCtx = function(context){
     this.type = 'def'
     this.name = null
@@ -1302,10 +1161,6 @@ var DefCtx = function(context){
         if(! this.assigned){
             this.func_name = this.tree[0].to_js()
             var func_name1 = this.func_name
-            if(this.decorated){
-                this.func_name = 'var ' + this.alias
-                func_name1 = this.alias
-            }
         }else{
             this.func_name = ""
         }
@@ -2969,7 +2824,6 @@ var StringCtx = function(context,value){
     this.toString = function(){return 'string ' + (this.tree || '')}
 
     this.to_js = function(){
-        this.js_processed = true
         var res = '',
             type = null,
             scope = $get_scope(this)
@@ -3104,6 +2958,7 @@ var StringCtx = function(context,value){
         }
         if(is_bytes){res += ',"ISO-8859-1")'}
         if(res.length == 0){res = '""'}
+        this.js_processed = res
         return res
     }
 }
@@ -3139,7 +2994,6 @@ function StructCtx(context){
             }
         }
         js += names.join(', ') + '])'
-        console.log(this.name)
         var target = this.name.tree[0]
         switch(this.name.tree[0].type){
             case 'id':
@@ -3997,43 +3851,6 @@ var $transition = function(context, token, value){
                         context.parent.set_alias(context.tree[0].tree[0])
                     //}
                     return $transition(context.parent, token, value)
-            }
-            $_SyntaxError(context, 'token ' + token + ' after ' + context)
-
-        case 'decorator':
-            if(token == 'id' && context.tree.length == 0){
-                return $transition(new DecoratorExprCtx(context),
-                    token, value)
-            }
-            if(token == 'eol') {
-                return $transition(context.parent, token)
-            }
-            $_SyntaxError(context, 'token ' + token + ' after ' + context)
-
-        case 'decorator_expression':
-            if(context.expects === undefined){
-                if(token == "id"){
-                    context.names.push(value)
-                    context.expects = "."
-                    return context
-                }
-                $_SyntaxError(context, 'token ' + token + ' after ' + context)
-            }else if(context.is_call && token !== "eol"){
-                $_SyntaxError(context, 'token ' + token + ' after ' + context)
-            }else if(token == "id" && context.expects == "id"){
-                context.names.push(value)
-                context.expects = "."
-                return context
-            }else if(token == "." && context.expects == "."){
-                context.expects = "id"
-                return context
-            }else if(token == "(" && context.expects == "."){
-                if(! context.is_call){
-                    context.is_call = true
-                    return new CallCtx(context)
-                }
-            }else if(token == 'eol') {
-                return $transition(context.parent, token)
             }
             $_SyntaxError(context, 'token ' + token + ' after ' + context)
 
@@ -5085,8 +4902,6 @@ var $transition = function(context, token, value){
                     return new TryCtx(context)
                 case 'yield':
                     return new YieldCtx(context)
-                case '@':
-                    return new DecoratorCtx(context)
                 case 'eol':
                     if(context.tree.length == 0){ // might be the case after a :
                         context.node.parent.children.pop()
@@ -5867,6 +5682,11 @@ var $tokenize = function(root, src) {
                 name = ""
                 continue
             }
+        }else if(name == "" && car == "$"){
+            $pos = pos
+            context = $transition(context, "id", car)
+            pos++
+            continue
         }
 
         function rmuf(numeric_literal){
@@ -6096,7 +5916,6 @@ var $tokenize = function(root, src) {
             case '-':
             case '+':
             case '*':
-            case '@':
             case '/':
             case '^':
             case '=':
@@ -6104,15 +5923,6 @@ var $tokenize = function(root, src) {
             case '~':
             case '!':
                 // Operators
-
-                // Special case for @ : decorator if it's the first character
-                // in the instruction
-                if(car == '@' && context.type == "node"){
-                    $pos = pos
-                    context = $transition(context, car)
-                    pos++
-                    break
-                }
 
                 // find longest match
                 var op_match = ""
